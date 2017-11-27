@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <RootNamespace>MJ.Compiler</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Antlr4" Version="4.6.4" />
+    <PackageReference Include="LLVMSharp" Version="5.0.0" />
+    <PackageReference Include="Mono.Options" Version="5.3.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Antlr4 Include="antlrgrammar\MJ.g4">
+      <Generator>MSBuild:Compile</Generator>
+      <CustomToolNamespace>mj.compiler.parsing</CustomToolNamespace>
+      <Listener>False</Listener>
+      <Visitor>True</Visitor>
+    </Antlr4>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="obj\Debug\netcoreapp2.0\MJBaseVisitor.cs">
+      <Link>Parsing\AntlrGenerated\MJBaseVisitor.cs</Link>
+    </Compile>
+    <Compile Include="obj\Debug\netcoreapp2.0\MJLexer.cs">
+      <Link>Parsing\AntlrGenerated\MJLexer.cs</Link>
+    </Compile>
+    <Compile Include="obj\Debug\netcoreapp2.0\MJParser.cs">
+      <Link>Parsing\AntlrGenerated\MJParser.cs</Link>
+    </Compile>
+    <Compile Include="obj\Debug\netcoreapp2.0\MJVisitor.cs">
+      <Link>Parsing\AntlrGenerated\MJVisitor.cs</Link>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="codegen" />
+    <Folder Include="main\options" />
+    <Folder Include="symbol" />
+  </ItemGroup>
+</Project>

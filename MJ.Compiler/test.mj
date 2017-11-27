@@ -1,0 +1,10 @@
+
+int fib(int n) {
+    int fib1 = fib(n-1);
+    int fib2 = fib(n-2);
+    return fib1 + fib2;
+}
+
+int main() {
+    return fib(10);
+}
