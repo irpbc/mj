@@ -54,25 +54,6 @@ namespace mj.compiler.utils
             return typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == genericTypeDef;
         }
 
-        /*
-         * The key table, providing a unique Key<T> for each Class<T>.
-         */
-        //private readonly IDictionary<Type, Key> keyDict = new Dictionary<Type, Key>();
-
-        /*protected Key<T> key<T>() where T : class
-        {
-            Key<T> k = (Key<T>)keyDict[typeof(T)];
-            if (k == null) {
-                k = new Key<T>();
-                keyDict.Add(typeof(T), k);
-            }
-            return k;
-        }*/
-
-        //public T get<T>() where T : class => get(key<T>());
-        //public void put<T>(T data) where T : class => put(key<T>(), data);
-        //public void put<T>(Factory<T> fac) where T : class => put(key<T>(), fac);
-
         public void dump()
         {
             foreach (Object value in dict.Values) {

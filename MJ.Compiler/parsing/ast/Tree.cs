@@ -1,19 +1,31 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using mj.compiler.main;
+using mj.compiler.symbol;
+
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
+using Type = mj.compiler.symbol.Type;
+
 namespace mj.compiler.parsing.ast
 {
-    public abstract class AstNode
+    public abstract class Tree
     {
+        [JsonIgnore]
         public readonly int beginLine;
+
+        [JsonIgnore]
         public readonly int beginCol;
+
+        [JsonIgnore]
         public int endLine;
+
+        [JsonIgnore]
         public int endCol;
 
-        protected AstNode(int beginLine, int beginCol, int endLine, int endCol)
+        protected Tree(int beginLine, int beginCol, int endLine, int endCol)
         {
             this.beginLine = beginLine;
             this.beginCol = beginCol;
@@ -22,70 +34,84 @@ namespace mj.compiler.parsing.ast
         }
 
         public abstract T accept<T>(AstVisitor<T> v);
+        public abstract T accept<T, A>(AstVisitor<T, A> v, A arg);
     }
 
-    public sealed class CompilatioUnit : AstNode
+    public sealed class CompilationUnit : Tree
     {
-        public IList<MethodNode> methods;
+        public SourceFile sourceFile;
+        public IList<MethodDef> methods;
+        public Scope.WriteableScope topLevelScope;
 
-        public CompilatioUnit(IList<MethodNode> methods)
-            : base(methods[0].beginLine, methods[0].beginCol,
-                methods[methods.Count - 1].endLine, methods[methods.Count - 1].endCol)
+        public CompilationUnit(int beginLine, int beginCol, int endLine, int endCol, IList<MethodDef> methods)
+            : base(beginLine, beginCol, endLine, endCol)
         {
             this.methods = methods;
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitCompilationUnit(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitCompilationUnit(this, arg);
     }
 
-    public abstract class ExpressionNode : AstNode
+    public abstract class Expression : Tree
     {
-        protected ExpressionNode(int beginLine, int beginCol, int endLine, int endCol)
+        public Type type;
+
+        protected Expression(int beginLine, int beginCol, int endLine, int endCol)
             : base(beginLine, beginCol, endLine, endCol) { }
     }
 
-    public sealed class BinaryExpressionNode : ExpressionNode
+    public abstract class OperatorExpression : Expression
     {
         [JsonConverter(typeof(StringEnumConverter))]
-        public Operator op;
-        public ExpressionNode left;
-        public ExpressionNode right;
+        public Tag opcode;
+        public Symbol.OperatorSymbol symbol;
 
-        public BinaryExpressionNode(Operator op, ExpressionNode left, ExpressionNode right)
-            : base(left.beginLine, left.beginCol, right.endLine, right.endCol)
+        protected OperatorExpression(int beginLine, int beginCol, int endLine, int endCol, Tag opcode)
+            : base(beginLine, beginCol, endLine, endCol)
         {
-            this.op = op;
+            this.opcode = opcode;
+        }
+    }
+
+    public sealed class BinaryExpressionNode : OperatorExpression
+    {
+        public Expression left;
+        public Expression right;
+
+        public BinaryExpressionNode(Tag opcode, Expression left, Expression right)
+            : base(left.beginLine, left.beginCol, right.endLine, right.endCol, opcode)
+        {
             this.left = left;
             this.right = right;
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitBinary(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitBinary(this, arg);
     }
 
-    public sealed class UnaryExpressionNode : ExpressionNode
+    public sealed class UnaryExpressionNode : OperatorExpression
     {
-        [JsonConverter(typeof(StringEnumConverter))]
-        public Operator op;
-        public ExpressionNode operand;
+        public Expression operand;
 
-        public UnaryExpressionNode(int beginLine, int beginCol, int endLine, int endCol, Operator op,
-                                   ExpressionNode operand)
-            : base(beginLine, beginCol, endLine, endCol)
+        public UnaryExpressionNode(int beginLine, int beginCol, int endLine, int endCol,
+                                   Tag opcode, Expression operand)
+            : base(beginLine, beginCol, endLine, endCol, opcode)
         {
-            this.op = op;
             this.operand = operand;
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitUnary(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitUnary(this, arg);
     }
 
-    public sealed class ConditionalExpressionNode : ExpressionNode
+    public sealed class ConditionalExpression : Expression
     {
-        public ExpressionNode condition;
-        public ExpressionNode ifTrue;
-        public ExpressionNode ifFalse;
+        public Expression condition;
+        public Expression ifTrue;
+        public Expression ifFalse;
 
-        public ConditionalExpressionNode(ExpressionNode condition, ExpressionNode ifTrue, ExpressionNode ifFalse)
+        public ConditionalExpression(Expression condition, Expression ifTrue, Expression ifFalse)
             : base(condition.beginLine, condition.beginCol, ifFalse.endLine, ifFalse.endCol)
         {
             this.condition = condition;
@@ -94,48 +120,58 @@ namespace mj.compiler.parsing.ast
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitConditional(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitConditional(this, arg);
     }
 
-    public sealed class LiteralExpressionNode : ExpressionNode
+    public sealed class LiteralExpression : Expression
     {
         [JsonConverter(typeof(StringEnumConverter))]
-        public LiteralType type;
+        public TypeTag type;
+
         public Object value;
 
-        public LiteralExpressionNode(int beginLine, int beginCol, int endLine, int endCol, LiteralType literalType,
-                                     object value)
+        public LiteralExpression(int beginLine, int beginCol, int endLine, int endCol, TypeTag typeTag,
+                                 object value)
             : base(beginLine, beginCol, endLine, endCol)
         {
-            this.type = literalType;
+            this.type = typeTag;
             this.value = value;
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitLiteral(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitLiteral(this, arg);
     }
 
-    public abstract class VariableDeclaration : StatementNode
+    public class VariableDeclaration : StatementNode
     {
         public String name;
-        public TypeRefNode type;
+        public TypeTree type;
+        public Symbol.VarSymbol symbol;
+        public Expression init;
 
-        protected VariableDeclaration(int beginLine, int beginCol, int endLine, int endCol, string name,
-                                      TypeRefNode type)
+        public VariableDeclaration(int beginLine, int beginCol, int endLine, int endCol, string name,
+                                   TypeTree type, Expression init)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
             this.type = type;
+            this.init = init;
         }
+
+        public override T accept<T>(AstVisitor<T> v) => v.visitVarDef(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitVarDef(this, arg);
     }
 
-    public sealed class MethodNode : AstNode
+    public sealed class MethodDef : Tree
     {
         public String name;
-        public TypeRefNode returnType;
-        public IList<MethodParameter> parameters;
+        public TypeTree returnType;
+        public IList<VariableDeclaration> parameters;
         public Block body;
+        public Symbol.MethodSymbol symbol;
 
-        public MethodNode(int beginLine, int beginCol, int endLine, int endCol, string name,
-                          TypeRefNode returnType, IList<MethodParameter> parameters, Block body)
+        public MethodDef(int beginLine, int beginCol, int endLine, int endCol, string name,
+                         TypeTree returnType, IList<VariableDeclaration> parameters, Block body)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
@@ -145,79 +181,61 @@ namespace mj.compiler.parsing.ast
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitMethodDef(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitMethodDef(this, arg);
     }
 
-    public sealed class MethodParameter : VariableDeclaration
+    public abstract class TypeTree : Tree
     {
-        public MethodParameter(int beginLine, int beginCol, int endLine, int endCol, string name, TypeRefNode type)
-            : base(beginLine, beginCol, endLine, endCol, name, type) { }
-
-        public override T accept<T>(AstVisitor<T> v) => v.visitParam(this);
-    }
-
-    public abstract class TypeRefNode : AstNode
-    {
-        protected TypeRefNode(int beginLine, int beginCol, int endLine, int endCol)
+        protected TypeTree(int beginLine, int beginCol, int endLine, int endCol)
             : base(beginLine, beginCol, endLine, endCol) { }
     }
 
-    public sealed class PrimitiveTypeNode : TypeRefNode
+    public sealed class PrimitiveTypeNode : TypeTree
     {
         [JsonConverter(typeof(StringEnumConverter))]
-        public PrimitiveType type;
+        public TypeTag type;
 
-        public PrimitiveTypeNode(int beginLine, int beginCol, int endLine, int endCol, PrimitiveType type)
+        public PrimitiveTypeNode(int beginLine, int beginCol, int endLine, int endCol, TypeTag type)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.type = type;
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitPrimitiveType(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitPrimitiveType(this, arg);
     }
 
-    public sealed class LocalVariableDeclaration : VariableDeclaration
-    {
-        public ExpressionNode init;
-
-        public LocalVariableDeclaration(int beginLine, int beginCol, int endLine, int endCol, string name,
-                                        TypeRefNode type, ExpressionNode init)
-            : base(beginLine, beginCol, endLine, endCol, name, type)
-        {
-            this.init = init;
-        }
-
-        public override T accept<T>(AstVisitor<T> v) => v.visitLocalVar(this);
-    }
-
-    public sealed class IdentifierNode : ExpressionNode
+    public sealed class Identifier : Expression
     {
         public String name;
 
-        public IdentifierNode(int beginLine, int beginCol, int endLine, int endCol, string name)
+        public Identifier(int beginLine, int beginCol, int endLine, int endCol, string name)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitIdent(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitIdent(this, arg);
     }
 
-    public sealed class MethodInvocation : ExpressionNode
+    public sealed class MethodInvocation : Expression
     {
         public String methodName;
-        public IList<ExpressionNode> args;
+        public IList<Expression> args;
 
         public MethodInvocation(int beginLine, int beginCol, int endLine, int endCol, string methodName,
-                                IList<ExpressionNode> args) : base(beginLine, beginCol, endLine, endCol)
+                                IList<Expression> args) : base(beginLine, beginCol, endLine, endCol)
         {
             this.methodName = methodName;
             this.args = args;
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitMethodInvoke(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitMethodInvoke(this, arg);
     }
 
-    public abstract class StatementNode : AstNode
+    public abstract class StatementNode : Tree
     {
         protected StatementNode(int beginLine, int beginCol, int endLine, int endCol)
             : base(beginLine, beginCol, endLine, endCol) { }
@@ -225,15 +243,16 @@ namespace mj.compiler.parsing.ast
 
     public sealed class ReturnStatement : StatementNode
     {
-        public ExpressionNode value;
+        public Expression value;
 
-        public ReturnStatement(int beginLine, int beginCol, int endLine, int endCol, ExpressionNode value)
+        public ReturnStatement(int beginLine, int beginCol, int endLine, int endCol, Expression value)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.value = value;
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitReturn(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitReturn(this, arg);
     }
 
     public sealed class Block : StatementNode
@@ -247,6 +266,7 @@ namespace mj.compiler.parsing.ast
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitBlock(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitBlock(this, arg);
     }
 
     public sealed class Break : StatementNode
@@ -255,6 +275,7 @@ namespace mj.compiler.parsing.ast
             : base(beginLine, beginCol, endLine, endCol) { }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitBreak(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitBreak(this, arg);
     }
 
     public sealed class Continue : StatementNode
@@ -263,16 +284,17 @@ namespace mj.compiler.parsing.ast
             : base(beginLine, beginCol, endLine, endCol) { }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitContinue(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitContinue(this, arg);
     }
 
     public sealed class If : StatementNode
     {
-        public ExpressionNode condition;
+        public Expression condition;
         public StatementNode thenPart;
         public StatementNode elsePart;
 
         public If(int beginLine, int beginCol, int endLine, int endCol,
-                  ExpressionNode condition, StatementNode thenPart, StatementNode elsePart)
+                  Expression condition, StatementNode thenPart, StatementNode elsePart)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.condition = condition;
@@ -281,15 +303,16 @@ namespace mj.compiler.parsing.ast
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitIf(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitIf(this, arg);
     }
 
     public class WhileStatement : StatementNode
     {
-        public ExpressionNode condition;
+        public Expression condition;
         public StatementNode body;
 
         public WhileStatement(int beginLine, int beginCol, int endLine, int endCol,
-                              ExpressionNode condition, StatementNode body)
+                              Expression condition, StatementNode body)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.condition = condition;
@@ -297,26 +320,28 @@ namespace mj.compiler.parsing.ast
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitWhile(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitWhile(this, arg);
     }
 
     public sealed class DoStatement : WhileStatement
     {
-        public DoStatement(int beginLine, int beginCol, int endLine, int endCol, ExpressionNode condition,
+        public DoStatement(int beginLine, int beginCol, int endLine, int endCol, Expression condition,
                            StatementNode body)
             : base(beginLine, beginCol, endLine, endCol, condition, body) { }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitDo(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitDo(this, arg);
     }
 
     public sealed class ForLoop : StatementNode
     {
         public IList<StatementNode> init;
-        public ExpressionNode condition;
-        public IList<ExpressionNode> update;
+        public Expression condition;
+        public IList<Expression> update;
         public StatementNode body;
 
         public ForLoop(int beginLine, int beginCol, IList<StatementNode> init,
-                       ExpressionNode condition, IList<ExpressionNode> update, StatementNode body)
+                       Expression condition, IList<Expression> update, StatementNode body)
             : base(beginLine, beginCol, body.endLine, body.endCol)
         {
             this.init = init;
@@ -326,14 +351,15 @@ namespace mj.compiler.parsing.ast
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitFor(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitFor(this, arg);
     }
 
     public sealed class Switch : StatementNode
     {
-        public ExpressionNode selector;
+        public Expression selector;
         public IList<Case> cases;
 
-        public Switch(int beginLine, int beginCol, int endLine, int endCol, ExpressionNode selector, IList<Case> cases)
+        public Switch(int beginLine, int beginCol, int endLine, int endCol, Expression selector, IList<Case> cases)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.selector = selector;
@@ -341,14 +367,15 @@ namespace mj.compiler.parsing.ast
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitSwitch(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitSwitch(this, arg);
     }
 
-    public sealed class Case : AstNode
+    public sealed class Case : Tree
     {
-        public ExpressionNode expression;
+        public Expression expression;
         public IList<StatementNode> Statements;
 
-        public Case(int beginLine, int beginCol, int endLine, int endCol, ExpressionNode expression,
+        public Case(int beginLine, int beginCol, int endLine, int endCol, Expression expression,
                     IList<StatementNode> statements) : base(beginLine, beginCol, endLine, endCol)
         {
             this.expression = expression;
@@ -356,25 +383,27 @@ namespace mj.compiler.parsing.ast
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitCase(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitCase(this, arg);
     }
 
     public sealed class ExpressionStatement : StatementNode
     {
-        public ExpressionNode expression;
+        public Expression expression;
 
-        public ExpressionStatement(int beginLine, int beginCol, int endLine, int endCol, ExpressionNode expression)
+        public ExpressionStatement(int beginLine, int beginCol, int endLine, int endCol, Expression expression)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.expression = expression;
         }
 
         public override T accept<T>(AstVisitor<T> v) => v.visitExpresionStmt(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitExpresionStmt(this, arg);
     }
 
-    public enum Operator
+    public enum Tag
     {
-        ADD,
-        SUB,
+        PLUS,
+        MINUS,
         MUL,
         DIV,
         MOD,
@@ -382,8 +411,6 @@ namespace mj.compiler.parsing.ast
         LT,
         BANG,
         TILDE,
-        QUESTION,
-        COLON,
         EQ,
         LE,
         GE,
@@ -397,7 +424,6 @@ namespace mj.compiler.parsing.ast
         POST_DEC,
         BITAND,
         BITOR,
-        CARET,
         LSHIFT,
         RSHIFT,
         ASSIGN,
@@ -411,24 +437,5 @@ namespace mj.compiler.parsing.ast
         MOD_ASSIGN,
         LSHIFT_ASSIGN,
         RSHIFT_ASSIGN
-    }
-
-    public enum PrimitiveType
-    {
-        INT,
-        LONG,
-        FLOAT,
-        DOUBLE,
-        BOOLEAN,
-        VOID
-    }
-
-    public enum LiteralType
-    {
-        INT,
-        LONG,
-        FLOAT,
-        DOUBLE,
-        BOOLEAN
     }
 }

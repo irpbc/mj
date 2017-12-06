@@ -11,19 +11,15 @@ namespace mj.compiler.main
     {
         private static readonly Context.Key<CommandLineOptions> CONTEX_KEY = new Context.Key<CommandLineOptions>();
 
-        public static CommandLineOptions instance(Context context)
-        {
-            if (context.tryGet(CONTEX_KEY, out var instance)) {
-                return instance;
-            }
-            return new CommandLineOptions(context);
-        }
+        public static CommandLineOptions instance(Context context) => 
+            context.tryGet(CONTEX_KEY, out var instance) ? instance : new CommandLineOptions(context);
 
         public bool Verbose { get; private set; }
         public bool DumpTree { get; private set; }
         public bool PrettyPrintTree { get; private set; }
         public bool ShowHelp { get; private set; }
         public IList<String> InputFiles { get; } = new List<String>();
+        public String OutPath { get; private set; }
 
         private readonly OptionSet optionSet;
 
@@ -36,7 +32,8 @@ namespace mj.compiler.main
                 {"dump-tree", s => DumpTree = true},
                 {"pretty-print-tree", s => PrettyPrintTree = true},
                 {"h|help", s => ShowHelp = true},
-                {"<>", "Input files", s => InputFiles.Add(s), true}
+                {"<>", "Input files", s => InputFiles.Add(s), true},
+                {"o|output", "Output file path", s => OutPath = s}
             };
         }
 

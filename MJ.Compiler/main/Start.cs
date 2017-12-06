@@ -10,9 +10,9 @@ namespace mj.compiler.main
         {
             Context context = new Context();
             CommandLineOptions options = CommandLineOptions.instance(context);
-            
+
             options.readOptions(args);
-            
+
             Compiler compiler = Compiler.instance(context);
             compiler.compile();
         }

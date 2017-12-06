@@ -16,5 +16,7 @@ namespace mj.compiler.main
         {
             return new FileStream(path, FileMode.Open);
         }
+
+        public string Path => path;
     }
 }

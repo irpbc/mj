@@ -29,7 +29,7 @@ namespace mj.compiler.parsing
             options = CommandLineOptions.instance(context);
         }
 
-        public CompilatioUnit parse(SourceFile sourceFile)
+        public CompilationUnit parse(SourceFile sourceFile)
         {
             using (Stream inStream = sourceFile.openInput()) {
                 AntlrInputStream antlrInputStream = new AntlrInputStream(inStream);
@@ -37,7 +37,7 @@ namespace mj.compiler.parsing
                 MJParser parser = new MJParser(new BufferedTokenStream(lexer));
                 MJParser.CompilationUnitContext compilationUnit = parser.compilationUnit();
 
-                return (CompilatioUnit)compilationUnit.Accept(new AstGeneratingParseTreeVisitor());
+                return (CompilationUnit)compilationUnit.Accept(new AstGeneratingParseTreeVisitor());
             }
         }
     }

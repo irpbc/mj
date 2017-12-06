@@ -2,7 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
-    <RootNamespace>MJ.Compiler</RootNamespace>
+    <RootNamespace>mj.compiler</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Antlr4" Version="4.6.4" />
@@ -31,10 +31,5 @@
     <Compile Include="obj\Debug\netcoreapp2.0\MJVisitor.cs">
       <Link>Parsing\AntlrGenerated\MJVisitor.cs</Link>
     </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="codegen" />
-    <Folder Include="main\options" />
-    <Folder Include="symbol" />
   </ItemGroup>
 </Project>

@@ -6,36 +6,37 @@ using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 
 using mj.compiler.parsing.ast;
+using mj.compiler.symbol;
 using mj.compiler.utils;
 
 using static mj.compiler.parsing.MJParser;
 
 namespace mj.compiler.parsing
 {
-    public class AstGeneratingParseTreeVisitor : MJBaseVisitor<AstNode>
+    public class AstGeneratingParseTreeVisitor : MJBaseVisitor<Tree>
     {
-        public override AstNode VisitChildren(IRuleNode node) => throw new InvalidOperationException();
-        public override AstNode VisitErrorNode(IErrorNode node) => throw new InvalidOperationException();
+        public override Tree VisitChildren(IRuleNode node) => throw new InvalidOperationException();
+        public override Tree VisitErrorNode(IErrorNode node) => throw new InvalidOperationException();
 
-        public override AstNode VisitType(TypeContext context)
+        public override Tree VisitType(TypeContext context)
         {
-            PrimitiveType type;
+            TypeTag type;
             IToken token = context.primitive;
             switch (token.Type) {
                 case INT:
-                    type = PrimitiveType.INT;
+                    type = TypeTag.INT;
                     break;
                 case LONG:
-                    type = PrimitiveType.LONG;
+                    type = TypeTag.LONG;
                     break;
                 case FLOAT:
-                    type = PrimitiveType.FLOAT;
+                    type = TypeTag.FLOAT;
                     break;
                 case DOUBLE:
-                    type = PrimitiveType.DOUBLE;
+                    type = TypeTag.DOUBLE;
                     break;
                 case BOOLEAN:
-                    type = PrimitiveType.BOOLEAN;
+                    type = TypeTag.BOOLEAN;
                     break;
                 default:
                     throw new ArgumentException();
@@ -45,104 +46,98 @@ namespace mj.compiler.parsing
             return new PrimitiveTypeNode(token.Line, token.Column, token.Line, endCol, type);
         }
 
-        public override AstNode VisitNameExpression(NameExpressionContext context)
+        public override Tree VisitNameExpression(NameExpressionContext context)
         {
             IToken symbol = context.Identifier().Symbol;
             String identifier = symbol.Text;
 
             int stopColumn = symbol.Column + symbol.StopIndex - symbol.StopIndex;
 
-            return new IdentifierNode(symbol.Line, symbol.Column, symbol.Line, stopColumn, identifier);
+            return new Identifier(symbol.Line, symbol.Column, symbol.Line, stopColumn, identifier);
         }
 
-        public override AstNode VisitCompilationUnit(CompilationUnitContext context)
+        public override Tree VisitCompilationUnit(CompilationUnitContext context)
         {
             IList<MethodDeclarationContext> methodDeclarationContexts = context._methods;
-            MethodNode[] methodNodes = new MethodNode[methodDeclarationContexts.Count];
+            MethodDef[] methodDefs = new MethodDef[methodDeclarationContexts.Count];
 
             for (var i = 0; i < methodDeclarationContexts.Count; i++) {
-                methodNodes[i] = (MethodNode)VisitMethodDeclaration(methodDeclarationContexts[i]);
+                methodDefs[i] = (MethodDef)VisitMethodDeclaration(methodDeclarationContexts[i]);
             }
 
-            return new CompilatioUnit(methodNodes);
+            if (methodDefs.Length > 0) {
+                int beginLine = methodDefs[0].beginLine;
+                int beginCol = methodDefs[0].beginCol;
+                int endLine = methodDefs[methodDefs.Length - 1].endLine;
+                int endCol = methodDefs[methodDefs.Length - 1].endCol;
+                return new CompilationUnit(beginLine, beginCol, endLine, endCol, methodDefs);
+            }
+            return new CompilationUnit(0, 0, 0, 0, methodDefs);
         }
 
-        public override AstNode VisitMethodDeclaration(MethodDeclarationContext context)
+        public override Tree VisitMethodDeclaration(MethodDeclarationContext context)
         {
             String name = context.name.Text;
             ResultContext resultContext = context.result();
             IList<FormalParameterContext> parameterContexts = context._params;
 
             TypeContext resType = resultContext.type();
-            TypeRefNode type;
+            TypeTree type;
             if (resType != null) {
-                type = (TypeRefNode)VisitType(resType);
+                type = (TypeTree)VisitType(resType);
             } else {
                 //void
                 IToken voidToken = resultContext.Start;
                 int len = voidToken.StopIndex - voidToken.StartIndex;
                 type = new PrimitiveTypeNode(voidToken.Line, voidToken.Column, voidToken.Line, voidToken.Column + len,
-                    PrimitiveType.VOID);
+                    TypeTag.VOID);
             }
 
-            MethodParameter[] parameters = new MethodParameter[parameterContexts.Count];
+            VariableDeclaration[] parameters = new VariableDeclaration[parameterContexts.Count];
             for (int i = 0; i < parameterContexts.Count; i++) {
-                parameters[i] = (MethodParameter)VisitFormalParameter(parameterContexts[i]);
+                parameters[i] = (VariableDeclaration)VisitFormalParameter(parameterContexts[i]);
             }
 
             Block block = (Block)VisitBlock(context.methodBody().block());
 
-            return new MethodNode(type.beginLine, type.beginCol, block.endLine, block.endCol, name, type, parameters,
+            return new MethodDef(type.beginLine, type.beginCol, block.endLine, block.endCol, name, type, parameters,
                 block);
         }
 
-        public override AstNode VisitResult(ResultContext context) => throw new InvalidOperationException();
+        public override Tree VisitResult(ResultContext context) => throw new InvalidOperationException();
 
-        public override AstNode VisitFormalParameter(FormalParameterContext context)
+        public override Tree VisitFormalParameter(FormalParameterContext context)
         {
             String name = context.name.Text;
-            TypeRefNode type = (TypeRefNode)VisitType(context.type());
+            TypeTree type = (TypeTree)VisitType(context.type());
 
             IToken stopToken = context.Stop;
             int stopLine = stopToken.Line;
             int stopCol = stopToken.Column + (stopToken.StopIndex - stopToken.StartIndex);
 
-            return new MethodParameter(type.beginLine, type.beginCol, stopLine, stopCol, name, type);
+            return new VariableDeclaration(type.beginLine, type.beginCol, stopLine, stopCol, name, type, null);
         }
 
-        public override AstNode VisitMethodBody(MethodBodyContext context) => throw new InvalidOperationException();
+        public override Tree VisitMethodBody(MethodBodyContext context) => throw new InvalidOperationException();
 
-        public override AstNode VisitBlock(BlockContext context)
+        public override Tree VisitBlock(BlockContext context)
         {
-            IList<StatementInBlockContext> statementsInBlock = context.blockStatementList()._statements;
-
-            StatementNode[] statements = new StatementNode[statementsInBlock.Count];
-
-            for (var i = 0; i < statementsInBlock.Count; i++) {
-                StatementContext statementContext = statementsInBlock[i].statement();
-                if (statementContext != null) {
-                    statements[i] = (StatementNode)VisitStatement(statementContext);
-                } else {
-                    LocalVariableDeclarationContext localVarCtx =
-                        statementsInBlock[i].localVariableDeclaration();
-                    statements[i] = (StatementNode)VisitLocalVariableDeclaration(localVarCtx);
-                }
-            }
+            IList<StatementNode> statements = convertBlockStatementList(context.blockStatementList());
 
             return new Block(context.Start.Line, context.Start.Column,
                 context.stop.Line, context.stop.Column, statements);
         }
 
-        public override AstNode VisitBlockStatementList(BlockStatementListContext context) =>
+        public override Tree VisitBlockStatementList(BlockStatementListContext context) =>
             throw new InvalidOperationException();
 
-        public override AstNode VisitStatementInBlock(StatementInBlockContext context) =>
+        public override Tree VisitStatementInBlock(StatementInBlockContext context) =>
             throw new InvalidOperationException();
 
-        public override AstNode VisitLocalVariableDeclaration(LocalVariableDeclarationContext context)
+        public override Tree VisitLocalVariableDeclaration(LocalVariableDeclarationContext context)
         {
-            LocalVariableDeclaration localVariableDeclaration =
-                (LocalVariableDeclaration)VisitVariableDeclaration(context.variableDeclaration());
+            VariableDeclaration localVariableDeclaration =
+                (VariableDeclaration)VisitVariableDeclaration(context.variableDeclaration());
 
             localVariableDeclaration.endLine = context.Stop.Line;
             localVariableDeclaration.endCol = context.Stop.Column;
@@ -150,22 +145,22 @@ namespace mj.compiler.parsing
             return localVariableDeclaration;
         }
 
-        public override AstNode VisitVariableDeclaration(VariableDeclarationContext context)
+        public override Tree VisitVariableDeclaration(VariableDeclarationContext context)
         {
             String name = context.name.Text;
-            TypeRefNode type = (TypeRefNode)VisitType(context.type());
+            TypeTree type = (TypeTree)VisitType(context.type());
 
-            ExpressionContext init = context.init;
-            ExpressionNode initNode = null;
-            if (init != null) {
-                initNode = (ExpressionNode)VisitExpression(init);
+            ExpressionContext initContext = context.init;
+            Expression init = null;
+            if (initContext != null) {
+                init = (Expression)VisitExpression(initContext);
             }
 
-            return new LocalVariableDeclaration(type.beginLine, type.beginCol, context.Stop.Line,
-                context.Stop.Column, name, type, initNode);
+            return new VariableDeclaration(type.beginLine, type.beginCol, context.Stop.Line,
+                context.Stop.Column, name, type, init);
         }
 
-        public override AstNode VisitStatement(StatementContext context)
+        public override Tree VisitStatement(StatementContext context)
         {
             StatementWithoutTrailingSubstatementContext swtss = context
                 .statementWithoutTrailingSubstatement();
@@ -191,7 +186,7 @@ namespace mj.compiler.parsing
             return null;
         }
 
-        public override AstNode VisitStatementNoShortIf(StatementNoShortIfContext context)
+        public override Tree VisitStatementNoShortIf(StatementNoShortIfContext context)
         {
             StatementWithoutTrailingSubstatementContext swtss = context
                 .statementWithoutTrailingSubstatement();
@@ -213,7 +208,7 @@ namespace mj.compiler.parsing
             return null;
         }
 
-        public override AstNode VisitStatementWithoutTrailingSubstatement(
+        public override Tree VisitStatementWithoutTrailingSubstatement(
             StatementWithoutTrailingSubstatementContext context)
         {
             BlockContext block = context.block();
@@ -247,15 +242,15 @@ namespace mj.compiler.parsing
             return null;
         }
 
-        public override AstNode VisitExpressionStatement(ExpressionStatementContext context)
+        public override Tree VisitExpressionStatement(ExpressionStatementContext context)
         {
-            ExpressionNode expression = (ExpressionNode)VisitStatementExpression(context.statementExpression());
+            Expression expression = (Expression)VisitStatementExpression(context.statementExpression());
 
             return new ExpressionStatement(expression.beginLine, expression.beginCol,
                 context.Stop.Line, context.Stop.Column, expression);
         }
 
-        public override AstNode VisitStatementExpression(StatementExpressionContext context)
+        public override Tree VisitStatementExpression(StatementExpressionContext context)
         {
             AssignmentContext assignment = context.assignment();
             if (assignment != null) {
@@ -276,18 +271,18 @@ namespace mj.compiler.parsing
             return null;
         }
 
-        public override AstNode VisitIfThenStatement(IfThenStatementContext context)
+        public override Tree VisitIfThenStatement(IfThenStatementContext context)
         {
-            ExpressionNode condition = (ExpressionNode)VisitExpression(context.condition);
+            Expression condition = (Expression)VisitExpression(context.condition);
             StatementNode ifTrue = (StatementNode)VisitStatement(context.ifTrue);
 
             return new If(context.Start.Line, context.Start.Column,
                 ifTrue.endLine, ifTrue.endCol, condition, ifTrue, elsePart: null);
         }
 
-        public override AstNode VisitIfThenElseStatement(IfThenElseStatementContext context)
+        public override Tree VisitIfThenElseStatement(IfThenElseStatementContext context)
         {
-            ExpressionNode condition = (ExpressionNode)VisitExpression(context.condition);
+            Expression condition = (Expression)VisitExpression(context.condition);
             StatementNode ifTrue = (StatementNode)VisitStatementNoShortIf(context.ifTrue);
             StatementNode ifFalse = (StatementNode)VisitStatement(context.ifFalse);
 
@@ -295,9 +290,9 @@ namespace mj.compiler.parsing
                 ifTrue.endLine, ifTrue.endCol, condition, ifTrue, ifFalse);
         }
 
-        public override AstNode VisitIfThenElseStatementNoShortIf(IfThenElseStatementNoShortIfContext context)
+        public override Tree VisitIfThenElseStatementNoShortIf(IfThenElseStatementNoShortIfContext context)
         {
-            ExpressionNode condition = (ExpressionNode)VisitExpression(context.condition);
+            Expression condition = (Expression)VisitExpression(context.condition);
             StatementNode ifTrue = (StatementNode)VisitStatementNoShortIf(context.ifTrue);
             StatementNode ifFalse = (StatementNode)VisitStatementNoShortIf(context.ifFalse);
 
@@ -305,9 +300,9 @@ namespace mj.compiler.parsing
                 ifTrue.endLine, ifTrue.endCol, condition, ifTrue, ifFalse);
         }
 
-        public override AstNode VisitSwitchStatement(SwitchStatementContext context)
+        public override Tree VisitSwitchStatement(SwitchStatementContext context)
         {
-            ExpressionNode expression = (ExpressionNode)VisitExpression(context.expression());
+            Expression expression = (Expression)VisitExpression(context.expression());
             CaseGroupContext[] caseGroups = context.caseGroup();
             IList<SwitchLabelContext> bottomLabels = context._bottomLabels;
 
@@ -321,22 +316,22 @@ namespace mj.compiler.parsing
                 int last = labels.Count - 1;
                 // for each label except last
                 foreach (SwitchLabelContext label in labels) {
-                    ExpressionNode caseExpression = (ExpressionNode)VisitLiteral(label.constantExpression().literal());
+                    Expression caseExpression = (Expression)VisitLiteral(label.constantExpression().literal());
                     cases[iCases++] = new Case(label.start.Line, label.start.Column, label.stop.Line,
                         label.stop.Column, caseExpression,
                         CollectionUtils.emptyList<StatementNode>());
                 }
                 SwitchLabelContext lastLabel = labels[last];
-                ExpressionNode lastCaseExpression =
-                    (ExpressionNode)VisitLiteral(lastLabel.constantExpression().literal());
-                StatementNode[] statements = convertStatements(caseGroup.stmts._statements);
+                Expression lastCaseExpression =
+                    (Expression)VisitLiteral(lastLabel.constantExpression().literal());
+                IList<StatementNode> statements = convertBlockStatementList(caseGroup.stmts);
 
                 cases[iCases++] = new Case(lastLabel.start.Line, lastLabel.start.Column, caseGroup.stop.Line,
                     caseGroup.stop.Column, lastCaseExpression, statements);
             }
 
             foreach (SwitchLabelContext label in bottomLabels) {
-                ExpressionNode caseExpression = (ExpressionNode)VisitLiteral(label.constantExpression().literal());
+                Expression caseExpression = (Expression)VisitLiteral(label.constantExpression().literal());
                 cases[iCases++] = new Case(label.start.Line, label.start.Column, label.stop.Line,
                     label.stop.Column, caseExpression,
                     CollectionUtils.emptyList<StatementNode>());
@@ -346,67 +341,82 @@ namespace mj.compiler.parsing
                 context.stop.Column, expression, cases);
         }
 
-        private StatementNode[] convertStatements(IList<StatementInBlockContext> statementContexts)
+        private IList<StatementNode> convertBlockStatementList(BlockStatementListContext blockStatementListContext)
         {
-            StatementNode[] statements = new StatementNode[statementContexts.Count];
-            for (var i = 0; i < statementContexts.Count; i++) {
-                statements[i] = (StatementNode)VisitStatementInBlock(statementContexts[i]);
+            if (blockStatementListContext == null) {
+                return CollectionUtils.emptyList<StatementNode>();
             }
+            IList<StatementInBlockContext> statementsInBlock = blockStatementListContext._statements;
+            StatementNode[] statements = new StatementNode[statementsInBlock.Count];
+
+            for (var i = 0; i < statementsInBlock.Count; i++) {
+                StatementContext statementContext = statementsInBlock[i].statement();
+                if (statementContext != null) {
+                    statements[i] = (StatementNode)VisitStatement(statementContext);
+                } else {
+                    LocalVariableDeclarationContext localVarCtx =
+                        statementsInBlock[i].localVariableDeclaration();
+                    statements[i] = (StatementNode)VisitLocalVariableDeclaration(localVarCtx);
+                }
+            }
+
             return statements;
         }
 
-        public override AstNode VisitCaseGroup(CaseGroupContext context) => throw new InvalidOperationException();
-        public override AstNode VisitSwitchLabels(SwitchLabelsContext context) => throw new InvalidOperationException();
-        public override AstNode VisitSwitchLabel(SwitchLabelContext context) => throw new InvalidOperationException();
-        public override AstNode VisitConstantExpression(ConstantExpressionContext context) => throw new InvalidOperationException();
+        public override Tree VisitCaseGroup(CaseGroupContext context) => throw new InvalidOperationException();
+        public override Tree VisitSwitchLabels(SwitchLabelsContext context) => throw new InvalidOperationException();
+        public override Tree VisitSwitchLabel(SwitchLabelContext context) => throw new InvalidOperationException();
 
-        public override AstNode VisitWhileStatement(WhileStatementContext context)
+        public override Tree VisitConstantExpression(ConstantExpressionContext context) =>
+            throw new InvalidOperationException();
+
+        public override Tree VisitWhileStatement(WhileStatementContext context)
         {
-            ExpressionNode condition = (ExpressionNode)VisitExpression(context.condition);
+            Expression condition = (Expression)VisitExpression(context.condition);
             StatementNode body = (StatementNode)VisitStatement(context.statement());
 
             return new WhileStatement(context.Start.Line, context.Start.Column,
                 body.endLine, body.endCol, condition, body);
         }
 
-        public override AstNode VisitWhileStatementNoShortIf(WhileStatementNoShortIfContext context)
+        public override Tree VisitWhileStatementNoShortIf(WhileStatementNoShortIfContext context)
         {
-            ExpressionNode condition = (ExpressionNode)VisitExpression(context.condition);
+            Expression condition = (Expression)VisitExpression(context.condition);
             StatementNode body = (StatementNode)VisitStatementNoShortIf(context.statementNoShortIf());
 
             return new WhileStatement(context.Start.Line, context.Start.Column,
                 body.endLine, body.endCol, condition, body);
         }
 
-        public override AstNode VisitDoStatement(DoStatementContext context)
+        public override Tree VisitDoStatement(DoStatementContext context)
         {
-            ExpressionNode condition = (ExpressionNode)VisitExpression(context.condition);
+            Expression condition = (Expression)VisitExpression(context.condition);
             StatementNode body = (StatementNode)VisitStatement(context.statement());
 
             return new DoStatement(context.Start.Line, context.Start.Column,
                 body.endLine, body.endCol, condition, body);
         }
 
-        public override AstNode VisitForStatement(ForStatementContext context)
+        public override Tree VisitForStatement(ForStatementContext context)
         {
-            StatementNode[] init = GetForInit(context.forInit());
-            ExpressionNode condition = context.condition == null
+            IList<StatementNode> init = GetForInit(context.forInit());
+            Expression condition = context.condition == null
                 ? null
-                : (ExpressionNode)VisitExpression(context.condition);
-            ExpressionNode[] update = GetForUpdate(context.update);
+                : (Expression)VisitExpression(context.condition);
+            Expression[] update = GetForUpdate(context.update);
             StatementNode body = (StatementNode)VisitStatement(context.statement());
 
             return new ForLoop(context.Start.Line, context.Start.Column, init, condition, update, body);
         }
 
-        private StatementNode[] GetForInit(ForInitContext forInit)
+        private IList<StatementNode> GetForInit(ForInitContext forInit)
         {
             StatementExpressionListContext statementExpressionList = forInit.statementExpressionList();
             if (statementExpressionList != null) {
                 IList<StatementExpressionContext> statementExpressionContexts = statementExpressionList._statements;
                 StatementNode[] statements = new StatementNode[statementExpressionContexts.Count];
                 for (var i = 0; i < statementExpressionContexts.Count; i++) {
-                    ExpressionNode expr = (ExpressionNode)VisitStatementExpression(statementExpressionContexts[i]);
+                    Expression expr = (Expression)VisitStatementExpression(statementExpressionContexts[i]);
                     statements[i] = new ExpressionStatement(expr.beginLine, expr.beginCol,
                         expr.endLine, expr.endCol, expr);
                 }
@@ -414,59 +424,59 @@ namespace mj.compiler.parsing
             }
             VariableDeclarationContext variableDeclaration = forInit.variableDeclaration();
             if (variableDeclaration != null) {
-                return new StatementNode[] {(StatementNode)VisitVariableDeclaration(variableDeclaration)};
+                return CollectionUtils.singletonList((StatementNode)VisitVariableDeclaration(variableDeclaration));
             }
             return null;
         }
 
-        private ExpressionNode[] GetForUpdate(ForUpdateContext forUpdate)
+        private Expression[] GetForUpdate(ForUpdateContext forUpdate)
         {
             StatementExpressionListContext statementExpressionList = forUpdate.statementExpressionList();
             IList<StatementExpressionContext> statementExpressionContexts = statementExpressionList._statements;
-            ExpressionNode[] expressions = new ExpressionNode[statementExpressionContexts.Count];
+            Expression[] expressions = new Expression[statementExpressionContexts.Count];
             for (var i = 0; i < statementExpressionContexts.Count; i++) {
-                expressions[i] = (ExpressionNode)VisitStatementExpression(statementExpressionContexts[i]);
+                expressions[i] = (Expression)VisitStatementExpression(statementExpressionContexts[i]);
             }
             return expressions;
         }
 
-        public override AstNode VisitForStatementNoShortIf(ForStatementNoShortIfContext context)
+        public override Tree VisitForStatementNoShortIf(ForStatementNoShortIfContext context)
         {
-            StatementNode[] init = GetForInit(context.forInit());
-            ExpressionNode condition = context.condition == null
+            IList<StatementNode> init = GetForInit(context.forInit());
+            Expression condition = context.condition == null
                 ? null
-                : (ExpressionNode)VisitExpression(context.condition);
-            ExpressionNode[] update = GetForUpdate(context.update);
+                : (Expression)VisitExpression(context.condition);
+            Expression[] update = GetForUpdate(context.update);
             StatementNode body = (StatementNode)VisitStatementNoShortIf(context.statementNoShortIf());
 
             return new ForLoop(context.Start.Line, context.Start.Column, init, condition, update, body);
         }
 
-        public override AstNode VisitForInit(ForInitContext context) => throw new InvalidOperationException();
-        public override AstNode VisitForUpdate(ForUpdateContext context) => throw new InvalidOperationException();
+        public override Tree VisitForInit(ForInitContext context) => throw new InvalidOperationException();
+        public override Tree VisitForUpdate(ForUpdateContext context) => throw new InvalidOperationException();
 
-        public override AstNode VisitStatementExpressionList(StatementExpressionListContext context) =>
+        public override Tree VisitStatementExpressionList(StatementExpressionListContext context) =>
             throw new InvalidOperationException();
 
-        public override AstNode VisitBreakStatement(BreakStatementContext context)
+        public override Tree VisitBreakStatement(BreakStatementContext context)
         {
             return new Break(context.Start.Line, context.Start.Column, context.Stop.Line,
                 context.Stop.Column);
         }
 
-        public override AstNode VisitContinueStatement(ContinueStatementContext context)
+        public override Tree VisitContinueStatement(ContinueStatementContext context)
         {
             return new Continue(context.Start.Line, context.Start.Column, context.Stop.Line,
                 context.Stop.Column);
         }
 
-        public override AstNode VisitReturnStatement(ReturnStatementContext context)
+        public override Tree VisitReturnStatement(ReturnStatementContext context)
         {
             ExpressionContext valueContext = context.value;
-            ExpressionNode value;
+            Expression value;
 
             if (valueContext != null) {
-                value = (ExpressionNode)VisitExpression(valueContext);
+                value = (Expression)VisitExpression(valueContext);
             } else {
                 value = null;
             }
@@ -477,15 +487,15 @@ namespace mj.compiler.parsing
             return new ReturnStatement(context.Start.Line, context.Start.Column, endLine, endCol, value);
         }
 
-        public override AstNode VisitMethodInvocation(MethodInvocationContext context)
+        public override Tree VisitMethodInvocation(MethodInvocationContext context)
         {
             IToken methodName = context.neme;
             IList<ExpressionContext> parsedArgs = context.argumentList()._args;
 
-            ExpressionNode[] args = new ExpressionNode[parsedArgs.Count];
+            Expression[] args = new Expression[parsedArgs.Count];
 
             for (var i = 0; i < parsedArgs.Count; i++) {
-                args[i] = (ExpressionNode)VisitExpression(parsedArgs[i]);
+                args[i] = (Expression)VisitExpression(parsedArgs[i]);
             }
 
             IToken stopToken = context.Stop;
@@ -495,158 +505,158 @@ namespace mj.compiler.parsing
             return new MethodInvocation(methodName.Line, methodName.Column, endLine, endCol, methodName.Text, args);
         }
 
-        public override AstNode VisitArgumentList(ArgumentListContext context) => throw new InvalidOperationException();
+        public override Tree VisitArgumentList(ArgumentListContext context) => throw new InvalidOperationException();
 
-        public override AstNode VisitAssignment(AssignmentContext context)
+        public override Tree VisitAssignment(AssignmentContext context)
         {
-            IdentifierNode target = (IdentifierNode)VisitNameExpression(context.leftHandSide().nameExpression());
+            Identifier target = (Identifier)VisitNameExpression(context.leftHandSide().nameExpression());
 
-            Operator op;
+            Tag op;
 
             switch (context.assignmentOperator().op.Type) {
                 case ASSIGN:
-                    op = Operator.ASSIGN;
+                    op = Tag.ASSIGN;
                     break;
                 case ADD_ASSIGN:
-                    op = Operator.ADD_ASSIGN;
+                    op = Tag.ADD_ASSIGN;
                     break;
                 case SUB_ASSIGN:
-                    op = Operator.SUB_ASSIGN;
+                    op = Tag.SUB_ASSIGN;
                     break;
                 case MUL_ASSIGN:
-                    op = Operator.MUL_ASSIGN;
+                    op = Tag.MUL_ASSIGN;
                     break;
                 case DIV_ASSIGN:
-                    op = Operator.DIV_ASSIGN;
+                    op = Tag.DIV_ASSIGN;
                     break;
                 case AND_ASSIGN:
-                    op = Operator.AND_ASSIGN;
+                    op = Tag.AND_ASSIGN;
                     break;
                 case OR_ASSIGN:
-                    op = Operator.OR_ASSIGN;
+                    op = Tag.OR_ASSIGN;
                     break;
                 case XOR_ASSIGN:
-                    op = Operator.XOR_ASSIGN;
+                    op = Tag.XOR_ASSIGN;
                     break;
                 case MOD_ASSIGN:
-                    op = Operator.MOD_ASSIGN;
+                    op = Tag.MOD_ASSIGN;
                     break;
                 case LSHIFT_ASSIGN:
-                    op = Operator.LSHIFT_ASSIGN;
+                    op = Tag.LSHIFT_ASSIGN;
                     break;
                 case RSHIFT_ASSIGN:
-                    op = Operator.RSHIFT_ASSIGN;
+                    op = Tag.RSHIFT_ASSIGN;
                     break;
                 default:
                     throw new InvalidOperationException();
             }
 
-            ExpressionNode expression = (ExpressionNode)VisitExpression(context.expression());
+            Expression expression = (Expression)VisitExpression(context.expression());
 
             return new BinaryExpressionNode(op, target, expression);
         }
 
-        public override AstNode VisitLeftHandSide(LeftHandSideContext context) => throw new InvalidOperationException();
+        public override Tree VisitLeftHandSide(LeftHandSideContext context) => throw new InvalidOperationException();
 
-        public override AstNode VisitAssignmentOperator(AssignmentOperatorContext context) =>
+        public override Tree VisitAssignmentOperator(AssignmentOperatorContext context) =>
             throw new InvalidOperationException();
 
-        public override AstNode VisitConditionalExpression(ConditionalExpressionContext context)
+        public override Tree VisitConditionalExpression(ConditionalExpressionContext context)
         {
             ConditionalOrExpressionContext lower = context.down;
             if (lower != null) {
                 return VisitConditionalOrExpression(lower);
             }
 
-            ExpressionNode condition = (ExpressionNode)VisitConditionalOrExpression(context.condition);
-            ExpressionNode ifTrue = (ExpressionNode)VisitExpression(context.ifTrue);
-            ExpressionNode ifFalse = (ExpressionNode)VisitConditionalExpression(context.ifFalse);
+            Expression condition = (Expression)VisitConditionalOrExpression(context.condition);
+            Expression ifTrue = (Expression)VisitExpression(context.ifTrue);
+            Expression ifFalse = (Expression)VisitConditionalExpression(context.ifFalse);
 
-            return new ConditionalExpressionNode(condition, ifTrue, ifFalse);
+            return new ConditionalExpression(condition, ifTrue, ifFalse);
         }
 
-        public override AstNode VisitConditionalOrExpression(ConditionalOrExpressionContext context)
+        public override Tree VisitConditionalOrExpression(ConditionalOrExpressionContext context)
         {
             ConditionalAndExpressionContext lower = context.down;
             if (lower != null) {
                 return VisitConditionalAndExpression(lower);
             }
 
-            ExpressionNode left = (ExpressionNode)VisitConditionalOrExpression(context.left);
-            ExpressionNode right = (ExpressionNode)VisitConditionalAndExpression(context.right);
+            Expression left = (Expression)VisitConditionalOrExpression(context.left);
+            Expression right = (Expression)VisitConditionalAndExpression(context.right);
 
-            return new BinaryExpressionNode(Operator.OR, left, right);
+            return new BinaryExpressionNode(Tag.OR, left, right);
         }
 
-        public override AstNode VisitConditionalAndExpression(ConditionalAndExpressionContext context)
+        public override Tree VisitConditionalAndExpression(ConditionalAndExpressionContext context)
         {
             InclusiveOrExpressionContext lower = context.down;
             if (lower != null) {
                 return VisitInclusiveOrExpression(lower);
             }
 
-            ExpressionNode left = (ExpressionNode)VisitConditionalAndExpression(context.left);
-            ExpressionNode right = (ExpressionNode)VisitInclusiveOrExpression(context.right);
+            Expression left = (Expression)VisitConditionalAndExpression(context.left);
+            Expression right = (Expression)VisitInclusiveOrExpression(context.right);
 
-            return new BinaryExpressionNode(Operator.AND, left, right);
+            return new BinaryExpressionNode(Tag.AND, left, right);
         }
 
-        public override AstNode VisitInclusiveOrExpression(InclusiveOrExpressionContext context)
+        public override Tree VisitInclusiveOrExpression(InclusiveOrExpressionContext context)
         {
             ExclusiveOrExpressionContext lower = context.down;
             if (lower != null) {
                 return VisitExclusiveOrExpression(lower);
             }
 
-            ExpressionNode left = (ExpressionNode)VisitInclusiveOrExpression(context.left);
-            ExpressionNode right = (ExpressionNode)VisitExclusiveOrExpression(context.right);
+            Expression left = (Expression)VisitInclusiveOrExpression(context.left);
+            Expression right = (Expression)VisitExclusiveOrExpression(context.right);
 
-            return new BinaryExpressionNode(Operator.BITOR, left, right);
+            return new BinaryExpressionNode(Tag.BITOR, left, right);
         }
 
-        public override AstNode VisitExclusiveOrExpression(ExclusiveOrExpressionContext context)
+        public override Tree VisitExclusiveOrExpression(ExclusiveOrExpressionContext context)
         {
             AndExpressionContext lower = context.down;
             if (lower != null) {
                 return VisitAndExpression(lower);
             }
 
-            ExpressionNode left = (ExpressionNode)VisitExclusiveOrExpression(context.left);
-            ExpressionNode right = (ExpressionNode)VisitAndExpression(context.right);
+            Expression left = (Expression)VisitExclusiveOrExpression(context.left);
+            Expression right = (Expression)VisitAndExpression(context.right);
 
-            return new BinaryExpressionNode(Operator.XOR, left, right);
+            return new BinaryExpressionNode(Tag.XOR, left, right);
         }
 
-        public override AstNode VisitAndExpression(AndExpressionContext context)
+        public override Tree VisitAndExpression(AndExpressionContext context)
         {
             EqualityExpressionContext lower = context.down;
             if (lower != null) {
                 return VisitEqualityExpression(lower);
             }
 
-            ExpressionNode left = (ExpressionNode)VisitAndExpression(context.left);
-            ExpressionNode right = (ExpressionNode)VisitEqualityExpression(context.right);
+            Expression left = (Expression)VisitAndExpression(context.left);
+            Expression right = (Expression)VisitEqualityExpression(context.right);
 
-            return new BinaryExpressionNode(Operator.BITAND, left, right);
+            return new BinaryExpressionNode(Tag.BITAND, left, right);
         }
 
-        public override AstNode VisitEqualityExpression(EqualityExpressionContext context)
+        public override Tree VisitEqualityExpression(EqualityExpressionContext context)
         {
             RelationalExpressionContext lower = context.down;
             if (lower != null) {
                 return VisitRelationalExpression(lower);
             }
 
-            ExpressionNode left = (ExpressionNode)VisitEqualityExpression(context.left);
-            ExpressionNode right = (ExpressionNode)VisitRelationalExpression(context.right);
+            Expression left = (Expression)VisitEqualityExpression(context.left);
+            Expression right = (Expression)VisitRelationalExpression(context.right);
 
-            Operator op;
+            Tag op;
             switch (context.@operator.Type) {
                 case EQUAL:
-                    op = Operator.EQ;
+                    op = Tag.EQ;
                     break;
                 case NOTEQUAL:
-                    op = Operator.NEQ;
+                    op = Tag.NEQ;
                     break;
                 default:
                     throw new InvalidOperationException();
@@ -655,29 +665,29 @@ namespace mj.compiler.parsing
             return new BinaryExpressionNode(op, left, right);
         }
 
-        public override AstNode VisitRelationalExpression(RelationalExpressionContext context)
+        public override Tree VisitRelationalExpression(RelationalExpressionContext context)
         {
             ShiftExpressionContext lower = context.down;
             if (lower != null) {
                 return VisitShiftExpression(lower);
             }
 
-            ExpressionNode left = (ExpressionNode)VisitRelationalExpression(context.left);
-            ExpressionNode right = (ExpressionNode)VisitShiftExpression(context.right);
+            Expression left = (Expression)VisitRelationalExpression(context.left);
+            Expression right = (Expression)VisitShiftExpression(context.right);
 
-            Operator op;
+            Tag op;
             switch (context.@operator.Type) {
                 case LT:
-                    op = Operator.LT;
+                    op = Tag.LT;
                     break;
                 case GT:
-                    op = Operator.GT;
+                    op = Tag.GT;
                     break;
                 case LE:
-                    op = Operator.LE;
+                    op = Tag.LE;
                     break;
                 case GE:
-                    op = Operator.GE;
+                    op = Tag.GE;
                     break;
                 default:
                     throw new InvalidOperationException();
@@ -686,23 +696,23 @@ namespace mj.compiler.parsing
             return new BinaryExpressionNode(op, left, right);
         }
 
-        public override AstNode VisitShiftExpression(ShiftExpressionContext context)
+        public override Tree VisitShiftExpression(ShiftExpressionContext context)
         {
             AdditiveExpressionContext lower = context.down;
             if (lower != null) {
                 return VisitAdditiveExpression(lower);
             }
 
-            ExpressionNode left = (ExpressionNode)VisitShiftExpression(context.left);
-            ExpressionNode right = (ExpressionNode)VisitAdditiveExpression(context.right);
+            Expression left = (Expression)VisitShiftExpression(context.left);
+            Expression right = (Expression)VisitAdditiveExpression(context.right);
 
-            Operator op;
+            Tag op;
             switch (context.@operator) {
                 case LSHIFT:
-                    op = Operator.LSHIFT;
+                    op = Tag.LSHIFT;
                     break;
                 case RSHIFT:
-                    op = Operator.RSHIFT;
+                    op = Tag.RSHIFT;
                     break;
                 default:
                     throw new InvalidOperationException();
@@ -711,47 +721,47 @@ namespace mj.compiler.parsing
             return new BinaryExpressionNode(op, left, right);
         }
 
-        public override AstNode VisitPreIncDecExpression(PreIncDecExpressionContext context)
+        public override Tree VisitPreIncDecExpression(PreIncDecExpressionContext context)
         {
-            Operator op = context.@operator.Type == INC ? Operator.INC : Operator.DEC;
+            Tag op = context.@operator.Type == INC ? Tag.INC : Tag.DEC;
 
-            ExpressionNode arg = (ExpressionNode)VisitUnaryExpression(context.arg);
+            Expression arg = (Expression)VisitUnaryExpression(context.arg);
             return new UnaryExpressionNode(context.start.Line, context.start.Column, arg.endLine,
                 arg.endCol, op, arg);
         }
 
-        public override AstNode VisitUnaryExpressionNotPlusMinus(UnaryExpressionNotPlusMinusContext context)
+        public override Tree VisitUnaryExpressionNotPlusMinus(UnaryExpressionNotPlusMinusContext context)
         {
             PostfixExpressionContext lower = context.down;
             if (lower != null) {
                 return VisitPostfixExpression(lower);
             }
 
-            Operator op = context.@operator.Type == TILDE ? Operator.TILDE : Operator.BANG;
-            ExpressionNode arg = (ExpressionNode)VisitUnaryExpression(context.arg);
+            Tag op = context.@operator.Type == TILDE ? Tag.TILDE : Tag.BANG;
+            Expression arg = (Expression)VisitUnaryExpression(context.arg);
             return new UnaryExpressionNode(context.start.Line, context.start.Column, arg.endLine,
                 arg.endCol, op, arg);
         }
 
-        public override AstNode VisitPostfixExpression(PostfixExpressionContext context)
+        public override Tree VisitPostfixExpression(PostfixExpressionContext context)
         {
-            ExpressionNode current;
+            Expression current;
             NameExpressionContext name = context.nameExpression();
             if (name != null) {
-                current = (ExpressionNode)VisitNameExpression(name);
+                current = (Expression)VisitNameExpression(name);
             } else {
-                current = (ExpressionNode)VisitPrimary(context.down);
+                current = (Expression)VisitPrimary(context.down);
             }
 
-            for (var i = 0; i < context._postfixes.Count; i++) {
+            for (int i = 0, count = context._postfixes.Count; i < count; i++) {
                 IToken postfix = context._postfixes[i];
-                Operator op;
+                Tag op;
                 switch (postfix.Type) {
                     case INC:
-                        op = Operator.POST_INC;
+                        op = Tag.POST_INC;
                         break;
                     case DEC:
-                        op = Operator.POST_DEC;
+                        op = Tag.POST_DEC;
                         break;
                     default:
                         throw new InvalidOperationException();
@@ -768,16 +778,16 @@ namespace mj.compiler.parsing
             return current;
         }
 
-        public override AstNode VisitPostIncDecExpression(PostIncDecExpressionContext context)
+        public override Tree VisitPostIncDecExpression(PostIncDecExpressionContext context)
         {
-            Operator op = context.@operator.Type == INC ? Operator.POST_INC : Operator.POST_DEC;
+            Tag op = context.@operator.Type == INC ? Tag.POST_INC : Tag.POST_DEC;
 
-            ExpressionNode arg = (ExpressionNode)VisitPostfixExpression(context.arg);
+            Expression arg = (Expression)VisitPostfixExpression(context.arg);
             return new UnaryExpressionNode(arg.beginLine, arg.beginCol, arg.endLine,
                 arg.endCol, op, arg);
         }
 
-        public override AstNode VisitExpression(ExpressionContext context)
+        public override Tree VisitExpression(ExpressionContext context)
         {
             var conditional = context.conditionalExpression();
             return conditional != null
@@ -785,7 +795,7 @@ namespace mj.compiler.parsing
                 : VisitAssignment(context.assignment());
         }
 
-        public override AstNode VisitPrimary(PrimaryContext context)
+        public override Tree VisitPrimary(PrimaryContext context)
         {
             var expressionContext = context.parenthesized;
             if (expressionContext != null) {
@@ -800,22 +810,22 @@ namespace mj.compiler.parsing
             return VisitLiteral(context.literal());
         }
 
-        public override AstNode VisitLiteral(LiteralContext context)
+        public override Tree VisitLiteral(LiteralContext context)
         {
             IToken symbol;
             String text;
             Object value;
-            LiteralType type;
+            TypeTag type;
 
             switch (context.literalType) {
                 case INT:
                     symbol = context.IntegerLiteral().Symbol;
                     text = symbol.Text;
                     if (Int32.TryParse(text, out var intLit)) {
-                        type = LiteralType.INT;
+                        type = TypeTag.INT;
                         value = intLit;
                     } else if (Int64.TryParse(text, out var longLit)) {
-                        type = LiteralType.LONG;
+                        type = TypeTag.LONG;
                         value = longLit;
                     } else {
                         throw new ArgumentOutOfRangeException("Integer literal too big");
@@ -825,10 +835,10 @@ namespace mj.compiler.parsing
                     symbol = context.FloatingPointLiteral().Symbol;
                     text = symbol.Text;
                     if (Single.TryParse(text, out var floatLit)) {
-                        type = LiteralType.FLOAT;
+                        type = TypeTag.FLOAT;
                         value = floatLit;
                     } else if (Double.TryParse(text, out var doubleLit)) {
-                        type = LiteralType.DOUBLE;
+                        type = TypeTag.DOUBLE;
                         value = doubleLit;
                     } else {
                         throw new ArgumentOutOfRangeException("Floating point literal too big");
@@ -837,7 +847,7 @@ namespace mj.compiler.parsing
                 case BOOLEAN:
                     symbol = context.BooleanLiteral().Symbol;
                     text = symbol.Text;
-                    type = LiteralType.BOOLEAN;
+                    type = TypeTag.BOOLEAN;
                     value = Boolean.Parse(text);
                     break;
                 default:
@@ -848,27 +858,27 @@ namespace mj.compiler.parsing
             int startColumn = symbol.Column;
             int endColumn = startColumn + text.Length;
 
-            return new LiteralExpressionNode(line, startColumn, line, endColumn, type, value);
+            return new LiteralExpression(line, startColumn, line, endColumn, type, value);
         }
 
-        public override AstNode VisitAdditiveExpression(AdditiveExpressionContext context)
+        public override Tree VisitAdditiveExpression(AdditiveExpressionContext context)
         {
             MultiplicativeExpressionContext lower = context.down;
             if (lower != null) {
                 return VisitMultiplicativeExpression(lower);
             }
 
-            ExpressionNode left = (ExpressionNode)VisitAdditiveExpression(context.left);
-            ExpressionNode right = (ExpressionNode)VisitMultiplicativeExpression(context.right);
+            Expression left = (Expression)VisitAdditiveExpression(context.left);
+            Expression right = (Expression)VisitMultiplicativeExpression(context.right);
 
-            Operator op;
+            Tag op;
 
             switch (context.@operator.Type) {
                 case ADD:
-                    op = Operator.ADD;
+                    op = Tag.PLUS;
                     break;
                 case SUB:
-                    op = Operator.SUB;
+                    op = Tag.MINUS;
                     break;
                 default: throw new InvalidOperationException();
             }
@@ -876,27 +886,27 @@ namespace mj.compiler.parsing
             return new BinaryExpressionNode(op, left, right);
         }
 
-        public override AstNode VisitMultiplicativeExpression(MultiplicativeExpressionContext context)
+        public override Tree VisitMultiplicativeExpression(MultiplicativeExpressionContext context)
         {
             UnaryExpressionContext lower = context.down;
             if (lower != null) {
                 return VisitUnaryExpression(lower);
             }
 
-            ExpressionNode left = (ExpressionNode)VisitMultiplicativeExpression(context.left);
-            ExpressionNode right = (ExpressionNode)VisitUnaryExpression(context.right);
+            Expression left = (Expression)VisitMultiplicativeExpression(context.left);
+            Expression right = (Expression)VisitUnaryExpression(context.right);
 
-            Operator op;
+            Tag op;
 
             switch (context.@operator.Type) {
                 case MUL:
-                    op = Operator.MUL;
+                    op = Tag.MUL;
                     break;
                 case DIV:
-                    op = Operator.DIV;
+                    op = Tag.DIV;
                     break;
                 case MOD:
-                    op = Operator.MOD;
+                    op = Tag.MOD;
                     break;
                 default: throw new InvalidOperationException();
             }
@@ -904,16 +914,16 @@ namespace mj.compiler.parsing
             return new BinaryExpressionNode(op, left, right);
         }
 
-        public override AstNode VisitUnaryExpression(UnaryExpressionContext context)
+        public override Tree VisitUnaryExpression(UnaryExpressionContext context)
         {
             UnaryExpressionNotPlusMinusContext lower = context.down;
             if (lower != null) {
                 return VisitUnaryExpressionNotPlusMinus(lower);
             }
 
-            Operator op = context.@operator.Type == ADD ? Operator.ADD : Operator.SUB;
+            Tag op = context.@operator.Type == ADD ? Tag.PLUS : Tag.MINUS;
 
-            ExpressionNode arg = (ExpressionNode)VisitUnaryExpression(context.arg);
+            Expression arg = (Expression)VisitUnaryExpression(context.arg);
 
             return new UnaryExpressionNode(context.Start.Line, context.Start.Column, arg.endLine,
                 arg.endCol, op, arg);
