@@ -45,8 +45,8 @@ namespace mj.compiler.parsing.ast
         public virtual T visitBreak(Break @break, A arg) => visit(@break, arg);
         public virtual T visitIf(If @if, A arg) => visit(@if, arg);
         public virtual T visitContinue(Continue @continue, A arg) => visit(@continue, arg);
-        public virtual T visitWhile(WhileStatement whileStatement, A arg) => visit(whileStatement, arg);
-        public virtual T visitFor(ForLoop forLoop, A arg) => visit(forLoop, arg);
+        public virtual T visitWhileLoop(WhileStatement whileStatement, A arg) => visit(whileStatement, arg);
+        public virtual T visitForLoop(ForLoop forLoop, A arg) => visit(forLoop, arg);
         public virtual T visitExpresionStmt(ExpressionStatement expr, A arg) => visit(expr, arg);
         public virtual T visitDo(DoStatement doStatement, A arg) => visit(doStatement, arg);
         public virtual T visitPrimitiveType(PrimitiveTypeNode prim, A arg) => visit(prim, arg);

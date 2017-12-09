@@ -25,5 +25,24 @@
     <data name="error.varParamNameConflict"><value>Local variable {0} has same name as a parameter</value></data>
     <data name="error.mainMethodNotDefined"><value>The main method is not defined</value></data>
     <data name="error.mainMethodSig"><value>Main method must accept no parameters and return int</value></data>
+    <data name="error.ifConditonType"><value>Condition expression in an "if" statement must return boolean</value></data>
+    <data name="error.forConditonType"><value>Condition expression in a "for" statement must return boolean</value></data>
+    <data name="error.whileConditonType"><value>Condition expression in a "while" statement must return boolean</value></data>
+    <data name="error.doWhileConditonType"><value>Condition expression in a "do while" statement must return boolean</value></data>
+    <data name="error.switchSelectorType"><value>Switch expression must be of integral type</value></data>
+    <data name="error.methodNotDefined"><value>Method "{0}" is not defined</value></data>
+    <data name="error.wrongNumberOfArgs"><value>Method "{0}" requires {1} arguments, but {2} was given</value></data>
+    <data name="error.varInitTypeMismatch"><value>Initializer of variable "{0}" returns "{1}" while "{2} is required"</value></data>
+    <data name="error.paramTypeMismatch"><value>Argument type mismatch in a call to method "{0}"</value></data>
+    <data name="error.caseExpressionType"><value>Case expression has to be a constant of same type as switch expression</value></data>
+    <data name="error.duplicateCaseLabels"><value>Duplicate case labels</value></data>
+    <data name="error.undefinedVariable"><value>Variable "{0}" is undefined at this point</value></data>
+    <data name="error.returnVoidMethod"><value>You can't return a value from a void method</value></data>
+    <data name="error.returnNonVoidMethod"><value>You must return a value from a non-void method</value></data>
+    <data name="error.returnTypeMismatch"><value>Return type mismatch</value></data>
+    <data name="error.conditionalBoolean"><value>Condition in a conditional expression must return boolean</value></data>
+    <data name="error.conditionalMismatch"><value>Type mismatch of branches in a conditional expression</value></data>
+    <data name="error.continueNotInLoop"><value>Continue statement must be inside a loop</value></data>
+    <data name="error.breakNotInLoop"><value>Break statement must be inside a loop</value></data>
     
 </root>

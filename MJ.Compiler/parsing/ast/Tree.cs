@@ -33,6 +33,8 @@ namespace mj.compiler.parsing.ast
             this.endCol = endCol;
         }
 
+        public abstract Tag Tag { get; }
+
         public abstract T accept<T>(AstVisitor<T> v);
         public abstract T accept<T, A>(AstVisitor<T, A> v, A arg);
     }
@@ -49,6 +51,8 @@ namespace mj.compiler.parsing.ast
             this.methods = methods;
         }
 
+        public override Tag Tag => Tag.COMPILATION_UNIT;
+        
         public override T accept<T>(AstVisitor<T> v) => v.visitCompilationUnit(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitCompilationUnit(this, arg);
     }
@@ -65,6 +69,7 @@ namespace mj.compiler.parsing.ast
     {
         [JsonConverter(typeof(StringEnumConverter))]
         public Tag opcode;
+
         public Symbol.OperatorSymbol symbol;
 
         protected OperatorExpression(int beginLine, int beginCol, int endLine, int endCol, Tag opcode)
@@ -72,6 +77,8 @@ namespace mj.compiler.parsing.ast
         {
             this.opcode = opcode;
         }
+
+        public override Tag Tag => opcode;
     }
 
     public sealed class BinaryExpressionNode : OperatorExpression
@@ -119,6 +126,8 @@ namespace mj.compiler.parsing.ast
             this.ifFalse = ifFalse;
         }
 
+        public override Tag Tag => Tag.COND_EXPR;
+
         public override T accept<T>(AstVisitor<T> v) => v.visitConditional(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitConditional(this, arg);
     }
@@ -137,6 +146,8 @@ namespace mj.compiler.parsing.ast
             this.type = typeTag;
             this.value = value;
         }
+
+        public override Tag Tag => Tag.LITERAL;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitLiteral(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitLiteral(this, arg);
@@ -157,6 +168,8 @@ namespace mj.compiler.parsing.ast
             this.type = type;
             this.init = init;
         }
+        
+        public override Tag Tag => Tag.VAR_DEF;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitVarDef(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitVarDef(this, arg);
@@ -167,18 +180,22 @@ namespace mj.compiler.parsing.ast
         public String name;
         public TypeTree returnType;
         public IList<VariableDeclaration> parameters;
+        public bool isPrivate;
         public Block body;
         public Symbol.MethodSymbol symbol;
 
-        public MethodDef(int beginLine, int beginCol, int endLine, int endCol, string name,
-                         TypeTree returnType, IList<VariableDeclaration> parameters, Block body)
+        public MethodDef(int beginLine, int beginCol, int endLine, int endCol, string name, TypeTree returnType,
+                         IList<VariableDeclaration> parameters, Block body, bool isPrivate)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
             this.returnType = returnType;
             this.parameters = parameters;
             this.body = body;
+            this.isPrivate = isPrivate;
         }
+        
+        public override Tag Tag => Tag.METHOD_DEF;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitMethodDef(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitMethodDef(this, arg);
@@ -200,6 +217,8 @@ namespace mj.compiler.parsing.ast
         {
             this.type = type;
         }
+        
+        public override Tag Tag => Tag.PRIM_TYPE;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitPrimitiveType(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitPrimitiveType(this, arg);
@@ -208,12 +227,15 @@ namespace mj.compiler.parsing.ast
     public sealed class Identifier : Expression
     {
         public String name;
+        public Symbol symbol;
 
         public Identifier(int beginLine, int beginCol, int endLine, int endCol, string name)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
         }
+        
+        public override Tag Tag => Tag.IDENT;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitIdent(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitIdent(this, arg);
@@ -231,6 +253,8 @@ namespace mj.compiler.parsing.ast
             this.args = args;
         }
 
+        public override Tag Tag => Tag.INVOKE;
+        
         public override T accept<T>(AstVisitor<T> v) => v.visitMethodInvoke(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitMethodInvoke(this, arg);
     }
@@ -250,6 +274,8 @@ namespace mj.compiler.parsing.ast
         {
             this.value = value;
         }
+        
+        public override Tag Tag => Tag.RETURN;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitReturn(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitReturn(this, arg);
@@ -264,6 +290,8 @@ namespace mj.compiler.parsing.ast
         {
             this.statements = statements;
         }
+        
+        public override Tag Tag => Tag.BLOCK;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitBlock(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitBlock(this, arg);
@@ -274,6 +302,8 @@ namespace mj.compiler.parsing.ast
         public Break(int beginLine, int beginCol, int endLine, int endCol)
             : base(beginLine, beginCol, endLine, endCol) { }
 
+        public override Tag Tag => Tag.BREAK;
+        
         public override T accept<T>(AstVisitor<T> v) => v.visitBreak(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitBreak(this, arg);
     }
@@ -283,6 +313,8 @@ namespace mj.compiler.parsing.ast
         public Continue(int beginLine, int beginCol, int endLine, int endCol)
             : base(beginLine, beginCol, endLine, endCol) { }
 
+        public override Tag Tag => Tag.CONTINUE;
+        
         public override T accept<T>(AstVisitor<T> v) => v.visitContinue(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitContinue(this, arg);
     }
@@ -302,6 +334,8 @@ namespace mj.compiler.parsing.ast
             this.elsePart = elsePart;
         }
 
+        public override Tag Tag => Tag.IF;
+        
         public override T accept<T>(AstVisitor<T> v) => v.visitIf(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitIf(this, arg);
     }
@@ -319,8 +353,10 @@ namespace mj.compiler.parsing.ast
             this.body = body;
         }
 
+        public override Tag Tag => Tag.WHILE;
+        
         public override T accept<T>(AstVisitor<T> v) => v.visitWhile(this);
-        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitWhile(this, arg);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitWhileLoop(this, arg);
     }
 
     public sealed class DoStatement : WhileStatement
@@ -329,6 +365,8 @@ namespace mj.compiler.parsing.ast
                            StatementNode body)
             : base(beginLine, beginCol, endLine, endCol, condition, body) { }
 
+        public override Tag Tag => Tag.DO;
+        
         public override T accept<T>(AstVisitor<T> v) => v.visitDo(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitDo(this, arg);
     }
@@ -350,8 +388,10 @@ namespace mj.compiler.parsing.ast
             this.body = body;
         }
 
+        public override Tag Tag => Tag.FOR;
+        
         public override T accept<T>(AstVisitor<T> v) => v.visitFor(this);
-        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitFor(this, arg);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitForLoop(this, arg);
     }
 
     public sealed class Switch : StatementNode
@@ -366,6 +406,8 @@ namespace mj.compiler.parsing.ast
             this.cases = cases;
         }
 
+        public override Tag Tag => Tag.SWITCH;
+        
         public override T accept<T>(AstVisitor<T> v) => v.visitSwitch(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitSwitch(this, arg);
     }
@@ -382,6 +424,8 @@ namespace mj.compiler.parsing.ast
             Statements = statements;
         }
 
+        public override Tag Tag => Tag.CASE;
+        
         public override T accept<T>(AstVisitor<T> v) => v.visitCase(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitCase(this, arg);
     }
@@ -395,13 +439,39 @@ namespace mj.compiler.parsing.ast
         {
             this.expression = expression;
         }
+        
+        public override Tag Tag => Tag.EXEC;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitExpresionStmt(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitExpresionStmt(this, arg);
     }
 
+    [Flags]
     public enum Tag
     {
+        IF,
+        FOR,
+        WHILE,
+        DO,
+        
+        LOOP = FOR | WHILE | DO,
+        
+        BLOCK,
+        INVOKE,
+        METHOD_DEF,
+        VAR_DEF,
+        COMPILATION_UNIT,
+        EXEC,
+        SWITCH,
+        CASE,
+        BREAK,
+        CONTINUE,
+        COND_EXPR,
+        LITERAL,
+        PRIM_TYPE,
+        IDENT,
+        RETURN,
+
         PLUS,
         MINUS,
         MUL,
@@ -437,5 +507,13 @@ namespace mj.compiler.parsing.ast
         MOD_ASSIGN,
         LSHIFT_ASSIGN,
         RSHIFT_ASSIGN
+    }
+    
+    public static class TagExtensions
+    {
+        public static bool hasAny(this Tag tag, Tag test)
+        {
+            return (tag & test) != 0;
+        }
     }
 }

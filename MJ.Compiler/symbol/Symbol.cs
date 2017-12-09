@@ -10,6 +10,7 @@ namespace mj.compiler.symbol
     {
         [JsonConverter(typeof(StringEnumConverter))]
         public Kind kind;
+
         public String name;
 
         /// <summary>
@@ -84,6 +85,14 @@ namespace mj.compiler.symbol
             ERROR = OP << 1,
 
             VAR = PARAM | LOCAL,
+        }
+    }
+
+    public static class SymbolKindExtensions
+    {
+        public static bool hasAny(this Symbol.Kind kind, Symbol.Kind test)
+        {
+            return (kind & test) != 0;
         }
     }
 }

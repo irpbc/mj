@@ -16,12 +16,12 @@ namespace mj.compiler.symbol
 
         public readonly Symbol.TopLevelSymbol topLevelSymbol;
 
-        public readonly Type intType;
-        public readonly Type longType;
-        public readonly Type floatType;
-        public readonly Type doubleType;
-        public readonly Type booleanType;
-        public readonly Type voidType;
+        public readonly PrimitiveType intType;
+        public readonly PrimitiveType longType;
+        public readonly PrimitiveType floatType;
+        public readonly PrimitiveType doubleType;
+        public readonly PrimitiveType booleanType;
+        public readonly PrimitiveType voidType;
 
         public readonly Type errorType;
         public readonly Symbol errorSymbol;
@@ -62,7 +62,7 @@ namespace mj.compiler.symbol
             return type;
         }
 
-        public Type typeForTag(TypeTag tag)
+        public PrimitiveType typeForTag(TypeTag tag)
         {
             switch (tag) {
                 case TypeTag.INT:

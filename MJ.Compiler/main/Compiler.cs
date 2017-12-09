@@ -57,14 +57,14 @@ namespace mj.compiler.main
             return results;
         }
 
-        private IEnumerable<CompilationUnit> analyseDecls(IEnumerable<CompilationUnit> trees)
+        private IList<CompilationUnit> analyseDecls(IList<CompilationUnit> trees)
         {
             return stopIfError(declarationAnalysis.main(trees));
         }
 
-        private IEnumerable<CompilationUnit> analyseCode(IEnumerable<CompilationUnit> trees)
+        private IList<CompilationUnit> analyseCode(IList<CompilationUnit> trees)
         {
-            IEnumerable<CompilationUnit> compilationUnits = stopIfError(codeAnalysis.main(trees));
+            IList<CompilationUnit> compilationUnits = stopIfError(codeAnalysis.main(trees));
             if (options.DumpTree) {
                 String dump = JsonConvert.SerializeObject(compilationUnits, Formatting.Indented);
                 Console.WriteLine(dump);
@@ -77,7 +77,7 @@ namespace mj.compiler.main
             codeGenerator.main(trees);
         }
 
-        private IEnumerable<CompilationUnit> stopIfError(IEnumerable<CompilationUnit> trees)
+        private IList<CompilationUnit> stopIfError(IList<CompilationUnit> trees)
         {
             if (log.NumErrors > 0) {
                 return CollectionUtils.emptyList<CompilationUnit>();

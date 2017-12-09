@@ -30,9 +30,9 @@ compilationUnit
 	:   methods+=methodDeclaration+	EOF
 	;
 
-
-methodDeclaration
-	:	result 
+methodDeclaration returns [ bool isPrivate ]
+	:	'private'? { $methodDeclaration::isPrivate=true; } 
+	    result 
 	    name=Identifier '(' ( params+=formalParameter (',' params+=formalParameter)* )? ')'
 	    methodBody
 	;

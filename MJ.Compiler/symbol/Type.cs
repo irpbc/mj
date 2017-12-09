@@ -48,6 +48,15 @@ namespace mj.compiler.symbol
 
         public virtual IList<Type> ParameterTypes => CollectionUtils.emptyList<Type>();
         public virtual Type ReturnType => null;
+
+        [JsonIgnore]
+        public virtual Type BaseType => this;
+
+        /// <summary>
+        /// Subclasses must override to provide a string representation.
+        /// </summary>
+        /// <returns></returns>
+        public abstract override string ToString();
     }
 
     /// <summary>
@@ -99,7 +108,7 @@ namespace mj.compiler.symbol
             }
 
             public override Object ConstValue { get; }
-            public Type BaseType => definer.type;
+            public override Type BaseType => definer.type;
         }
 
         /// The constant value of this type, converted to String
@@ -112,6 +121,11 @@ namespace mj.compiler.symbol
         /// Is this a constant type whose value is true?
         public override bool IsTrue => tag == TypeTag.BOOLEAN &&
                                        ConstValue != null && (int)ConstValue != 0;
+
+        public override string ToString()
+        {
+            return tag.asString();
+        }
     }
 
     /// <summary>
@@ -132,12 +146,19 @@ namespace mj.compiler.symbol
         public override TypeTag Tag => TypeTag.METHOD;
         public override IList<Type> ParameterTypes => argTypes;
         public override Type ReturnType => resType;
+
+        public override string ToString()
+        {
+            return resType + "(" + String.Join(", ", argTypes) + ")";
+        }
     }
 
     public sealed class NoType : Type
     {
         public NoType() : base(null) { }
         public override TypeTag Tag => TypeTag.NONE;
+
+        public override string ToString() => "";
     }
 
     public sealed class ErrorType : Type
@@ -146,5 +167,7 @@ namespace mj.compiler.symbol
 
         public override TypeTag Tag => TypeTag.ERROR;
         public override bool IsError => true;
+
+        public override string ToString() => "<error>";
     }
 }

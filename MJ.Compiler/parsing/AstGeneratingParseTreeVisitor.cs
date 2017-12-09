@@ -80,6 +80,7 @@ namespace mj.compiler.parsing
             String name = context.name.Text;
             ResultContext resultContext = context.result();
             IList<FormalParameterContext> parameterContexts = context._params;
+            bool isPrivate = context.isPrivate;
 
             TypeContext resType = resultContext.type();
             TypeTree type;
@@ -101,7 +102,7 @@ namespace mj.compiler.parsing
             Block block = (Block)VisitBlock(context.methodBody().block());
 
             return new MethodDef(type.beginLine, type.beginCol, block.endLine, block.endCol, name, type, parameters,
-                block);
+                block, isPrivate);
         }
 
         public override Tree VisitResult(ResultContext context) => throw new InvalidOperationException();
@@ -316,14 +317,13 @@ namespace mj.compiler.parsing
                 int last = labels.Count - 1;
                 // for each label except last
                 foreach (SwitchLabelContext label in labels) {
-                    Expression caseExpression = (Expression)VisitLiteral(label.constantExpression().literal());
+                    Expression caseExpression = getCaseExpression(label);
                     cases[iCases++] = new Case(label.start.Line, label.start.Column, label.stop.Line,
                         label.stop.Column, caseExpression,
                         CollectionUtils.emptyList<StatementNode>());
                 }
                 SwitchLabelContext lastLabel = labels[last];
-                Expression lastCaseExpression =
-                    (Expression)VisitLiteral(lastLabel.constantExpression().literal());
+                Expression lastCaseExpression = getCaseExpression(lastLabel);
                 IList<StatementNode> statements = convertBlockStatementList(caseGroup.stmts);
 
                 cases[iCases++] = new Case(lastLabel.start.Line, lastLabel.start.Column, caseGroup.stop.Line,
@@ -331,7 +331,7 @@ namespace mj.compiler.parsing
             }
 
             foreach (SwitchLabelContext label in bottomLabels) {
-                Expression caseExpression = (Expression)VisitLiteral(label.constantExpression().literal());
+                Expression caseExpression = getCaseExpression(label);
                 cases[iCases++] = new Case(label.start.Line, label.start.Column, label.stop.Line,
                     label.stop.Column, caseExpression,
                     CollectionUtils.emptyList<StatementNode>());
@@ -339,6 +339,12 @@ namespace mj.compiler.parsing
 
             return new Switch(context.start.Line, context.start.Column, context.stop.Line,
                 context.stop.Column, expression, cases);
+        }
+
+        private Expression getCaseExpression(SwitchLabelContext label)
+        {
+            ConstantExpressionContext constExp = label.constantExpression();
+            return constExp == null ? null : (Expression)VisitLiteral(constExp.literal());
         }
 
         private IList<StatementNode> convertBlockStatementList(BlockStatementListContext blockStatementListContext)

@@ -46,7 +46,7 @@ namespace mj.compiler.symbol
             log = Log.instance(ctx);
         }
 
-        public IEnumerable<CompilationUnit> main(IEnumerable<CompilationUnit> trees)
+        public IList<CompilationUnit> main(IList<CompilationUnit> trees)
         {
             WriteableScope topScope = symtab.topLevelSymbol.topScope;
             // analyze all compilation units -> go to visitCompilationUnit
@@ -120,7 +120,7 @@ namespace mj.compiler.symbol
 
             met.parameters.Add(varSym);
 
-            if (check.checkUnique(varSym, scope)) {
+            if (check.checkUniqueParam(varSym, scope)) {
                 scope.enter(varSym);
             }
 

@@ -1,10 +1,12 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 
 using mj.compiler.main;
 using mj.compiler.utils;
 using mj.compiler.resources;
 
-using static mj.compiler.symbol.Scope.LookupKind;
+using static mj.compiler.symbol.Scope;
+using static mj.compiler.symbol.Symbol;
 
 namespace mj.compiler.symbol
 {
@@ -26,32 +28,27 @@ namespace mj.compiler.symbol
             symtab = Symtab.instance(ctx);
         }
 
-        public bool checkUnique(Symbol.MethodSymbol sym, Scope scope)
+        public bool checkUnique(MethodSymbol sym, Scope scope)
         {
-            bool contains = scope.getSymbolsByName(sym.name, NON_RECURSIVE).Any();
+            bool contains = scope.getSymbolsByName(sym.name, LookupKind.NON_RECURSIVE).Any();
             if (contains) {
                 log.error(messages.error_duplicateMethodName, sym.name);
             }
             return !contains;
         }
 
-        public bool checkUnique(Symbol.VarSymbol param, Scope scope)
+        public bool checkUniqueParam(VarSymbol param, Scope scope)
         {
-            Scope.LookupKind lookupKind = NON_RECURSIVE;
-            bool contains = scope.getSymbolsByName(param.name, lookupKind).Any();
-            if (contains) {
-                if (param.kind == Symbol.Kind.PARAM) {
-                    log.error(messages.error_duplicateParamName, param.name, scope.owner.name);
-                } else {
-                    log.error(messages.error_duplicateVar, param.name);
-                }
+            if (scope.getSymbolsByName(param.name, LookupKind.NON_RECURSIVE).Any()) {
+                log.error(messages.error_duplicateParamName, param.name, scope.owner.name);
+                return false;
             }
-            return !contains;
+            return true;
         }
 
         public bool checkMainMethod(Symbol main)
         {
-            if (main == null || main.kind != Symbol.Kind.MTH) {
+            if (main == null || main.kind != Kind.MTH) {
                 log.error(messages.error_mainMethodNotDefined);
                 return false;
             }
@@ -60,6 +57,15 @@ namespace mj.compiler.symbol
                 return false;
             }
             return false;
+        }
+
+        public bool checkUniqueLocalVar(VarSymbol varSymbol, WriteableScope scope)
+        {
+            if (scope.getSymbolsByName(varSymbol.name, s => s.kind.hasAny(Kind.VAR)).Any()) {
+                log.error(messages.error_duplicateVar);
+                return false;
+            }
+            return true;
         }
     }
 }

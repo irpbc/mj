@@ -88,5 +88,17 @@ namespace mj.compiler.utils
                 public void Dispose() { }
             }
         }
+
+        public static IList<O> convert<I, O>(this IList<I> input, Func<I, O> func)
+        {
+            if (input.Count == 0) {
+                return emptyList<O>();
+            }
+            List<O> output = new List<O>(input.Count);
+            for (var i = 0; i < input.Count; i++) {
+                output[i] = func(input[i]);
+            }
+            return output;
+        }
     }
 }
