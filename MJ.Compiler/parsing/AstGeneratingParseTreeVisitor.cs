@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 
 using Antlr4.Runtime;
+using Antlr4.Runtime.Atn;
 using Antlr4.Runtime.Tree;
 
-using mj.compiler.parsing.ast;
 using mj.compiler.symbol;
+using mj.compiler.tree;
 using mj.compiler.utils;
 
 using static mj.compiler.parsing.MJParser;
@@ -409,7 +410,7 @@ namespace mj.compiler.parsing
             Expression condition = context.condition == null
                 ? null
                 : (Expression)VisitExpression(context.condition);
-            Expression[] update = GetForUpdate(context.update);
+            IList<Expression> update = GetForUpdate(context.update);
             StatementNode body = (StatementNode)VisitStatement(context.statement());
 
             return new ForLoop(context.Start.Line, context.Start.Column, init, condition, update, body);
@@ -417,6 +418,10 @@ namespace mj.compiler.parsing
 
         private IList<StatementNode> GetForInit(ForInitContext forInit)
         {
+            if (forInit == null) {
+                return CollectionUtils.emptyList<StatementNode>();
+            }
+            
             StatementExpressionListContext statementExpressionList = forInit.statementExpressionList();
             if (statementExpressionList != null) {
                 IList<StatementExpressionContext> statementExpressionContexts = statementExpressionList._statements;
@@ -435,8 +440,11 @@ namespace mj.compiler.parsing
             return null;
         }
 
-        private Expression[] GetForUpdate(ForUpdateContext forUpdate)
+        private IList<Expression> GetForUpdate(ForUpdateContext forUpdate)
         {
+            if (forUpdate == null) {
+                return CollectionUtils.emptyList<Expression>();
+            }
             StatementExpressionListContext statementExpressionList = forUpdate.statementExpressionList();
             IList<StatementExpressionContext> statementExpressionContexts = statementExpressionList._statements;
             Expression[] expressions = new Expression[statementExpressionContexts.Count];
@@ -452,7 +460,7 @@ namespace mj.compiler.parsing
             Expression condition = context.condition == null
                 ? null
                 : (Expression)VisitExpression(context.condition);
-            Expression[] update = GetForUpdate(context.update);
+            IList<Expression> update = GetForUpdate(context.update);
             StatementNode body = (StatementNode)VisitStatementNoShortIf(context.statementNoShortIf());
 
             return new ForLoop(context.Start.Line, context.Start.Column, init, condition, update, body);
@@ -496,7 +504,10 @@ namespace mj.compiler.parsing
         public override Tree VisitMethodInvocation(MethodInvocationContext context)
         {
             IToken methodName = context.neme;
-            IList<ExpressionContext> parsedArgs = context.argumentList()._args;
+            ArgumentListContext argumentList = context.argumentList();
+            IList<ExpressionContext> parsedArgs = argumentList != null
+                ? argumentList._args
+                : CollectionUtils.emptyList<ExpressionContext>();
 
             Expression[] args = new Expression[parsedArgs.Count];
 
@@ -524,34 +535,34 @@ namespace mj.compiler.parsing
                     op = Tag.ASSIGN;
                     break;
                 case ADD_ASSIGN:
-                    op = Tag.ADD_ASSIGN;
+                    op = Tag.PLUS_ASG;
                     break;
                 case SUB_ASSIGN:
-                    op = Tag.SUB_ASSIGN;
+                    op = Tag.MINUS_ASG;
                     break;
                 case MUL_ASSIGN:
-                    op = Tag.MUL_ASSIGN;
+                    op = Tag.MUL_ASG;
                     break;
                 case DIV_ASSIGN:
-                    op = Tag.DIV_ASSIGN;
+                    op = Tag.DIV_ASG;
                     break;
                 case AND_ASSIGN:
-                    op = Tag.AND_ASSIGN;
+                    op = Tag.BITAND_ASG;
                     break;
                 case OR_ASSIGN:
-                    op = Tag.OR_ASSIGN;
+                    op = Tag.BITOR_ASG;
                     break;
                 case XOR_ASSIGN:
-                    op = Tag.XOR_ASSIGN;
+                    op = Tag.BITXOR_ASG;
                     break;
                 case MOD_ASSIGN:
-                    op = Tag.MOD_ASSIGN;
+                    op = Tag.MOD_ASG;
                     break;
                 case LSHIFT_ASSIGN:
-                    op = Tag.LSHIFT_ASSIGN;
+                    op = Tag.SHL_ASG;
                     break;
                 case RSHIFT_ASSIGN:
-                    op = Tag.RSHIFT_ASSIGN;
+                    op = Tag.SHR_ASG;
                     break;
                 default:
                     throw new InvalidOperationException();
@@ -630,7 +641,7 @@ namespace mj.compiler.parsing
             Expression left = (Expression)VisitExclusiveOrExpression(context.left);
             Expression right = (Expression)VisitAndExpression(context.right);
 
-            return new BinaryExpressionNode(Tag.XOR, left, right);
+            return new BinaryExpressionNode(Tag.BITXOR, left, right);
         }
 
         public override Tree VisitAndExpression(AndExpressionContext context)
@@ -715,10 +726,10 @@ namespace mj.compiler.parsing
             Tag op;
             switch (context.@operator) {
                 case LSHIFT:
-                    op = Tag.LSHIFT;
+                    op = Tag.SHL;
                     break;
                 case RSHIFT:
-                    op = Tag.RSHIFT;
+                    op = Tag.SHR;
                     break;
                 default:
                     throw new InvalidOperationException();
@@ -729,7 +740,7 @@ namespace mj.compiler.parsing
 
         public override Tree VisitPreIncDecExpression(PreIncDecExpressionContext context)
         {
-            Tag op = context.@operator.Type == INC ? Tag.INC : Tag.DEC;
+            Tag op = context.@operator.Type == INC ? Tag.PRE_INC : Tag.PRE_DEC;
 
             Expression arg = (Expression)VisitUnaryExpression(context.arg);
             return new UnaryExpressionNode(context.start.Line, context.start.Column, arg.endLine,
@@ -743,7 +754,7 @@ namespace mj.compiler.parsing
                 return VisitPostfixExpression(lower);
             }
 
-            Tag op = context.@operator.Type == TILDE ? Tag.TILDE : Tag.BANG;
+            Tag op = context.@operator.Type == TILDE ? Tag.COMPL : Tag.NOT;
             Expression arg = (Expression)VisitUnaryExpression(context.arg);
             return new UnaryExpressionNode(context.start.Line, context.start.Column, arg.endLine,
                 arg.endCol, op, arg);
@@ -927,7 +938,20 @@ namespace mj.compiler.parsing
                 return VisitUnaryExpressionNotPlusMinus(lower);
             }
 
-            Tag op = context.@operator.Type == ADD ? Tag.PLUS : Tag.MINUS;
+            Tag op;
+
+            switch (context.@operator.Type) {
+                case INC:
+                    op = Tag.PRE_INC;
+                    break;
+                case DEC:
+                    op = Tag.PRE_DEC;
+                    break;
+                case ADD:
+                    op = Tag.NEG;
+                    break;
+                default: throw new InvalidOperationException();
+            }
 
             Expression arg = (Expression)VisitUnaryExpression(context.arg);
 

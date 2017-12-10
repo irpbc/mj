@@ -1,14 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using mj.compiler.utils;
+
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
 namespace mj.compiler.symbol
 {
+    [JsonConverter(typeof(ToStringConverter))]
     public abstract class Symbol
     {
-        [JsonConverter(typeof(StringEnumConverter))]
         public Kind kind;
 
         public String name;
@@ -32,11 +34,15 @@ namespace mj.compiler.symbol
             this.type = type;
         }
 
+        public abstract override string ToString();
+
         public class TopLevelSymbol : Symbol
         {
             public Scope.WriteableScope topScope;
 
             public TopLevelSymbol() : base(Kind.TOP, null, null, null) { }
+
+            public override string ToString() => "<top level>";
         }
 
         public class MethodSymbol : Symbol
@@ -45,11 +51,15 @@ namespace mj.compiler.symbol
             public Scope.WriteableScope scope;
 
             public MethodSymbol(string name, Symbol owner, Type type) : base(Kind.MTH, name, owner, type) { }
+
+            public override string ToString() => name + ": " + type;
         }
 
         public class VarSymbol : Symbol
         {
             public VarSymbol(Kind kind, string name, Type type, Symbol owner) : base(kind, name, owner, type) { }
+
+            public override string ToString() => name + ": " + type;
         }
 
         public abstract class TypeSymbol : Symbol
@@ -60,20 +70,25 @@ namespace mj.compiler.symbol
         public class PrimitiveTypeSymbol : TypeSymbol
         {
             public PrimitiveTypeSymbol(string name, Symbol owner) : base(Kind.PRIMITIVE, name, owner, null) { }
+
+            public override string ToString() => name;
         }
 
-        public class OperatorSymbol : Symbol
+        public class OperatorSymbol : MethodSymbol
         {
-            public OperatorSymbol(string name, Symbol owner, Type type) : base(Kind.OP, name, owner, type) { }
+            public OperatorSymbol(string name, Symbol owner, Type type) : base(name, owner, type) { }
         }
 
         public sealed class ErrorSymbol : TypeSymbol
         {
             public ErrorSymbol(Symbol owner, Type type)
                 : base(Kind.ERROR, "", owner, type) { }
+
+            public override string ToString() => "<error>";
         }
 
         [Flags]
+        [JsonConverter(typeof(StringEnumConverter))]
         public enum Kind
         {
             TOP = 1,

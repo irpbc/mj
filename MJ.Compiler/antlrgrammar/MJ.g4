@@ -297,7 +297,6 @@ multiplicativeExpression
 unaryExpression
 	:	operator='++' arg=unaryExpression
 	|	operator='--' arg=unaryExpression
-	|	operator='+' arg=unaryExpression
 	|	operator='-' arg=unaryExpression
 	|	down=unaryExpressionNotPlusMinus
 	;
@@ -652,10 +651,10 @@ IdentifierLetter
 	:	[a-zA-Z$_] // these are the "java letters" below 0x7F
 	|	// covers all characters above 0x7F which are not a surrogate
 		~[\u0000-\u007F\uD800-\uDBFF]
-		{Utils.IsIdentifierStart(_input.La(-1))}?
-	|	// covers UTF-16 surrogate pairs encodings for U+10000 to U+10FFFF
-		[\uD800-\uDBFF] [\uDC00-\uDFFF]
-		{Utils.IsIdentifierStart(Char.ConvertToUtf32((char)_input.La(-2), (char)_input.La(-1)))}?
+		{Utils.IsIdentifierStart((char)_input.La(-1))}?
+	//|	// covers UTF-16 surrogate pairs encodings for U+10000 to U+10FFFF
+	//	[\uD800-\uDBFF] [\uDC00-\uDFFF]
+	//	{Utils.IsIdentifierStart(Char.ConvertToUtf32((char)_input.La(-2), (char)_input.La(-1)))}?
 	;
 
 fragment
@@ -663,10 +662,10 @@ IdentifierLetterOrDigit
 	:	[a-zA-Z0-9$_] // these are the "java letters or digits" below 0x7F
 	|	// covers all characters above 0x7F which are not a surrogate
 		~[\u0000-\u007F\uD800-\uDBFF]
-		{Utils.IsIdentifierPart(_input.La(-1))}?
-	|	// covers UTF-16 surrogate pairs encodings for U+10000 to U+10FFFF
-		[\uD800-\uDBFF] [\uDC00-\uDFFF]
-		{Utils.IsIdentifierPart(Char.ConvertToUtf32((char)_input.La(-2), (char)_input.La(-1)))}?
+		{Utils.IsIdentifierPart((char)_input.La(-1))}?
+	//|	// covers UTF-16 surrogate pairs encodings for U+10000 to U+10FFFF
+	//	[\uD800-\uDBFF] [\uDC00-\uDFFF]
+	//	{Utils.IsIdentifierPart(Char.ConvertToUtf32((char)_input.La(-2), (char)_input.La(-1)))}?
 	;
 
 

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace mj.compiler.parsing.ast
+namespace mj.compiler.tree
 {
     public abstract class AstVisitor<T>
     {
@@ -9,6 +9,8 @@ namespace mj.compiler.parsing.ast
         public virtual T visitVarDef(VariableDeclaration varDef) => visit(varDef);
         public virtual T visitBinary(BinaryExpressionNode expr) => visit(expr);
         public virtual T visitUnary(UnaryExpressionNode expr) => visit(expr);
+        public virtual T visitAssign(AssignNode expr) => visit(expr);
+        public virtual T visitCompoundAssign(CompoundAssignNode expr) => visit(expr);
         public virtual T visitLiteral(LiteralExpression literal) => visit(literal);
         public virtual T visitIdent(Identifier ident) => visit(ident);
         public virtual T visitMethodInvoke(MethodInvocation methodInvocation) => visit(methodInvocation);
@@ -37,6 +39,8 @@ namespace mj.compiler.parsing.ast
         public virtual T visitBlock(Block block, A arg) => visit(block, arg);
         public virtual T visitBinary(BinaryExpressionNode expr, A arg) => visit(expr, arg);
         public virtual T visitUnary(UnaryExpressionNode expr, A arg) => visit(expr, arg);
+        public virtual T visitAssign(AssignNode expr, A arg) => visit(expr, arg);
+        public virtual T visitCompoundAssign(CompoundAssignNode expr, A arg) => visit(expr, arg);
         public virtual T visitLiteral(LiteralExpression literal, A arg) => visit(literal, arg);
         public virtual T visitIdent(Identifier ident, A arg) => visit(ident, arg);
         public virtual T visitMethodInvoke(MethodInvocation methodInvocation, A arg) => visit(methodInvocation, arg);

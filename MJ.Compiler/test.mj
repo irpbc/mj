@@ -10,5 +10,14 @@ int fib(int n) {
 
 int main() {
     float a = 5.87;
+    
+    while (true) {
+        break;
+    }
+    
+    float someInt = a;
+    
+    int đšđš;
+    
     return fib(10);
 }

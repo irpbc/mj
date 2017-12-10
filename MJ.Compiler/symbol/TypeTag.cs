@@ -1,13 +1,21 @@
 ﻿using System;
 
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+
 namespace mj.compiler.symbol
 {
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum TypeTag
     {
+        // Order of numeric enum constants coresponds to assignability. 
+        // Eg. FLOAT is more assignable than INT, becase INT and LONG can
+        // be assigned to FLOAT (but not DOUBLE).
         INT,
         LONG,
         FLOAT,
         DOUBLE,
+        
         BOOLEAN,
         VOID,
         METHOD,
@@ -17,6 +25,16 @@ namespace mj.compiler.symbol
 
     public static class TypeTagExtensions
     {
+        public static bool isNumeric(this TypeTag typeTag)
+        {
+            return typeTag >= TypeTag.INT && typeTag <= TypeTag.DOUBLE;
+        }
+        
+        public static bool isNumericAssignableFrom(this TypeTag typeTag, TypeTag other)
+        {
+            return typeTag >= other;
+        }
+        
         public static String asString(this TypeTag typeTag)
         {
             switch (typeTag) {

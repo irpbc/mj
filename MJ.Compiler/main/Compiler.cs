@@ -4,8 +4,8 @@ using System.Linq;
 
 using mj.compiler.codegen;
 using mj.compiler.parsing;
-using mj.compiler.parsing.ast;
 using mj.compiler.symbol;
+using mj.compiler.tree;
 using mj.compiler.utils;
 
 using Newtonsoft.Json;

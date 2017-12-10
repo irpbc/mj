@@ -27,10 +27,13 @@ namespace mj.compiler.symbol
         public readonly Symbol errorSymbol;
         
         public readonly Symbol.TypeSymbol noSymbol;
+        public Symbol.OperatorSymbol noOpSymbol;
 
         private sealed class NoSymbol : Symbol.TypeSymbol
         {
             public NoSymbol(Symbol owner, Type type) : base(Kind.MTH, "", owner, type) { }
+
+            public override string ToString() => "<no symbol>";
         }
 
         private Symtab(Context context)
@@ -49,9 +52,10 @@ namespace mj.compiler.symbol
             
             errorSymbol = new Symbol.ErrorSymbol(topLevelSymbol, null);
             errorType = new ErrorType(errorSymbol);
+            errorSymbol.type = errorType;
             
             noSymbol = new NoSymbol(topLevelSymbol, Type.NO_TYPE);
-            
+            noOpSymbol = new Symbol.OperatorSymbol("", noSymbol, Type.NO_TYPE);
         }
 
         private PrimitiveType primitive(TypeTag typeTag, string name)

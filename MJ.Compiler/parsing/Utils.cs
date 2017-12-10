@@ -1,20 +1,29 @@
-﻿namespace mj.compiler.parsing
+﻿using System;
+using System.Globalization;
+
+namespace mj.compiler.parsing
 {
     public static class Utils
     {
-        public static bool IsIdentifierStart(int codePoint)
+        /*public static bool IsIdentifierStart(char highSurrogate, char lowSurrogate)
         {
-            return (codePoint >= 'a' && codePoint <= 'z')
-                   || (codePoint >= 'A' && codePoint <= 'z')
-                   || codePoint == '_';
+            
         }
 
-        public static bool IsIdentifierPart(int codePoint)
+        public static bool IsIdentifierPart(char highSurrogate, char lowSurrogate)
         {
-            return (codePoint >= 'a' && codePoint <= 'z')
-                   || (codePoint >= 'A' && codePoint <= 'z')
-                   || codePoint == '_'
-                   || (codePoint >= '0' && codePoint <= '8');
+            return Char.IsLetterOrDigit((char)codePoint)
+                   || codePoint == '_';
+        }*/
+
+        public static bool IsIdentifierStart(char c)
+        {
+            return Char.IsLetter(c) || c == '_';
+        }
+
+        public static bool IsIdentifierPart(char c)
+        {
+            return Char.IsLetterOrDigit(c) || c == '_';
         }
     }
 }

@@ -4,7 +4,7 @@ using System.IO;
 using Antlr4.Runtime;
 
 using mj.compiler.main;
-using mj.compiler.parsing.ast;
+using mj.compiler.tree;
 using mj.compiler.utils;
 
 namespace mj.compiler.parsing
@@ -35,8 +35,16 @@ namespace mj.compiler.parsing
                 AntlrInputStream antlrInputStream = new AntlrInputStream(inStream);
                 MJLexer lexer = new MJLexer(antlrInputStream);
                 MJParser parser = new MJParser(new BufferedTokenStream(lexer));
-                MJParser.CompilationUnitContext compilationUnit = parser.compilationUnit();
 
+                parser.ErrorHandler = new DefaultErrorStrategy();
+                parser.AddErrorListener(new DiagnosticErrorListener());
+
+                MJParser.CompilationUnitContext compilationUnit = parser.compilationUnit();
+                
+                if (parser.NumberOfSyntaxErrors > 0) {
+                    Console.WriteLine("SYNTAX ERRORS");
+                }
+                
                 return (CompilationUnit)compilationUnit.Accept(new AstGeneratingParseTreeVisitor());
             }
         }

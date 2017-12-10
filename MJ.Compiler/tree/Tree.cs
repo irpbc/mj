@@ -9,7 +9,7 @@ using Newtonsoft.Json.Converters;
 
 using Type = mj.compiler.symbol.Type;
 
-namespace mj.compiler.parsing.ast
+namespace mj.compiler.tree
 {
     public abstract class Tree
     {
@@ -52,7 +52,7 @@ namespace mj.compiler.parsing.ast
         }
 
         public override Tag Tag => Tag.COMPILATION_UNIT;
-        
+
         public override T accept<T>(AstVisitor<T> v) => v.visitCompilationUnit(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitCompilationUnit(this, arg);
     }
@@ -63,14 +63,15 @@ namespace mj.compiler.parsing.ast
 
         protected Expression(int beginLine, int beginCol, int endLine, int endCol)
             : base(beginLine, beginCol, endLine, endCol) { }
+
+        public virtual bool IsLValue => false;
     }
 
     public abstract class OperatorExpression : Expression
     {
-        [JsonConverter(typeof(StringEnumConverter))]
         public Tag opcode;
 
-        public Symbol.OperatorSymbol symbol;
+        public Symbol.OperatorSymbol operatorSym;
 
         protected OperatorExpression(int beginLine, int beginCol, int endLine, int endCol, Tag opcode)
             : base(beginLine, beginCol, endLine, endCol)
@@ -110,6 +111,41 @@ namespace mj.compiler.parsing.ast
 
         public override T accept<T>(AstVisitor<T> v) => v.visitUnary(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitUnary(this, arg);
+    }
+
+    public sealed class AssignNode : Expression
+    {
+        public Expression left;
+        public Expression right;
+
+        public AssignNode(int beginLine, int beginCol, int endLine, int endCol, Expression left, Expression right)
+            : base(beginLine, beginCol, endLine, endCol)
+        {
+            this.left = left;
+            this.right = right;
+        }
+
+        public override Tag Tag => Tag.ASSIGN;
+
+        public override T accept<T>(AstVisitor<T> v) => v.visitAssign(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitAssign(this, arg);
+    }
+
+    public sealed class CompoundAssignNode : OperatorExpression
+    {
+        public Expression left;
+        public Expression right;
+
+        public CompoundAssignNode(int beginLine, int beginCol, int endLine, int endCol,
+                                  Tag opcode, Expression left, Expression right)
+            : base(beginLine, beginCol, endLine, endCol, opcode)
+        {
+            this.left = left;
+            this.right = right;
+        }
+
+        public override T accept<T>(AstVisitor<T> v) => v.visitCompoundAssign(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitCompoundAssign(this, arg);
     }
 
     public sealed class ConditionalExpression : Expression
@@ -168,7 +204,7 @@ namespace mj.compiler.parsing.ast
             this.type = type;
             this.init = init;
         }
-        
+
         public override Tag Tag => Tag.VAR_DEF;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitVarDef(this);
@@ -194,7 +230,7 @@ namespace mj.compiler.parsing.ast
             this.body = body;
             this.isPrivate = isPrivate;
         }
-        
+
         public override Tag Tag => Tag.METHOD_DEF;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitMethodDef(this);
@@ -217,7 +253,7 @@ namespace mj.compiler.parsing.ast
         {
             this.type = type;
         }
-        
+
         public override Tag Tag => Tag.PRIM_TYPE;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitPrimitiveType(this);
@@ -234,8 +270,9 @@ namespace mj.compiler.parsing.ast
         {
             this.name = name;
         }
-        
+
         public override Tag Tag => Tag.IDENT;
+        public override bool IsLValue => true;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitIdent(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitIdent(this, arg);
@@ -254,7 +291,7 @@ namespace mj.compiler.parsing.ast
         }
 
         public override Tag Tag => Tag.INVOKE;
-        
+
         public override T accept<T>(AstVisitor<T> v) => v.visitMethodInvoke(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitMethodInvoke(this, arg);
     }
@@ -274,7 +311,7 @@ namespace mj.compiler.parsing.ast
         {
             this.value = value;
         }
-        
+
         public override Tag Tag => Tag.RETURN;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitReturn(this);
@@ -290,7 +327,7 @@ namespace mj.compiler.parsing.ast
         {
             this.statements = statements;
         }
-        
+
         public override Tag Tag => Tag.BLOCK;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitBlock(this);
@@ -303,7 +340,7 @@ namespace mj.compiler.parsing.ast
             : base(beginLine, beginCol, endLine, endCol) { }
 
         public override Tag Tag => Tag.BREAK;
-        
+
         public override T accept<T>(AstVisitor<T> v) => v.visitBreak(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitBreak(this, arg);
     }
@@ -314,7 +351,7 @@ namespace mj.compiler.parsing.ast
             : base(beginLine, beginCol, endLine, endCol) { }
 
         public override Tag Tag => Tag.CONTINUE;
-        
+
         public override T accept<T>(AstVisitor<T> v) => v.visitContinue(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitContinue(this, arg);
     }
@@ -335,7 +372,7 @@ namespace mj.compiler.parsing.ast
         }
 
         public override Tag Tag => Tag.IF;
-        
+
         public override T accept<T>(AstVisitor<T> v) => v.visitIf(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitIf(this, arg);
     }
@@ -354,7 +391,7 @@ namespace mj.compiler.parsing.ast
         }
 
         public override Tag Tag => Tag.WHILE;
-        
+
         public override T accept<T>(AstVisitor<T> v) => v.visitWhile(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitWhileLoop(this, arg);
     }
@@ -366,7 +403,7 @@ namespace mj.compiler.parsing.ast
             : base(beginLine, beginCol, endLine, endCol, condition, body) { }
 
         public override Tag Tag => Tag.DO;
-        
+
         public override T accept<T>(AstVisitor<T> v) => v.visitDo(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitDo(this, arg);
     }
@@ -389,7 +426,7 @@ namespace mj.compiler.parsing.ast
         }
 
         public override Tag Tag => Tag.FOR;
-        
+
         public override T accept<T>(AstVisitor<T> v) => v.visitFor(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitForLoop(this, arg);
     }
@@ -407,7 +444,7 @@ namespace mj.compiler.parsing.ast
         }
 
         public override Tag Tag => Tag.SWITCH;
-        
+
         public override T accept<T>(AstVisitor<T> v) => v.visitSwitch(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitSwitch(this, arg);
     }
@@ -425,7 +462,7 @@ namespace mj.compiler.parsing.ast
         }
 
         public override Tag Tag => Tag.CASE;
-        
+
         public override T accept<T>(AstVisitor<T> v) => v.visitCase(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitCase(this, arg);
     }
@@ -439,23 +476,26 @@ namespace mj.compiler.parsing.ast
         {
             this.expression = expression;
         }
-        
+
         public override Tag Tag => Tag.EXEC;
 
         public override T accept<T>(AstVisitor<T> v) => v.visitExpresionStmt(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitExpresionStmt(this, arg);
     }
 
-    [Flags]
+    /// <summary>
+    /// Order of enum constants is important for extension methods below.
+    /// </summary>
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum Tag
     {
-        IF,
+        // Loop statements
         FOR,
         WHILE,
         DO,
-        
-        LOOP = FOR | WHILE | DO,
-        
+
+        // Other statements
+        IF,
         BLOCK,
         INVOKE,
         METHOD_DEF,
@@ -472,48 +512,78 @@ namespace mj.compiler.parsing.ast
         IDENT,
         RETURN,
 
-        PLUS,
-        MINUS,
-        MUL,
-        DIV,
-        MOD,
-        GT,
-        LT,
-        BANG,
-        TILDE,
-        EQ,
-        LE,
-        GE,
-        NEQ,
-        AND,
-        OR,
-        XOR,
-        INC,
-        DEC,
-        POST_INC,
-        POST_DEC,
-        BITAND,
-        BITOR,
-        LSHIFT,
-        RSHIFT,
+        // Assign expression
         ASSIGN,
-        ADD_ASSIGN,
-        SUB_ASSIGN,
-        MUL_ASSIGN,
-        DIV_ASSIGN,
-        AND_ASSIGN,
-        OR_ASSIGN,
-        XOR_ASSIGN,
-        MOD_ASSIGN,
-        LSHIFT_ASSIGN,
-        RSHIFT_ASSIGN
+
+        // Unary operators
+        NEG, // -
+        NOT, // !
+        COMPL, // ~
+        PRE_INC, // ++ _
+        PRE_DEC, // -- _
+        POST_INC, // _ ++
+        POST_DEC, // _ --
+
+        // Logical binary operators
+        OR, // ||
+        AND, // &&
+        EQ, // ==
+        NEQ, // !=
+        LT, // <
+        GT, // >
+        LE, // <=
+        GE, // >=
+
+        // Numeric binary operators
+        BITOR, // |
+        BITXOR, // ^
+        BITAND, // &
+        SHL, // <<
+        SHR, // >>
+        PLUS, // +
+        MINUS, // -
+        MUL, // *
+        DIV, // /
+        MOD, // %
+
+        // Compound assign numeric operators
+        BITOR_ASG, // |=
+        BITXOR_ASG, // ^=
+        BITAND_ASG, // &=
+        SHL_ASG, // <<=
+        SHR_ASG, // >>=
+        PLUS_ASG, // +=
+        MINUS_ASG, // -=
+        MUL_ASG, // *=
+        DIV_ASG, // /=
+        MOD_ASG, // %=
     }
-    
+
     public static class TagExtensions
     {
-        public static bool hasAny(this Tag tag, Tag test)
+        // Relies on order of enum constants for loops!
+        public static bool isLoop(this Tag tag)
         {
-            return (tag & test) != 0;
+            return tag >= Tag.FOR && tag <= Tag.DO;
+        }
+
+        // Relies on order of enum constants!
+        public static bool isIncDec(this Tag tag)
+        {
+            return tag >= Tag.PRE_INC && tag <= Tag.POST_DEC;
+        }
+
+        // Relies on NEG being the first operator declared in enum!
+        public static int operatorIndex(this Tag opTag)
+        {
+            return opTag - Tag.NEG;
+        }
+
+        // Find base operator for a given compound assignment operator.
+        // Relies on order of enum constants!
+        public static Tag baseOperator(this Tag compOpTag)
+        {
+            return compOpTag - (Tag.MOD - Tag.BITOR + 1);
         }
     }
 }

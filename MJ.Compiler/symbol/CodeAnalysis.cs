@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 
 using mj.compiler.main;
-using mj.compiler.parsing.ast;
 using mj.compiler.resources;
+using mj.compiler.tree;
 using mj.compiler.utils;
 
 using static mj.compiler.symbol.Scope;
@@ -23,6 +23,7 @@ namespace mj.compiler.symbol
         private readonly Log log;
         private readonly Typings typings;
         private readonly Check check;
+        private readonly Operators operators;
 
         public CodeAnalysis(Context ctx)
         {
@@ -32,6 +33,7 @@ namespace mj.compiler.symbol
             log = Log.instance(ctx);
             typings = Typings.instance(ctx);
             check = Check.instance(ctx);
+            operators = Operators.instance(ctx);
         }
 
         public IList<CompilationUnit> main(IList<CompilationUnit> compilationUnits)
@@ -68,7 +70,7 @@ namespace mj.compiler.symbol
             analyze(method.body.statements, new Environment {
                 enclMethod = method.symbol,
                 scope = method.symbol.scope,
-                up = env
+                parent = env
             });
             // probaly unused
             return method.symbol.type;
@@ -83,15 +85,15 @@ namespace mj.compiler.symbol
         public override Type visitVarDef(VariableDeclaration varDef, Environment env)
         {
             string name = varDef.name;
-            Type type = varDef.type.accept(this, env);
+            Type declaredType = varDef.type.accept(this, env);
             Expression init = varDef.init;
 
-            VarSymbol varSymbol = new VarSymbol(Kind.LOCAL, name, type, env.enclMethod);
+            VarSymbol varSymbol = new VarSymbol(Kind.LOCAL, name, declaredType, env.enclMethod);
             varDef.symbol = varSymbol;
             if (init != null) {
                 Type initType = analyzeExpr(init, env);
-                if (initType != type) {
-                    log.error(messages.error_varInitTypeMismatch, name, initType, type);
+                if (!typings.isAssignableFrom(declaredType, initType)) {
+                    log.error(messages.error_varInitTypeMismatch, name, initType, declaredType);
                 }
             }
 
@@ -100,13 +102,13 @@ namespace mj.compiler.symbol
             }
 
             // probably unused
-            return type;
+            return declaredType;
         }
 
         public override Type visitIf(If @if, Environment env)
         {
             Type conditionType = analyzeExpr(@if.condition, env);
-            if (conditionType != symtab.booleanType) {
+            if (!isBoolean(conditionType)) {
                 log.error(messages.error_ifConditonType);
             }
 
@@ -121,7 +123,7 @@ namespace mj.compiler.symbol
         public override Type visitWhileLoop(WhileStatement whileStatement, Environment outerEnv)
         {
             Type conditionType = analyzeExpr(whileStatement.condition, outerEnv);
-            if (conditionType != symtab.booleanType) {
+            if (!isBoolean(conditionType)) {
                 log.error(messages.error_whileConditonType);
             }
 
@@ -137,12 +139,14 @@ namespace mj.compiler.symbol
             analyze(doStatement.body, doEnv);
 
             Type conditionType = analyzeExpr(doStatement.condition, outerEnv);
-            if (conditionType != symtab.booleanType) {
+            if (!isBoolean(conditionType)) {
                 log.error(messages.error_whileConditonType);
             }
 
             return null;
         }
+
+        private static bool isBoolean(Type type) => type.IsBoolean || type.IsError;
 
         public override Type visitForLoop(ForLoop forLoop, Environment env)
         {
@@ -155,7 +159,7 @@ namespace mj.compiler.symbol
             }
             if (forLoop.condition != null) {
                 Type conditionType = analyzeExpr(forLoop.condition, forEnv);
-                if (conditionType != symtab.booleanType) {
+                if (!isBoolean(conditionType)) {
                     log.error(messages.error_ifConditonType);
                 }
             }
@@ -169,7 +173,7 @@ namespace mj.compiler.symbol
         public override Type visitSwitch(Switch @switch, Environment env)
         {
             Type selectorType = analyzeExpr(@switch.selector, env);
-            if (!selectorType.IsIntegral) {
+            if (!selectorType.IsIntegral && !selectorType.IsError) {
                 log.error(messages.error_switchSelectorType);
             }
 
@@ -228,7 +232,7 @@ namespace mj.compiler.symbol
                 Type argType = argTypes[i];
 
                 // we don't consider implicit numeric conversions for now
-                if (paramSym.type != argType) {
+                if (!typings.isAssignableFrom(paramSym.type, argType)) {
                     log.error(messages.error_paramTypeMismatch, msym.name);
                 }
             }
@@ -269,9 +273,9 @@ namespace mj.compiler.symbol
             Expression expr = returnStatement.value;
             if (expr != null) {
                 Type exprType = analyzeExpr(expr, env);
-                if (returnType != symtab.voidType) {
+                if (returnType == symtab.voidType) {
                     log.error(messages.error_returnVoidMethod);
-                } else if (exprType != returnType) {
+                } else if (!typings.isAssignableFrom(returnType, exprType)) {
                     log.error(messages.error_returnTypeMismatch);
                 }
             } else if (returnType != symtab.voidType) {
@@ -302,8 +306,8 @@ namespace mj.compiler.symbol
         public override Type visitContinue(Continue cont, Environment env)
         {
             // Search for an enclosing loop
-            for (; env.enclStatement != null; env = env.up) {
-                if (env.enclStatement.Tag.hasAny(Tag.LOOP)) {
+            for (; env.enclStatement != null; env = env.parent) {
+                if (env.enclStatement.Tag.isLoop()) {
                     return null;
                 }
             }
@@ -314,8 +318,8 @@ namespace mj.compiler.symbol
         public override Type visitBreak(Break @break, Environment env)
         {
             // Search for an enclosing loop
-            for (; env.enclStatement != null; env = env.up) {
-                if (env.enclStatement.Tag.hasAny(Tag.LOOP)) {
+            for (; env.enclStatement != null; env = env.parent) {
+                if (env.enclStatement.Tag.isLoop()) {
                     return null;
                 }
             }
@@ -323,30 +327,87 @@ namespace mj.compiler.symbol
             return null;
         }
 
-        public override Type visitUnary(UnaryExpressionNode expr, Environment env)
+        public override Type visitUnary(UnaryExpressionNode unary, Environment env)
         {
-            throw new NotImplementedException();
+            Type operandType = analyzeExpr(unary.operand, env);
+            if (unary.opcode.isIncDec() && !unary.operand.IsLValue) {
+                log.error(messages.error_incDecArgument);
+            }
+
+            OperatorSymbol op = operators.resolveUnary(unary.opcode, operandType);
+            unary.operatorSym = op;
+            return op.type.ReturnType;
         }
 
-        public override Type visitBinary(BinaryExpressionNode expr, Environment arg)
+        public override Type visitBinary(BinaryExpressionNode binary, Environment env)
         {
-            throw new NotImplementedException();
+            Type leftType = analyzeExpr(binary.left, env);
+            Type rightType = analyzeExpr(binary.right, env);
+
+            OperatorSymbol op = operators.resolveBinary(binary.opcode, leftType, rightType);
+            binary.operatorSym = op;
+            return op.type.ReturnType;
+        }
+
+        public override Type visitAssign(AssignNode assign, Environment env)
+        {
+            bool lValueError = !assign.left.IsLValue;
+            if (lValueError) {
+                log.error(messages.error_assignmentLHS);
+            }
+
+            Type lType = analyzeExpr(assign.left, env);
+            Type rType = analyzeExpr(assign.right, env);
+
+            if (!lValueError && !typings.isAssignableFrom(lType, rType)) {
+                log.error(messages.error_assignmentUncompatible);
+            }
+
+            return lType;
+        }
+
+        public override Type visitCompoundAssign(CompoundAssignNode compAssign, Environment env)
+        {
+            bool lValueError = !compAssign.left.IsLValue;
+            if (lValueError) {
+                log.error(messages.error_assignmentLHS);
+            }
+
+            Type lType = analyzeExpr(compAssign.left, env);
+            Type rType = analyzeExpr(compAssign.right, env);
+
+            OperatorSymbol op = operators.resolveBinary(compAssign.opcode.baseOperator(), lType, rType);
+            return op.type.ReturnType;
         }
 
         /// do nothing for unhandled nodes
         public override Type visit(Tree node, Environment arg) => null;
 
+        /// <summary>
+        /// A holder of contextual information needed by the visitor methods
+        /// of this compiler stage. Environments are chained like scopes, but
+        /// contain some more information, like the current enclosing method 
+        /// and the current enclosing control flow statement.
+        /// </summary>
         public class Environment
         {
-            public Environment up;
-            public StatementNode enclStatement;
+            public Environment parent;
             public WriteableScope scope;
+
+            /// Needed for "continue" and "break" target resolution
+            public StatementNode enclStatement;
+
+            /// Needed for return statement checking
             public MethodSymbol enclMethod;
 
+            /// <summary>
+            /// Create a new env with this env as parent, with a subscope
+            /// and a new enclosing statement.
+            /// </summary>
             public Environment subScope(StatementNode enclStmt)
             {
                 return new Environment {
-                    up = this,
+                    parent = this,
                     scope = scope.subScope(),
                     enclStatement = enclStmt,
                     enclMethod = enclMethod

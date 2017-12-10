@@ -31,8 +31,8 @@
     <data name="error.doWhileConditonType"><value>Condition expression in a "do while" statement must return boolean</value></data>
     <data name="error.switchSelectorType"><value>Switch expression must be of integral type</value></data>
     <data name="error.methodNotDefined"><value>Method "{0}" is not defined</value></data>
-    <data name="error.wrongNumberOfArgs"><value>Method "{0}" requires {1} arguments, but {2} was given</value></data>
-    <data name="error.varInitTypeMismatch"><value>Initializer of variable "{0}" returns "{1}" while "{2} is required"</value></data>
+    <data name="error.wrongNumberOfArgs"><value>Method "{0}" takes {1} arguments, but {2} was given</value></data>
+    <data name="error.varInitTypeMismatch"><value>Initializer of variable "{0}" returns "{1}" while "{2}" is required</value></data>
     <data name="error.paramTypeMismatch"><value>Argument type mismatch in a call to method "{0}"</value></data>
     <data name="error.caseExpressionType"><value>Case expression has to be a constant of same type as switch expression</value></data>
     <data name="error.duplicateCaseLabels"><value>Duplicate case labels</value></data>
@@ -44,5 +44,10 @@
     <data name="error.conditionalMismatch"><value>Type mismatch of branches in a conditional expression</value></data>
     <data name="error.continueNotInLoop"><value>Continue statement must be inside a loop</value></data>
     <data name="error.breakNotInLoop"><value>Break statement must be inside a loop</value></data>
+    <data name="error.assignmentLHS"><value>Assignment must be to a variable</value></data>
+    <data name="error.assignmentUncompatible"><value>Uncompatible types in assignment</value></data>
+    <data name="error.incDecArgument"><value>Incremet or decrement can only be on a variable</value></data>
+    <data name="error.unresolvedUnaryOperator"><value>Operator "{0}" cannot be applied to type "{1}"</value></data>
+    <data name="error.unresolvedBinaryOperator"><value>Operator "{0}" cannot be applied to types "{1}" and "{2}"</value></data>
     
 </root>

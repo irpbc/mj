@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-using mj.compiler.parsing.ast;
+using mj.compiler.tree;
 using mj.compiler.utils;
 
 namespace mj.compiler.codegen

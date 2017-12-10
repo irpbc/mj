@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 
 using mj.compiler.main;
-using mj.compiler.parsing.ast;
 using mj.compiler.resources;
+using mj.compiler.tree;
 using mj.compiler.utils;
 
 using static mj.compiler.symbol.Scope;

@@ -1,7 +1,5 @@
 ﻿using System;
 
-using mj.compiler.parsing.ast;
-
 using LLVMSharp;
 
 namespace mj.compiler.codegen

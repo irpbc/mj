@@ -96,7 +96,7 @@ namespace mj.compiler.utils
             }
             List<O> output = new List<O>(input.Count);
             for (var i = 0; i < input.Count; i++) {
-                output[i] = func(input[i]);
+                output.Add(func(input[i]));
             }
             return output;
         }

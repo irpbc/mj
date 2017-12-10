@@ -8,6 +8,7 @@ using Newtonsoft.Json.Converters;
 
 namespace mj.compiler.symbol
 {
+    [JsonConverter(typeof(ToStringConverter))]
     public abstract class Type
     {
         public static readonly Type NO_TYPE = new NoType();
@@ -26,6 +27,7 @@ namespace mj.compiler.symbol
         public abstract TypeTag Tag { get; }
         public virtual bool IsNumeric => false;
         public virtual bool IsIntegral => false;
+        public virtual bool IsBoolean => false;
         public virtual bool IsPrimitive => false;
         public virtual bool IsPrimitiveOrVoid => false;
         public virtual bool IsError => false;
@@ -71,7 +73,8 @@ namespace mj.compiler.symbol
             this.tag = tag;
         }
 
-        public override bool IsNumeric => tag != TypeTag.BOOLEAN;
+        public override bool IsNumeric => tag.isNumeric();
+        public override bool IsBoolean => tag == TypeTag.BOOLEAN;
 
         public override bool IsIntegral {
             get {
@@ -157,6 +160,7 @@ namespace mj.compiler.symbol
     {
         public NoType() : base(null) { }
         public override TypeTag Tag => TypeTag.NONE;
+        public override bool IsError => true;
 
         public override string ToString() => "";
     }

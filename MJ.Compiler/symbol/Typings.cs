@@ -1,5 +1,5 @@
 ﻿using mj.compiler.main;
-using mj.compiler.parsing.ast;
+using mj.compiler.tree;
 using mj.compiler.utils;
 
 namespace mj.compiler.symbol
@@ -29,6 +29,19 @@ namespace mj.compiler.symbol
                 return type;
             }
             return symtab.errorType;
+        }
+
+        public bool isAssignableFrom(Type left, Type right)
+        {
+            // Stops propagation of errors to 
+            // eliminate useless error messages.
+            if (left.IsError || right.IsError) {
+                return true;
+            }
+            if (left.IsNumeric && right.IsNumeric) {
+                return left.Tag.isNumericAssignableFrom(right.Tag);
+            }
+            return left == right;
         }
     }
 }
