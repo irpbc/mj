@@ -43,7 +43,7 @@ namespace mj.compiler.symbol
         /// complete normally, which determines if the follwing
         /// statements are reachable.
         /// </summary>
-        private class ReachabilityAnalyzer : AstVisitor<ReachabilityAnalyzer.Result>
+        private class ReachabilityAnalyzer : AstVisitor<ReachabilityAnalyzer.Outcome>
         {
             private readonly Log log;
 
@@ -52,101 +52,157 @@ namespace mj.compiler.symbol
                 this.log = log;
             }
 
-            public Result analyze(StatementNode tree) => tree.accept(this);
+            public Outcome analyze(StatementNode tree) => tree.accept(this);
 
-            public override Result visitCompilationUnit(CompilationUnit compilationUnit)
+            public override Outcome visitCompilationUnit(CompilationUnit compilationUnit)
             {
                 scan(compilationUnit.methods);
-                return Result.COMPLETES_NORMALLY;
+                // unused dummy return
+                return Outcome.COMPLETES_NORMALLY;
             }
 
-            public override Result visitMethodDef(MethodDef method)
+            public override Outcome visitMethodDef(MethodDef method)
             {
-                Result result = this.analyze(method.body);
-                if (result.HasFlag(Result.COMPLETES_NORMALLY) &&
+                Outcome outcome = this.analyze(method.body);
+                if (outcome.HasFlag(Outcome.COMPLETES_NORMALLY) &&
                     !method.symbol.type.ReturnType.IsVoid) {
                     log.error(method.Pos, messages.missingReturnStatement);
                 }
-                return result;
+                // unused dummy return
+                return outcome;
             }
 
-            public override Result visitBlock(Block block)
-            {
-                return analyze(block.statements);
-            }
+            public override Outcome visitBlock(Block block) => analyze(block.statements);
 
-            private Result analyze(IList<StatementNode> stats)
+            /* If a statement in a list of statements cannot complete
+             * normally, than the list itself does not complete normally.
+             * All other possible outcomes are preserved and returned.
+             */
+            private Outcome analyze(IList<StatementNode> stats)
             {
+                if (stats.Count == 0) {
+                    return Outcome.COMPLETES_NORMALLY;
+                }
+
+                Outcome total = 0;
                 for (var i = 0; i < stats.Count; i++) {
-                    Result res = analyze(stats[i]);
-                    if (!res.HasFlag(Result.COMPLETES_NORMALLY)) {
+                    Outcome res = analyze(stats[i]);
+                    total |= res;
+                    if (!res.HasFlag(Outcome.COMPLETES_NORMALLY)) {
                         int next = i + 1;
                         if (next < stats.Count) {
                             log.error(stats[next].Pos, messages.unreachableCodeDetected);
                         }
-                        return res;
+                        // remove completes normally from total
+                        return total & ~Outcome.COMPLETES_NORMALLY;
                     }
-                }
-                return Result.COMPLETES_NORMALLY;
-            }
-
-            public override Result visitIf(If ifStat)
-            {
-                Result result = analyze(ifStat.thenPart);
-                if (ifStat.elsePart != null) {
-                    result |= analyze(ifStat.elsePart);
-                } else {
-                    result |= Result.COMPLETES_NORMALLY;
-                }
-                return result;
-            }
-
-            public override Result visitWhile(WhileStatement whileStat) => analyzeLoopBody(whileStat.body);
-            public override Result visitDo(DoStatement doStat) => analyzeLoopBody(doStat.body);
-            public override Result visitFor(ForLoop forLoop) => analyzeLoopBody(forLoop.body);
-
-            private Result analyzeLoopBody(StatementNode body)
-            {
-                Result res = analyze(body);
-                if (res == Result.EXITS_BY_RETURN) {
-                    return Result.EXITS_BY_RETURN;
-                }
-                return Result.COMPLETES_NORMALLY;
-            }
-
-            public override Result visitSwitch(Switch @switch)
-            {
-                if (@switch.cases.Count == 0) {
-                    return Result.COMPLETES_NORMALLY;
-                }
-
-                Result total = 0;
-                for (var i = 0; i < @switch.cases.Count; i++) {
-                    Case @case = @switch.cases[i];
-                    Result caseRes = analyze(@case.Statements);
-                    total |= caseRes;
-                }
-
-                if (total.HasFlag(Result.EXITS_BY_BREAK)) {
-                    total &= ~Result.EXITS_BY_BREAK;
-                    total |= Result.COMPLETES_NORMALLY;
                 }
                 return total;
             }
 
-            public override Result visitBreak(Break @break) => Result.EXITS_BY_BREAK;
-            public override Result visitContinue(Continue @continue) => Result.EXITS_BY_CONTINUE;
+            /* "If" statement joins outcomes from the two branches.
+             * If there is no "else" branch, than the "If" can 
+             * complete normally.
+             */
+            public override Outcome visitIf(If ifStat)
+            {
+                Outcome outcome = analyze(ifStat.thenPart);
+                if (ifStat.elsePart != null) {
+                    outcome |= analyze(ifStat.elsePart);
+                } else {
+                    outcome |= Outcome.COMPLETES_NORMALLY;
+                }
+                return outcome;
+            }
 
-            public override Result visitReturn(ReturnStatement returnStatement) =>
-                Result.EXITS_BY_RETURN;
+            /* If condition is not constant true the loop can complete
+             * normally by not entering the loop body.
+             */
+            public override Outcome visitWhile(WhileStatement whileStat)
+            {
+                Outcome bodyOutcome = analyzeLoopBody(whileStat.body);
+                if (!whileStat.condition.type.IsTrue) {
+                    return bodyOutcome | Outcome.COMPLETES_NORMALLY;
+                }
+                return bodyOutcome;
+            }
 
-            public override Result visitExpresionStmt(ExpressionStatement expr) =>
-                Result.COMPLETES_NORMALLY;
+            /* If condition exists and is not constant true the loop 
+             * can complete normally by not entering the loop body.
+             */
+            public override Outcome visitFor(ForLoop forLoop)
+            {
+                Outcome bodyOutcome = analyzeLoopBody(forLoop.body);
+                if (forLoop.condition != null && !forLoop.condition.type.IsTrue) {
+                    return bodyOutcome | Outcome.COMPLETES_NORMALLY;
+                }
+                return bodyOutcome;
+            }
 
-            public override Result visitVarDef(VariableDeclaration varDef) => Result.COMPLETES_NORMALLY;
+            /* "Do-While" loop always enters the loop body.
+             */
+            public override Outcome visitDo(DoStatement doStat)
+            {
+                return analyzeLoopBody(doStat.body);
+            }
+
+            /* Loop body statements "swollow" any "break" and "continue" and
+             * replace them with "completes normally". Exit by return
+             * is not examined.
+             */
+            private Outcome analyzeLoopBody(StatementNode body)
+            {
+                const Outcome breakCont = Outcome.EXITS_BY_CONTINUE | Outcome.EXITS_BY_BREAK;
+
+                Outcome res = analyze(body);
+                if ((res & breakCont) != 0) {
+                    return (res & ~breakCont) | Outcome.COMPLETES_NORMALLY;
+                }
+                return res;
+            }
+
+            /* Empty switch completes notmally.
+             * If any case can break then switch can complete normally.
+             * If there is not default, the switch can complete normally
+             * by not entering any case.
+             */
+            public override Outcome visitSwitch(Switch @switch)
+            {
+                if (@switch.cases.Count == 0) {
+                    return Outcome.COMPLETES_NORMALLY;
+                }
+
+                bool hasDefault = false;
+                Outcome total = 0;
+                for (var i = 0; i < @switch.cases.Count; i++) {
+                    Case @case = @switch.cases[i];
+                    Outcome caseRes = analyze(@case.Statements);
+                    total |= caseRes;
+                    if (@case.expression == null) {
+                        hasDefault = true;
+                    }
+                }
+
+                if (total.HasFlag(Outcome.EXITS_BY_BREAK)) {
+                    total &= ~Outcome.EXITS_BY_BREAK;
+                    total |= Outcome.COMPLETES_NORMALLY;
+                }
+                
+                if (!hasDefault) {
+                    total |= Outcome.COMPLETES_NORMALLY;
+                }
+                
+                return total;
+            }
+
+            public override Outcome visitBreak(Break @break) => Outcome.EXITS_BY_BREAK;
+            public override Outcome visitContinue(Continue @continue) => Outcome.EXITS_BY_CONTINUE;
+            public override Outcome visitReturn(ReturnStatement returnStatement) => Outcome.EXITS_BY_RETURN;
+            public override Outcome visitExpresionStmt(ExpressionStatement expr) => Outcome.COMPLETES_NORMALLY;
+            public override Outcome visitVarDef(VariableDeclaration varDef) => Outcome.COMPLETES_NORMALLY;
 
             [Flags]
-            public enum Result
+            public enum Outcome
             {
                 COMPLETES_NORMALLY = 0x1,
                 EXITS_BY_BREAK = 0x2,

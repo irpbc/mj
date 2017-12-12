@@ -33,8 +33,8 @@ namespace mj.compiler.tree
             this.endCol = endCol;
         }
 
-        public DiagnosticPosition Pos => new DiagnosticPosition(beginLine, beginCol);
-        public DiagnosticPosition EndPos => new DiagnosticPosition(endLine, endCol);
+        public DiagnosticPosition Pos => new DiagnosticPosition {line = beginLine, column = beginCol};
+        public DiagnosticPosition EndPos => new DiagnosticPosition {line = endLine, column = endCol};
 
         public abstract Tag Tag { get; }
 
@@ -354,8 +354,8 @@ namespace mj.compiler.tree
     public abstract class JumpStatement : StatementNode
     {
         public StatementNode target;
-        
-        protected JumpStatement(int beginLine, int beginCol, int endLine, int endCol) 
+
+        protected JumpStatement(int beginLine, int beginCol, int endLine, int endCol)
             : base(beginLine, beginCol, endLine, endCol) { }
     }
 
