@@ -22,7 +22,8 @@ namespace mj.compiler.main
         private readonly CommandLineOptions options;
         private readonly ParserRunner parser;
         private readonly DeclarationAnalysis declarationAnalysis;
-        private readonly CodeAnalysis codeAnalysis;
+        private readonly TypeAnalysis typeAnalysis;
+        private readonly FlowAnalysis flowAnalysis;
         private readonly CodeGenerator codeGenerator;
 
         private readonly Log log;
@@ -33,7 +34,8 @@ namespace mj.compiler.main
             options = CommandLineOptions.instance(context);
             parser = ParserRunner.instance(context);
             declarationAnalysis = DeclarationAnalysis.instance(context);
-            codeAnalysis = CodeAnalysis.instance(context);
+            typeAnalysis = TypeAnalysis.instance(context);
+            flowAnalysis = FlowAnalysis.instance(context);
             codeGenerator = CodeGenerator.instance(context);
             log = Log.instance(context);
         }
@@ -42,7 +44,7 @@ namespace mj.compiler.main
         {
             List<SourceFile> files = options.InputFiles.Select(s => new SourceFile(s)).ToList();
 
-            generateCode(analyseCode(analyseDecls(parse(files))));
+            generateCode(flow(types(decls(parse(files)))));
         }
 
         private IList<CompilationUnit> parse(IList<SourceFile> files)
@@ -57,20 +59,19 @@ namespace mj.compiler.main
             return results;
         }
 
-        private IList<CompilationUnit> analyseDecls(IList<CompilationUnit> trees)
-        {
-            return stopIfError(declarationAnalysis.main(trees));
-        }
+        private IList<CompilationUnit> decls(IList<CompilationUnit> trees) => stopIfError(declarationAnalysis.main(trees));
 
-        private IList<CompilationUnit> analyseCode(IList<CompilationUnit> trees)
+        private IList<CompilationUnit> types(IList<CompilationUnit> trees)
         {
-            IList<CompilationUnit> compilationUnits = stopIfError(codeAnalysis.main(trees));
+            IList<CompilationUnit> compilationUnits = stopIfError(typeAnalysis.main(trees));
             if (options.DumpTree) {
                 String dump = JsonConvert.SerializeObject(compilationUnits, Formatting.Indented);
                 Console.WriteLine(dump);
             }
             return compilationUnits;
         }
+
+        private IList<CompilationUnit> flow(IList<CompilationUnit> trees) => stopIfError(flowAnalysis.main(trees));
 
         private void generateCode(IEnumerable<CompilationUnit> trees)
         {

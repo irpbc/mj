@@ -527,13 +527,13 @@ namespace mj.compiler.parsing
         public override Tree VisitAssignment(AssignmentContext context)
         {
             Identifier target = (Identifier)VisitNameExpression(context.leftHandSide().nameExpression());
+            Expression expression = (Expression)VisitExpression(context.expression());
 
             Tag op;
 
             switch (context.assignmentOperator().op.Type) {
                 case ASSIGN:
-                    op = Tag.ASSIGN;
-                    break;
+                    return new AssignNode(target, expression);
                 case ADD_ASSIGN:
                     op = Tag.PLUS_ASG;
                     break;
@@ -568,9 +568,7 @@ namespace mj.compiler.parsing
                     throw new InvalidOperationException();
             }
 
-            Expression expression = (Expression)VisitExpression(context.expression());
-
-            return new BinaryExpressionNode(op, target, expression);
+            return new CompoundAssignNode(op, target, expression);
         }
 
         public override Tree VisitLeftHandSide(LeftHandSideContext context) => throw new InvalidOperationException();

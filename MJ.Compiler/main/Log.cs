@@ -20,18 +20,53 @@ namespace mj.compiler.main
 
         public int NumErrors { get; private set; } = 0;
 
-        public void error(String format, params Object[] args)
+        private SourceFile currentSource;
+
+        public SourceFile useSource(SourceFile file)
+        {
+            SourceFile prev = currentSource;
+            currentSource = file;
+            return prev;
+        }
+
+        public void error(DiagnosticPosition pos, String format, params Object[] args)
         {
             ConsoleColor prevColor = Console.ForegroundColor;
             Console.ForegroundColor = ConsoleColor.Red;
             try {
-                Console.Write("Error:  ");
+                Console.Write($"Error: {currentSource.Path}({pos.line},{pos.column}): ");
                 Console.WriteLine(format, args);
             } finally {
                 Console.ForegroundColor = prevColor;
             }
 
             NumErrors++;
+        }
+        
+        public void globalError(String format, params Object[] args)
+        {
+            ConsoleColor prevColor = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.Red;
+            try {
+                Console.Write("Error: ");
+                Console.WriteLine(format, args);
+            } finally {
+                Console.ForegroundColor = prevColor;
+            }
+
+            NumErrors++;
+        }
+    }
+
+    public struct DiagnosticPosition
+    {
+        public int line;
+        public int column;
+
+        public DiagnosticPosition(int line, int column)
+        {
+            this.line = line;
+            this.column = column;
         }
     }
 }

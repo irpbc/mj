@@ -28,41 +28,37 @@ namespace mj.compiler.symbol
             symtab = Symtab.instance(ctx);
         }
 
-        public bool checkUnique(MethodSymbol sym, Scope scope)
+        public bool checkUnique(DiagnosticPosition pos, MethodSymbol sym, Scope scope)
         {
             bool contains = scope.getSymbolsByName(sym.name, LookupKind.NON_RECURSIVE).Any();
             if (contains) {
-                log.error(messages.error_duplicateMethodName, sym.name);
+                log.error(pos, messages.duplicateMethodName, sym.name);
             }
             return !contains;
         }
 
-        public bool checkUniqueParam(VarSymbol param, Scope scope)
+        public bool checkUniqueParam(DiagnosticPosition pos, VarSymbol param, Scope scope)
         {
             if (scope.getSymbolsByName(param.name, LookupKind.NON_RECURSIVE).Any()) {
-                log.error(messages.error_duplicateParamName, param.name, scope.owner.name);
+                log.error(pos, messages.duplicateParamName, param.name, scope.owner.name);
                 return false;
             }
             return true;
         }
 
-        public bool checkMainMethod(Symbol main)
+        public bool checkMainMethod(DiagnosticPosition pos, MethodSymbol main)
         {
-            if (main == null || main.kind != Kind.MTH) {
-                log.error(messages.error_mainMethodNotDefined);
-                return false;
-            }
             if (main.type.ReturnType != symtab.intType || main.type.ParameterTypes.Count > 0) {
-                log.error(messages.error_mainMethodSig);
+                log.error(pos, messages.mainMethodSig);
                 return false;
             }
             return false;
         }
 
-        public bool checkUniqueLocalVar(VarSymbol varSymbol, WriteableScope scope)
+        public bool checkUniqueLocalVar(DiagnosticPosition pos, VarSymbol varSymbol, WriteableScope scope)
         {
             if (scope.getSymbolsByName(varSymbol.name, s => s.kind.hasAny(Kind.VAR)).Any()) {
-                log.error(messages.error_duplicateVar);
+                log.error(pos, messages.duplicateVar);
                 return false;
             }
             return true;

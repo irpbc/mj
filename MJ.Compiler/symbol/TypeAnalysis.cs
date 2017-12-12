@@ -12,12 +12,12 @@ using static mj.compiler.symbol.Symbol;
 
 namespace mj.compiler.symbol
 {
-    public class CodeAnalysis : AstVisitor<Type, CodeAnalysis.Environment>
+    public class TypeAnalysis : AstVisitor<Type, TypeAnalysis.Environment>
     {
-        private static readonly Context.Key<CodeAnalysis> CONTEXT_KEY = new Context.Key<CodeAnalysis>();
+        private static readonly Context.Key<TypeAnalysis> CONTEXT_KEY = new Context.Key<TypeAnalysis>();
 
-        public static CodeAnalysis instance(Context ctx) =>
-            ctx.tryGet(CONTEXT_KEY, out var instance) ? instance : new CodeAnalysis(ctx);
+        public static TypeAnalysis instance(Context ctx) =>
+            ctx.tryGet(CONTEXT_KEY, out var instance) ? instance : new TypeAnalysis(ctx);
 
         private readonly Symtab symtab;
         private readonly Log log;
@@ -25,7 +25,7 @@ namespace mj.compiler.symbol
         private readonly Check check;
         private readonly Operators operators;
 
-        public CodeAnalysis(Context ctx)
+        public TypeAnalysis(Context ctx)
         {
             ctx.put(CONTEXT_KEY, this);
 
@@ -38,7 +38,15 @@ namespace mj.compiler.symbol
 
         public IList<CompilationUnit> main(IList<CompilationUnit> compilationUnits)
         {
-            analyze(compilationUnits, new Environment {scope = symtab.topLevelSymbol.topScope});
+            Environment env = new Environment {scope = symtab.topLevelSymbol.topScope};
+            foreach (CompilationUnit tree in compilationUnits) {
+                SourceFile prevSource = log.useSource(tree.sourceFile);
+                try {
+                    analyze(tree, env);
+                } finally {
+                    log.useSource(prevSource);
+                }
+            }
             return compilationUnits;
         }
 
@@ -93,11 +101,11 @@ namespace mj.compiler.symbol
             if (init != null) {
                 Type initType = analyzeExpr(init, env);
                 if (!typings.isAssignableFrom(declaredType, initType)) {
-                    log.error(messages.error_varInitTypeMismatch, name, initType, declaredType);
+                    log.error(varDef.Pos, messages.varInitTypeMismatch, name, initType, declaredType);
                 }
             }
 
-            if (check.checkUniqueLocalVar(varSymbol, env.scope)) {
+            if (check.checkUniqueLocalVar(varDef.Pos, varSymbol, env.scope)) {
                 env.scope.enter(varSymbol);
             }
 
@@ -109,7 +117,7 @@ namespace mj.compiler.symbol
         {
             Type conditionType = analyzeExpr(@if.condition, env);
             if (!isBoolean(conditionType)) {
-                log.error(messages.error_ifConditonType);
+                log.error(@if.condition.Pos, messages.ifConditonType);
             }
 
             analyze(@if.thenPart, env);
@@ -124,7 +132,7 @@ namespace mj.compiler.symbol
         {
             Type conditionType = analyzeExpr(whileStatement.condition, outerEnv);
             if (!isBoolean(conditionType)) {
-                log.error(messages.error_whileConditonType);
+                log.error(whileStatement.condition.Pos, messages.whileConditonType);
             }
 
             Environment whileEnv = outerEnv.subScope(whileStatement);
@@ -140,7 +148,7 @@ namespace mj.compiler.symbol
 
             Type conditionType = analyzeExpr(doStatement.condition, outerEnv);
             if (!isBoolean(conditionType)) {
-                log.error(messages.error_whileConditonType);
+                log.error(doStatement.condition.Pos, messages.whileConditonType);
             }
 
             return null;
@@ -160,7 +168,7 @@ namespace mj.compiler.symbol
             if (forLoop.condition != null) {
                 Type conditionType = analyzeExpr(forLoop.condition, forEnv);
                 if (!isBoolean(conditionType)) {
-                    log.error(messages.error_ifConditonType);
+                    log.error(forLoop.condition.Pos, messages.ifConditonType);
                 }
             }
             foreach (Expression exp in forLoop.update) {
@@ -174,7 +182,7 @@ namespace mj.compiler.symbol
         {
             Type selectorType = analyzeExpr(@switch.selector, env);
             if (!selectorType.IsIntegral && !selectorType.IsError) {
-                log.error(messages.error_switchSelectorType);
+                log.error(@switch.selector.Pos, messages.switchSelectorType);
             }
 
             Environment switchEnv = env.subScope(@switch);
@@ -186,12 +194,12 @@ namespace mj.compiler.symbol
                 if (@case.expression != null) {
                     Type caseExprType = analyzeExpr(@case.expression, env);
                     if (caseExprType.ConstValue == null || caseExprType.BaseType != selectorType) {
-                        log.error(messages.error_caseExpressionType);
+                        log.error(@case.expression.Pos, messages.caseExpressionType);
                     } else if (!caseValues.Add(caseExprType.ConstValue)) {
-                        log.error(messages.error_duplicateCaseLabels);
+                        log.error(@case.expression.Pos, messages.duplicateCaseLabels);
                     }
                 } else if (hasDefault) {
-                    log.error(messages.error_duplicateCaseLabels);
+                    log.error(@case.Pos, messages.duplicateCaseLabels);
                 } else {
                     hasDefault = true;
                 }
@@ -213,7 +221,7 @@ namespace mj.compiler.symbol
             string name = invocation.methodName;
             MethodSymbol msym = (MethodSymbol)env.scope.findFirst(name, s => s.kind == Kind.MTH);
             if (msym == null) {
-                log.error(messages.error_methodNotDefined, name);
+                log.error(invocation.Pos, messages.methodNotDefined, name);
                 // we dont need any validation
                 invocation.type = symtab.errorType;
                 return symtab.errorType;
@@ -222,7 +230,7 @@ namespace mj.compiler.symbol
             // check argument count
             IList<VarSymbol> paramSyms = msym.parameters;
             if (argTypes.Count != paramSyms.Count) {
-                log.error(messages.error_wrongNumberOfArgs, name, paramSyms.Count, argTypes.Count);
+                log.error(invocation.Pos, messages.wrongNumberOfArgs, name, paramSyms.Count, argTypes.Count);
             }
 
             // check argument types
@@ -233,7 +241,7 @@ namespace mj.compiler.symbol
 
                 // we don't consider implicit numeric conversions for now
                 if (!typings.isAssignableFrom(paramSym.type, argType)) {
-                    log.error(messages.error_paramTypeMismatch, msym.name);
+                    log.error(invocation.Pos, messages.paramTypeMismatch, msym.name);
                 }
             }
 
@@ -260,7 +268,7 @@ namespace mj.compiler.symbol
         {
             Symbol varSym = env.scope.findFirst(ident.name, s => s.kind.hasAny(Kind.VAR));
             if (varSym == null) {
-                log.error(messages.error_undefinedVariable, ident.name);
+                log.error(ident.Pos, messages.undefinedVariable, ident.name);
                 varSym = symtab.errorSymbol;
             }
             ident.symbol = varSym;
@@ -274,12 +282,12 @@ namespace mj.compiler.symbol
             if (expr != null) {
                 Type exprType = analyzeExpr(expr, env);
                 if (returnType == symtab.voidType) {
-                    log.error(messages.error_returnVoidMethod);
+                    log.error(returnStatement.Pos, messages.returnVoidMethod);
                 } else if (!typings.isAssignableFrom(returnType, exprType)) {
-                    log.error(messages.error_returnTypeMismatch);
+                    log.error(expr.Pos, messages.returnTypeMismatch);
                 }
             } else if (returnType != symtab.voidType) {
-                log.error(messages.error_returnNonVoidMethod);
+                log.error(returnStatement.Pos, messages.returnNonVoidMethod);
             }
 
             return env.enclMethod.type.ReturnType;
@@ -292,15 +300,32 @@ namespace mj.compiler.symbol
             Type falseType = analyzeExpr(conditional.ifFalse, env);
 
             if (condType != symtab.booleanType) {
-                log.error(messages.error_conditionalBoolean);
+                log.error(conditional.condition.Pos, messages.conditionalBoolean);
             }
 
-            if (trueType != falseType) {
-                log.error(messages.error_conditionalMismatch);
+            if (!unifyConditionalTypes(trueType, falseType, out Type result)) {
+                log.error(conditional.ifFalse.Pos, messages.conditionalMismatch);
             }
+            conditional.type = result;
+            return result;
+        }
 
-            conditional.type = trueType;
-            return trueType;
+        private bool unifyConditionalTypes(Type left, Type right, out Type result)
+        {
+            if (left.IsError || right.IsError) {
+                result = symtab.errorType;
+                return true;
+            }
+            if (typings.isAssignableFrom(left, right)) {
+                result = left;
+                return true;
+            }
+            if (typings.isAssignableFrom(right, left)) {
+                result = right;
+                return false;
+            }
+            result = symtab.errorType;
+            return false;
         }
 
         public override Type visitContinue(Continue cont, Environment env)
@@ -311,7 +336,7 @@ namespace mj.compiler.symbol
                     return null;
                 }
             }
-            log.error(messages.error_continueNotInLoop);
+            log.error(cont.Pos, messages.continueNotInLoop);
             return null;
         }
 
@@ -319,11 +344,11 @@ namespace mj.compiler.symbol
         {
             // Search for an enclosing loop
             for (; env.enclStatement != null; env = env.parent) {
-                if (env.enclStatement.Tag.isLoop()) {
+                if (env.enclStatement.Tag.isLoop() || env.enclStatement.Tag == Tag.SWITCH) {
                     return null;
                 }
             }
-            log.error(messages.error_breakNotInLoop);
+            log.error(@break.Pos, messages.breakNotInLoopSwitch);
             return null;
         }
 
@@ -331,10 +356,10 @@ namespace mj.compiler.symbol
         {
             Type operandType = analyzeExpr(unary.operand, env);
             if (unary.opcode.isIncDec() && !unary.operand.IsLValue) {
-                log.error(messages.error_incDecArgument);
+                log.error(unary.Pos, messages.incDecArgument);
             }
 
-            OperatorSymbol op = operators.resolveUnary(unary.opcode, operandType);
+            OperatorSymbol op = operators.resolveUnary(unary.Pos, unary.opcode, operandType);
             unary.operatorSym = op;
             return op.type.ReturnType;
         }
@@ -344,7 +369,7 @@ namespace mj.compiler.symbol
             Type leftType = analyzeExpr(binary.left, env);
             Type rightType = analyzeExpr(binary.right, env);
 
-            OperatorSymbol op = operators.resolveBinary(binary.opcode, leftType, rightType);
+            OperatorSymbol op = operators.resolveBinary(binary.Pos, binary.opcode, leftType, rightType);
             binary.operatorSym = op;
             return op.type.ReturnType;
         }
@@ -353,14 +378,14 @@ namespace mj.compiler.symbol
         {
             bool lValueError = !assign.left.IsLValue;
             if (lValueError) {
-                log.error(messages.error_assignmentLHS);
+                log.error(assign.Pos, messages.assignmentLHS);
             }
 
             Type lType = analyzeExpr(assign.left, env);
             Type rType = analyzeExpr(assign.right, env);
 
             if (!lValueError && !typings.isAssignableFrom(lType, rType)) {
-                log.error(messages.error_assignmentUncompatible);
+                log.error(assign.Pos, messages.assignmentUncompatible);
             }
 
             return lType;
@@ -370,13 +395,13 @@ namespace mj.compiler.symbol
         {
             bool lValueError = !compAssign.left.IsLValue;
             if (lValueError) {
-                log.error(messages.error_assignmentLHS);
+                log.error(compAssign.Pos, messages.assignmentLHS);
             }
 
             Type lType = analyzeExpr(compAssign.left, env);
             Type rType = analyzeExpr(compAssign.right, env);
 
-            OperatorSymbol op = operators.resolveBinary(compAssign.opcode.baseOperator(), lType, rType);
+            OperatorSymbol op = operators.resolveBinary(compAssign.Pos, compAssign.opcode.baseOperator(), lType, rType);
             return op.type.ReturnType;
         }
 

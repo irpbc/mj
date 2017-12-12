@@ -19,35 +19,37 @@
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
 
-    <data name="error.duplicateMethodName"><value>Method {0} is already defiend</value></data>
-    <data name="error.duplicateParamName"><value>Parameter {0} is already defined in method {1}</value></data>
-    <data name="error.duplicateVar"><value>Local variable {0} is already defined in this scope</value></data>
-    <data name="error.varParamNameConflict"><value>Local variable {0} has same name as a parameter</value></data>
-    <data name="error.mainMethodNotDefined"><value>The main method is not defined</value></data>
-    <data name="error.mainMethodSig"><value>Main method must accept no parameters and return int</value></data>
-    <data name="error.ifConditonType"><value>Condition expression in an "if" statement must return boolean</value></data>
-    <data name="error.forConditonType"><value>Condition expression in a "for" statement must return boolean</value></data>
-    <data name="error.whileConditonType"><value>Condition expression in a "while" statement must return boolean</value></data>
-    <data name="error.doWhileConditonType"><value>Condition expression in a "do while" statement must return boolean</value></data>
-    <data name="error.switchSelectorType"><value>Switch expression must be of integral type</value></data>
-    <data name="error.methodNotDefined"><value>Method "{0}" is not defined</value></data>
-    <data name="error.wrongNumberOfArgs"><value>Method "{0}" takes {1} arguments, but {2} was given</value></data>
-    <data name="error.varInitTypeMismatch"><value>Initializer of variable "{0}" returns "{1}" while "{2}" is required</value></data>
-    <data name="error.paramTypeMismatch"><value>Argument type mismatch in a call to method "{0}"</value></data>
-    <data name="error.caseExpressionType"><value>Case expression has to be a constant of same type as switch expression</value></data>
-    <data name="error.duplicateCaseLabels"><value>Duplicate case labels</value></data>
-    <data name="error.undefinedVariable"><value>Variable "{0}" is undefined at this point</value></data>
-    <data name="error.returnVoidMethod"><value>You can't return a value from a void method</value></data>
-    <data name="error.returnNonVoidMethod"><value>You must return a value from a non-void method</value></data>
-    <data name="error.returnTypeMismatch"><value>Return type mismatch</value></data>
-    <data name="error.conditionalBoolean"><value>Condition in a conditional expression must return boolean</value></data>
-    <data name="error.conditionalMismatch"><value>Type mismatch of branches in a conditional expression</value></data>
-    <data name="error.continueNotInLoop"><value>Continue statement must be inside a loop</value></data>
-    <data name="error.breakNotInLoop"><value>Break statement must be inside a loop</value></data>
-    <data name="error.assignmentLHS"><value>Assignment must be to a variable</value></data>
-    <data name="error.assignmentUncompatible"><value>Uncompatible types in assignment</value></data>
-    <data name="error.incDecArgument"><value>Incremet or decrement can only be on a variable</value></data>
-    <data name="error.unresolvedUnaryOperator"><value>Operator "{0}" cannot be applied to type "{1}"</value></data>
-    <data name="error.unresolvedBinaryOperator"><value>Operator "{0}" cannot be applied to types "{1}" and "{2}"</value></data>
+    <data name="duplicateMethodName"><value>Method {0} is already defiend</value></data>
+    <data name="duplicateParamName"><value>Parameter {0} is already defined in method {1}</value></data>
+    <data name="duplicateVar"><value>Local variable {0} is already defined in this scope</value></data>
+    <data name="varParamNameConflict"><value>Local variable {0} has same name as a parameter</value></data>
+    <data name="mainMethodNotDefined"><value>The main method is not defined</value></data>
+    <data name="mainMethodSig"><value>Main method must accept no parameters and return int</value></data>
+    <data name="ifConditonType"><value>Condition expression in an "if" statement must return boolean</value></data>
+    <data name="forConditonType"><value>Condition expression in a "for" statement must return boolean</value></data>
+    <data name="whileConditonType"><value>Condition expression in a "while" statement must return boolean</value></data>
+    <data name="doWhileConditonType"><value>Condition expression in a "do while" statement must return boolean</value></data>
+    <data name="switchSelectorType"><value>Switch expression must be of integral type</value></data>
+    <data name="methodNotDefined"><value>Method "{0}" is not defined</value></data>
+    <data name="wrongNumberOfArgs"><value>Method "{0}" takes {1} arguments, but {2} was given</value></data>
+    <data name="varInitTypeMismatch"><value>Initializer of variable "{0}" returns "{1}" while "{2}" is required</value></data>
+    <data name="paramTypeMismatch"><value>Argument type mismatch in a call to method "{0}"</value></data>
+    <data name="caseExpressionType"><value>Case expression has to be a constant of same type as switch expression</value></data>
+    <data name="duplicateCaseLabels"><value>Duplicate case labels</value></data>
+    <data name="undefinedVariable"><value>Variable "{0}" is undefined at this point</value></data>
+    <data name="returnVoidMethod"><value>You can't return a value from a void method</value></data>
+    <data name="returnNonVoidMethod"><value>You must return a value from a non-void method</value></data>
+    <data name="returnTypeMismatch"><value>Return type mismatch</value></data>
+    <data name="conditionalBoolean"><value>Condition in a conditional expression must return boolean</value></data>
+    <data name="conditionalMismatch"><value>Type mismatch of branches in a conditional expression</value></data>
+    <data name="continueNotInLoop"><value>Continue statement must be inside a loop</value></data>
+    <data name="breakNotInLoopSwitch"><value>Break statement must be inside a loop or a switch</value></data>
+    <data name="assignmentLHS"><value>Assignment must be to a variable</value></data>
+    <data name="assignmentUncompatible"><value>Uncompatible types in assignment</value></data>
+    <data name="incDecArgument"><value>Incremet or decrement can only be on a variable</value></data>
+    <data name="unresolvedUnaryOperator"><value>Operator "{0}" cannot be applied to type "{1}"</value></data>
+    <data name="unresolvedBinaryOperator"><value>Operator "{0}" cannot be applied to types "{1}" and "{2}"</value></data>
+    <data name="missingReturnStatement"><value>Missing return statement</value></data>
+    <data name="unreachableCodeDetected"><value>Unreachable code detected</value></data>
     
 </root>

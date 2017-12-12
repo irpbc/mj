@@ -33,8 +33,12 @@ namespace mj.compiler.tree
             this.endCol = endCol;
         }
 
+        public DiagnosticPosition Pos => new DiagnosticPosition(beginLine, beginCol);
+        public DiagnosticPosition EndPos => new DiagnosticPosition(endLine, endCol);
+
         public abstract Tag Tag { get; }
 
+        public abstract void accept(AstVisitor v);
         public abstract T accept<T>(AstVisitor<T> v);
         public abstract T accept<T, A>(AstVisitor<T, A> v, A arg);
     }
@@ -53,6 +57,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.COMPILATION_UNIT;
 
+        public override void accept(AstVisitor v) => v.visitCompilationUnit(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitCompilationUnit(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitCompilationUnit(this, arg);
     }
@@ -94,6 +99,7 @@ namespace mj.compiler.tree
             this.right = right;
         }
 
+        public override void accept(AstVisitor v) => v.visitBinary(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitBinary(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitBinary(this, arg);
     }
@@ -109,6 +115,7 @@ namespace mj.compiler.tree
             this.operand = operand;
         }
 
+        public override void accept(AstVisitor v) => v.visitUnary(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitUnary(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitUnary(this, arg);
     }
@@ -118,8 +125,8 @@ namespace mj.compiler.tree
         public Expression left;
         public Expression right;
 
-        public AssignNode(int beginLine, int beginCol, int endLine, int endCol, Expression left, Expression right)
-            : base(beginLine, beginCol, endLine, endCol)
+        public AssignNode(Expression left, Expression right)
+            : base(left.beginLine, left.beginCol, right.endLine, right.endCol)
         {
             this.left = left;
             this.right = right;
@@ -127,6 +134,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.ASSIGN;
 
+        public override void accept(AstVisitor v) => v.visitAssign(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitAssign(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitAssign(this, arg);
     }
@@ -136,14 +144,14 @@ namespace mj.compiler.tree
         public Expression left;
         public Expression right;
 
-        public CompoundAssignNode(int beginLine, int beginCol, int endLine, int endCol,
-                                  Tag opcode, Expression left, Expression right)
-            : base(beginLine, beginCol, endLine, endCol, opcode)
+        public CompoundAssignNode(Tag opcode, Expression left, Expression right)
+            : base(left.beginLine, left.beginCol, right.endLine, right.endCol, opcode)
         {
             this.left = left;
             this.right = right;
         }
 
+        public override void accept(AstVisitor v) => v.visitCompoundAssign(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitCompoundAssign(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitCompoundAssign(this, arg);
     }
@@ -164,6 +172,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.COND_EXPR;
 
+        public override void accept(AstVisitor v) => v.visitConditional(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitConditional(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitConditional(this, arg);
     }
@@ -185,6 +194,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.LITERAL;
 
+        public override void accept(AstVisitor v) => v.visitLiteral(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitLiteral(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitLiteral(this, arg);
     }
@@ -207,6 +217,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.VAR_DEF;
 
+        public override void accept(AstVisitor v) => v.visitVarDef(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitVarDef(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitVarDef(this, arg);
     }
@@ -233,6 +244,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.METHOD_DEF;
 
+        public override void accept(AstVisitor v) => v.visitMethodDef(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitMethodDef(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitMethodDef(this, arg);
     }
@@ -256,6 +268,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.PRIM_TYPE;
 
+        public override void accept(AstVisitor v) => v.visitPrimitiveType(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitPrimitiveType(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitPrimitiveType(this, arg);
     }
@@ -274,6 +287,7 @@ namespace mj.compiler.tree
         public override Tag Tag => Tag.IDENT;
         public override bool IsLValue => true;
 
+        public override void accept(AstVisitor v) => v.visitIdent(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitIdent(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitIdent(this, arg);
     }
@@ -292,6 +306,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.INVOKE;
 
+        public override void accept(AstVisitor v) => v.visitMethodInvoke(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitMethodInvoke(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitMethodInvoke(this, arg);
     }
@@ -314,6 +329,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.RETURN;
 
+        public override void accept(AstVisitor v) => v.visitReturn(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitReturn(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitReturn(this, arg);
     }
@@ -330,28 +346,39 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.BLOCK;
 
+        public override void accept(AstVisitor v) => v.visitBlock(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitBlock(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitBlock(this, arg);
     }
 
-    public sealed class Break : StatementNode
+    public abstract class JumpStatement : StatementNode
+    {
+        public StatementNode target;
+        
+        protected JumpStatement(int beginLine, int beginCol, int endLine, int endCol) 
+            : base(beginLine, beginCol, endLine, endCol) { }
+    }
+
+    public sealed class Break : JumpStatement
     {
         public Break(int beginLine, int beginCol, int endLine, int endCol)
             : base(beginLine, beginCol, endLine, endCol) { }
 
         public override Tag Tag => Tag.BREAK;
 
+        public override void accept(AstVisitor v) => v.visitBreak(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitBreak(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitBreak(this, arg);
     }
 
-    public sealed class Continue : StatementNode
+    public sealed class Continue : JumpStatement
     {
         public Continue(int beginLine, int beginCol, int endLine, int endCol)
             : base(beginLine, beginCol, endLine, endCol) { }
 
         public override Tag Tag => Tag.CONTINUE;
 
+        public override void accept(AstVisitor v) => v.visitContinue(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitContinue(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitContinue(this, arg);
     }
@@ -373,6 +400,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.IF;
 
+        public override void accept(AstVisitor v) => v.visitIf(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitIf(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitIf(this, arg);
     }
@@ -392,6 +420,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.WHILE;
 
+        public override void accept(AstVisitor v) => v.visitWhile(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitWhile(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitWhileLoop(this, arg);
     }
@@ -404,6 +433,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.DO;
 
+        public override void accept(AstVisitor v) => v.visitDo(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitDo(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitDo(this, arg);
     }
@@ -427,6 +457,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.FOR;
 
+        public override void accept(AstVisitor v) => v.visitFor(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitFor(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitForLoop(this, arg);
     }
@@ -445,6 +476,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.SWITCH;
 
+        public override void accept(AstVisitor v) => v.visitSwitch(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitSwitch(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitSwitch(this, arg);
     }
@@ -463,6 +495,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.CASE;
 
+        public override void accept(AstVisitor v) => v.visitCase(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitCase(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitCase(this, arg);
     }
@@ -479,6 +512,7 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.EXEC;
 
+        public override void accept(AstVisitor v) => v.visitExpresionStmt(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitExpresionStmt(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitExpresionStmt(this, arg);
     }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 
 using mj.compiler.utils;
 
@@ -25,11 +26,11 @@ namespace mj.compiler.symbol
 
         [JsonConverter(typeof(StringEnumConverter))]
         public abstract TypeTag Tag { get; }
+
         public virtual bool IsNumeric => false;
         public virtual bool IsIntegral => false;
         public virtual bool IsBoolean => false;
-        public virtual bool IsPrimitive => false;
-        public virtual bool IsPrimitiveOrVoid => false;
+        public virtual bool IsVoid => false;
         public virtual bool IsError => false;
 
         /// <summary>
@@ -88,11 +89,9 @@ namespace mj.compiler.symbol
             }
         }
 
-        public override bool IsPrimitive => true;
-
         public override TypeTag Tag => tag;
 
-        public override bool IsPrimitiveOrVoid => true;
+        public override bool IsVoid => tag == TypeTag.VOID;
 
         /** Define a constant type, of the same kind as this type
          *  and with given constant value
@@ -171,6 +170,9 @@ namespace mj.compiler.symbol
 
         public override TypeTag Tag => TypeTag.ERROR;
         public override bool IsError => true;
+
+        /// Return type of error is also error
+        public override Type ReturnType => this;
 
         public override string ToString() => "<error>";
     }

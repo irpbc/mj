@@ -40,10 +40,10 @@ namespace mj.compiler.symbol
         private readonly IDictionary<Tag, IList<OperatorSymbol>> binaryOperators =
             new Dictionary<Tag, IList<OperatorSymbol>>();
 
-        public OperatorSymbol resolveUnary(Tag tag, Type argType)
+        public OperatorSymbol resolveUnary(DiagnosticPosition pos, Tag tag, Type argType)
         {
             if (argType.IsError) {
-                return symtab.noOpSymbol;
+                return symtab.errorOpSymbol;
             }
             IList<OperatorSymbol> operators = unaryOperators[tag];
             for (var i = 0; i < operators.Count; i++) {
@@ -53,14 +53,14 @@ namespace mj.compiler.symbol
                     return op;
                 }
             }
-            log.error(messages.error_unresolvedUnaryOperator, operatorNames[(int)tag], argType);
-            return symtab.noOpSymbol;
+            log.error(pos, messages.unresolvedUnaryOperator, operatorNames[(int)tag], argType);
+            return symtab.errorOpSymbol;
         }
 
-        public OperatorSymbol resolveBinary(Tag tag, Type leftType, Type rightType)
+        public OperatorSymbol resolveBinary(DiagnosticPosition pos, Tag tag, Type leftType, Type rightType)
         {
             if (leftType.IsError || rightType.IsError) {
-                return symtab.noOpSymbol;
+                return symtab.errorOpSymbol;
             }
             IList<OperatorSymbol> operators = binaryOperators[tag];
             for (var i = 0; i < operators.Count; i++) {
@@ -72,8 +72,8 @@ namespace mj.compiler.symbol
                     return op;
                 }
             }
-            log.error(messages.error_unresolvedBinaryOperator, operatorNames[(int)tag], leftType, rightType);
-            return symtab.noOpSymbol;
+            log.error(pos, messages.unresolvedBinaryOperator, operatorNames[(int)tag], leftType, rightType);
+            return symtab.errorOpSymbol;
         }
 
         private void initOperators()

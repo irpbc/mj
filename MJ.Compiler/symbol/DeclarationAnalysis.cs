@@ -46,13 +46,25 @@ namespace mj.compiler.symbol
             log = Log.instance(ctx);
         }
 
+        private bool mainMethodFound = false;
+
         public IList<CompilationUnit> main(IList<CompilationUnit> trees)
         {
             WriteableScope topScope = symtab.topLevelSymbol.topScope;
-            // analyze all compilation units -> go to visitCompilationUnit
-            analyze(trees, topScope);
 
-            check.checkMainMethod(topScope.findFirst("main"));
+            foreach (CompilationUnit tree in trees) {
+                SourceFile prevSource = log.useSource(tree.sourceFile);
+                try {
+                    analyze(tree, topScope);
+                } finally {
+                    log.useSource(prevSource);
+                }
+            }
+
+            if (!mainMethodFound) {
+                log.globalError(messages.mainMethodNotDefined);
+            }
+            
             return trees;
         }
 
@@ -87,7 +99,12 @@ namespace mj.compiler.symbol
             msym.type = signature(method.returnType, method.parameters, methodScope);
             msym.type.definer = msym;
 
-            if (check.checkUnique(msym, enclScope)) {
+            if (method.name == "main") {
+                mainMethodFound = true;
+                check.checkMainMethod(method.Pos, msym);
+            }
+            
+            if (check.checkUnique(method.Pos, msym, enclScope)) {
                 enclScope.enter(msym);
             }
             return null;
@@ -120,7 +137,7 @@ namespace mj.compiler.symbol
 
             met.parameters.Add(varSym);
 
-            if (check.checkUniqueParam(varSym, scope)) {
+            if (check.checkUniqueParam(varDef.Pos, varSym, scope)) {
                 scope.enter(varSym);
             }
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace mj.compiler.tree
 {
@@ -17,18 +18,34 @@ namespace mj.compiler.tree
         public virtual T visitReturn(ReturnStatement returnStatement) => visit(returnStatement);
         public virtual T visitBlock(Block block) => visit(block);
         public virtual T visitBreak(Break @break) => visit(@break);
-        public virtual T visitIf(If @if) => visit(@if);
+        public virtual T visitIf(If ifStat) => visit(ifStat);
         public virtual T visitContinue(Continue @continue) => visit(@continue);
-        public virtual T visitWhile(WhileStatement whileStatement) => visit(whileStatement);
+        public virtual T visitWhile(WhileStatement whileStat) => visit(whileStat);
         public virtual T visitFor(ForLoop forLoop) => visit(forLoop);
         public virtual T visitExpresionStmt(ExpressionStatement expr) => visit(expr);
-        public virtual T visitDo(DoStatement doStatement) => visit(doStatement);
+        public virtual T visitDo(DoStatement doStat) => visit(doStat);
         public virtual T visitConditional(ConditionalExpression conditional) => visit(conditional);
         public virtual T visitPrimitiveType(PrimitiveTypeNode prim) => visit(prim);
         public virtual T visitSwitch(Switch @switch) => visit(@switch);
         public virtual T visitCase(Case @case) => visit(@case);
 
         public virtual T visit(Tree node) => throw new InvalidOperationException();
+
+        public T scan<TT>(IList<TT> trees) where TT : Tree
+        {
+            for (var i = 0; i < trees.Count; i++) {
+                scan(trees[i]);
+            }
+            return default(T);
+        }
+        
+        public T scan(Tree tree)
+        {
+            if (tree != null) {
+                return tree.accept(this);
+            }
+            return default(T);
+        }
     }
 
     public abstract class AstVisitor<T, A>
@@ -58,5 +75,34 @@ namespace mj.compiler.tree
         public virtual T visitCase(Case @case, A arg) => visit(@case, arg);
 
         public virtual T visit(Tree node, A arg) => throw new InvalidOperationException();
+    }
+    
+    public abstract class AstVisitor
+    {
+        public virtual void visitCompilationUnit(CompilationUnit compilationUnit) => visit(compilationUnit);
+        public virtual void visitMethodDef(MethodDef method) => visit(method);
+        public virtual void visitVarDef(VariableDeclaration varDef) => visit(varDef);
+        public virtual void visitBinary(BinaryExpressionNode expr) => visit(expr);
+        public virtual void visitUnary(UnaryExpressionNode expr) => visit(expr);
+        public virtual void visitAssign(AssignNode expr) => visit(expr);
+        public virtual void visitCompoundAssign(CompoundAssignNode expr) => visit(expr);
+        public virtual void visitLiteral(LiteralExpression literal) => visit(literal);
+        public virtual void visitIdent(Identifier ident) => visit(ident);
+        public virtual void visitMethodInvoke(MethodInvocation methodInvocation) => visit(methodInvocation);
+        public virtual void visitReturn(ReturnStatement returnStatement) => visit(returnStatement);
+        public virtual void visitBlock(Block block) => visit(block);
+        public virtual void visitBreak(Break @break) => visit(@break);
+        public virtual void visitIf(If @if) => visit(@if);
+        public virtual void visitContinue(Continue @continue) => visit(@continue);
+        public virtual void visitWhile(WhileStatement whileStatement) => visit(whileStatement);
+        public virtual void visitFor(ForLoop forLoop) => visit(forLoop);
+        public virtual void visitExpresionStmt(ExpressionStatement expr) => visit(expr);
+        public virtual void visitDo(DoStatement doStatement) => visit(doStatement);
+        public virtual void visitConditional(ConditionalExpression conditional) => visit(conditional);
+        public virtual void visitPrimitiveType(PrimitiveTypeNode prim) => visit(prim);
+        public virtual void visitSwitch(Switch @switch) => visit(@switch);
+        public virtual void visitCase(Case @case) => visit(@case);
+
+        public virtual void visit(Tree node) => throw new InvalidOperationException();
     }
 }
