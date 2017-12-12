@@ -317,7 +317,8 @@ namespace mj.compiler.parsing
                 IList<SwitchLabelContext> labels = caseGroup.labels._labels;
                 int last = labels.Count - 1;
                 // for each label except last
-                foreach (SwitchLabelContext label in labels) {
+                for (var index = 0; index < last; index++) {
+                    SwitchLabelContext label = labels[index];
                     Expression caseExpression = getCaseExpression(label);
                     cases[iCases++] = new Case(label.start.Line, label.start.Column, label.stop.Line,
                         label.stop.Column, caseExpression,
