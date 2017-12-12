@@ -18,8 +18,8 @@ int main() {
             break;
         case 2:
             return 42;
-        default:
-            return 42;
+        // default:
+        //    return 42;
     }
 
     float a = 5.87;

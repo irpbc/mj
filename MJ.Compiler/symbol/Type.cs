@@ -104,26 +104,22 @@ namespace mj.compiler.symbol
 
         private class ConstType : PrimitiveType
         {
-            public ConstType(TypeTag tag, Object value, Type baseType) : base(tag, baseType.definer)
+            public ConstType(TypeTag tag, Object value, PrimitiveType baseType) : base(tag, baseType.definer)
             {
                 this.ConstValue = value;
+                this.BaseType = baseType;
             }
 
             public override Object ConstValue { get; }
-            public override Type BaseType => definer.type;
+            public override Type BaseType { get; }
+
+            public override bool IsTrue => tag == TypeTag.BOOLEAN && (bool)ConstValue == true;
+            public override bool IsFalse => tag == TypeTag.BOOLEAN && (bool)ConstValue == false;
         }
 
         /// The constant value of this type, converted to String
         public override String StringValue => ConstValue?.ToString();
-
-        /// Is this a constant type whose value is false?
-        public override bool IsFalse => tag == TypeTag.BOOLEAN &&
-                                        ConstValue != null && (int)ConstValue == 0;
-
-        /// Is this a constant type whose value is true?
-        public override bool IsTrue => tag == TypeTag.BOOLEAN &&
-                                       ConstValue != null && (int)ConstValue != 0;
-
+ 
         public override string ToString()
         {
             return tag.asString();
