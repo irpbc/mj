@@ -72,7 +72,7 @@ namespace mj.compiler.symbol
                     return op;
                 }
             }
-            log.error(pos, messages.unresolvedBinaryOperator, operatorNames[(int)tag], leftType, rightType);
+            log.error(pos, messages.unresolvedBinaryOperator, operatorNames[tag.operatorIndex()], leftType, rightType);
             return symtab.errorOpSymbol;
         }
 

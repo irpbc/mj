@@ -29,6 +29,15 @@ int main() {
         a = 2.1;
     }
     
+    int maybe;
+    if (a > true) {
+        maybe = 5;
+    } else {
+        //maybe = 8;
+    }
+    
+    int r = maybe + 2;
+    
     float someInt = a;
     
     int đšđš;

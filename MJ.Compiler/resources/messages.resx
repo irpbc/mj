@@ -51,5 +51,6 @@
     <data name="unresolvedBinaryOperator"><value>Operator "{0}" cannot be applied to types "{1}" and "{2}"</value></data>
     <data name="missingReturnStatement"><value>Missing return statement</value></data>
     <data name="unreachableCodeDetected"><value>Unreachable code detected</value></data>
+    <data name="unassignedVariable"><value>Variable {0} might not have been assigned</value></data>
     
 </root>

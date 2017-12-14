@@ -75,6 +75,22 @@ namespace mj.compiler.tree
         public virtual T visitCase(Case @case, A arg) => visit(@case, arg);
 
         public virtual T visit(Tree node, A arg) => throw new InvalidOperationException();
+        
+        public T scan<TT>(IList<TT> trees, A arg) where TT : Tree
+        {
+            for (var i = 0; i < trees.Count; i++) {
+                scan(trees[i], arg);
+            }
+            return default(T);
+        }
+        
+        public T scan(Tree tree, A arg)
+        {
+            if (tree != null) {
+                return tree.accept(this, arg);
+            }
+            return default(T);
+        }
     }
     
     public abstract class AstVisitor

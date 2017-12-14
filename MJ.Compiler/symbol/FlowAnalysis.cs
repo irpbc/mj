@@ -1,15 +1,29 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Security.Cryptography.X509Certificates;
 
 using mj.compiler.main;
 using mj.compiler.resources;
 using mj.compiler.tree;
 using mj.compiler.utils;
 
+using static mj.compiler.symbol.Symbol;
+
 namespace mj.compiler.symbol
 {
-    public class FlowAnalysis
+    /// <summary>
+    /// Control flow analysis. Checks if all statements are reachable,
+    /// and if all the variables are assigned before use.
+    /// </summary>
+    /// 
+    /// Each visitor method returns possible ways a statement can exit,
+    /// Which determines weather the following statement in a list is
+    /// reachable. Each kind of statement has its own behaviour.
+    /// 
+    /// An Environment instance holds the assigned variables durring the
+    /// pass. The Environment can be split into branches and merged when
+    /// control flow diverges (if, switch, loops).
+    /// 
+    public class FlowAnalysis : AstVisitor<FlowAnalysis.Exit, FlowAnalysis.Environment>
     {
         private static readonly Context.Key<FlowAnalysis> CONTEXT_KEY = new Context.Key<FlowAnalysis>();
 
@@ -30,7 +44,7 @@ namespace mj.compiler.symbol
             foreach (CompilationUnit tree in compilationUnits) {
                 SourceFile prevSource = log.useSource(tree.sourceFile);
                 try {
-                    new ReachabilityAnalyzer(log).scan(tree);
+                    scan(tree, null);
                 } finally {
                     log.useSource(prevSource);
                 }
@@ -38,186 +52,356 @@ namespace mj.compiler.symbol
             return compilationUnits;
         }
 
-        /// <summary>
-        /// Each visitor method returns true if the statement can
-        /// complete normally, which determines if the follwing
-        /// statements are reachable.
-        /// </summary>
-        private class ReachabilityAnalyzer : AstVisitor<ReachabilityAnalyzer.Outcome>
+        public Exit analyze(StatementNode tree, Environment env) => tree.accept(this, env);
+
+        private void analyzeExpr(Expression expr, Environment env) => expr.accept(this, env);
+
+        public override Exit visitCompilationUnit(CompilationUnit compilationUnit, Environment env)
         {
-            private readonly Log log;
-
-            public ReachabilityAnalyzer(Log log)
-            {
-                this.log = log;
-            }
-
-            public Outcome analyze(StatementNode tree) => tree.accept(this);
-
-            public override Outcome visitCompilationUnit(CompilationUnit compilationUnit)
-            {
-                scan(compilationUnit.methods);
-                // unused dummy return
-                return Outcome.COMPLETES_NORMALLY;
-            }
-
-            public override Outcome visitMethodDef(MethodDef method)
-            {
-                Outcome outcome = this.analyze(method.body);
-                if (outcome.HasFlag(Outcome.COMPLETES_NORMALLY) &&
-                    !method.symbol.type.ReturnType.IsVoid) {
-                    log.error(method.Pos, messages.missingReturnStatement);
-                }
-                // unused dummy return
-                return outcome;
-            }
-
-            public override Outcome visitBlock(Block block) => analyze(block.statements);
-
-            /* If a statement in a list of statements cannot complete
-             * normally, than the list itself does not complete normally.
-             * All other possible outcomes are preserved and returned.
-             */
-            private Outcome analyze(IList<StatementNode> stats)
-            {
-                if (stats.Count == 0) {
-                    return Outcome.COMPLETES_NORMALLY;
-                }
-
-                Outcome total = 0;
-                for (var i = 0; i < stats.Count; i++) {
-                    Outcome res = analyze(stats[i]);
-                    total |= res;
-                    if (!res.HasFlag(Outcome.COMPLETES_NORMALLY)) {
-                        int next = i + 1;
-                        if (next < stats.Count) {
-                            log.error(stats[next].Pos, messages.unreachableCodeDetected);
-                        }
-                        // remove completes normally from total
-                        return total & ~Outcome.COMPLETES_NORMALLY;
-                    }
-                }
-                return total;
-            }
-
-            /* "If" statement joins outcomes from the two branches.
-             * If there is no "else" branch, than the "If" can 
-             * complete normally.
-             */
-            public override Outcome visitIf(If ifStat)
-            {
-                Outcome outcome = analyze(ifStat.thenPart);
-                if (ifStat.elsePart != null) {
-                    outcome |= analyze(ifStat.elsePart);
-                } else {
-                    outcome |= Outcome.COMPLETES_NORMALLY;
-                }
-                return outcome;
-            }
-
-            /* If condition is not constant true the loop can complete
-             * normally by not entering the loop body.
-             */
-            public override Outcome visitWhile(WhileStatement whileStat)
-            {
-                Outcome bodyOutcome = analyzeLoopBody(whileStat.body);
-                if (!whileStat.condition.type.IsTrue) {
-                    return bodyOutcome | Outcome.COMPLETES_NORMALLY;
-                }
-                return bodyOutcome;
-            }
-
-            /* If condition exists and is not constant true the loop 
-             * can complete normally by not entering the loop body.
-             */
-            public override Outcome visitFor(ForLoop forLoop)
-            {
-                Outcome bodyOutcome = analyzeLoopBody(forLoop.body);
-                if (forLoop.condition != null && !forLoop.condition.type.IsTrue) {
-                    return bodyOutcome | Outcome.COMPLETES_NORMALLY;
-                }
-                return bodyOutcome;
-            }
-
-            /* "Do-While" loop always enters the loop body.
-             */
-            public override Outcome visitDo(DoStatement doStat)
-            {
-                return analyzeLoopBody(doStat.body);
-            }
-
-            /* Loop body statements "swollow" any "break" and "continue" and
-             * replace them with "completes normally". Exit by return
-             * is not examined.
-             */
-            private Outcome analyzeLoopBody(StatementNode body)
-            {
-                const Outcome breakCont = Outcome.EXITS_BY_CONTINUE | Outcome.EXITS_BY_BREAK;
-
-                Outcome res = analyze(body);
-                if ((res & breakCont) != 0) {
-                    return (res & ~breakCont) | Outcome.COMPLETES_NORMALLY;
-                }
-                return res;
-            }
-
-            /* Empty switch completes notmally.
-             * If any case can break then switch can complete normally.
-             * If there is not default, the switch can complete normally
-             * by not entering any case.
-             */
-            public override Outcome visitSwitch(Switch @switch)
-            {
-                if (@switch.cases.Count == 0) {
-                    return Outcome.COMPLETES_NORMALLY;
-                }
-
-                bool hasDefault = false;
-                Outcome total = 0;
-                for (var i = 0; i < @switch.cases.Count; i++) {
-                    Case @case = @switch.cases[i];
-                    Outcome caseRes = analyze(@case.Statements);
-                    total |= caseRes;
-                    if (@case.expression == null) {
-                        hasDefault = true;
-                    }
-                }
-
-                if (total.HasFlag(Outcome.EXITS_BY_BREAK)) {
-                    total &= ~Outcome.EXITS_BY_BREAK;
-                    total |= Outcome.COMPLETES_NORMALLY;
-                }
-                
-                if (!hasDefault) {
-                    total |= Outcome.COMPLETES_NORMALLY;
-                }
-                
-                return total;
-            }
-
-            public override Outcome visitBreak(Break @break) => Outcome.EXITS_BY_BREAK;
-            public override Outcome visitContinue(Continue @continue) => Outcome.EXITS_BY_CONTINUE;
-            public override Outcome visitReturn(ReturnStatement returnStatement) => Outcome.EXITS_BY_RETURN;
-            public override Outcome visitExpresionStmt(ExpressionStatement expr) => Outcome.COMPLETES_NORMALLY;
-            public override Outcome visitVarDef(VariableDeclaration varDef) => Outcome.COMPLETES_NORMALLY;
-
-            [Flags]
-            public enum Outcome
-            {
-                COMPLETES_NORMALLY = 0x1,
-                EXITS_BY_BREAK = 0x2,
-                EXITS_BY_CONTINUE = 0x4,
-                EXITS_BY_RETURN = 0x8,
-            }
+            scan(compilationUnit.methods, env);
+            return 0;
         }
 
-        private class VariableAssignmentAnalyzer : AstVisitor
+        public override Exit visitMethodDef(MethodDef method, Environment env)
         {
-            private readonly Log log;
+            Environment methodEnv = new Environment();
+            Exit exit = this.analyze(method.body, methodEnv);
+            if (exit.HasFlag(Exit.NORMALLY) &&
+                !method.symbol.type.ReturnType.IsVoid) {
+                log.error(method.Pos, messages.missingReturnStatement);
+            }
 
-            public VariableAssignmentAnalyzer(Log log)
+            return 0;
+        }
+
+        public override Exit visitBlock(Block block, Environment env) => analyze(block.statements, env);
+
+        /* If a statement in a list of statements cannot complete
+         * normally, than the list itself does not complete normally.
+         * All other possible outcomes are preserved and returned.
+         */
+        private Exit analyze(IList<StatementNode> stats, Environment env)
+        {
+            if (stats.Count == 0) {
+                return Exit.NORMALLY;
+            }
+
+            Exit total = 0;
+            for (var i = 0; i < stats.Count; i++) {
+                Exit res = analyze(stats[i], env);
+                total |= res;
+                if (!res.HasFlag(Exit.NORMALLY)) {
+                    int next = i + 1;
+                    if (next < stats.Count) {
+                        log.error(stats[next].Pos, messages.unreachableCodeDetected);
+                    }
+                    // remove completes normally from total
+                    return total & ~Exit.NORMALLY;
+                }
+            }
+            return total;
+        }
+
+        /* "If" statement joins outcomes from the two branches.
+         * If there is no "else" branch, than the "If" can 
+         * complete normally.
+         *
+         * The Environment is split into two branches and merged afterward.
+         */
+        public override Exit visitIf(If ifStat, Environment env)
+        {
+            analyzeExpr(ifStat.condition, env);
+            
+            if (ifStat.condition.type.IsTrue) {
+                return analyze(ifStat.thenPart, env);
+            }
+
+            if (ifStat.elsePart == null) {
+                Environment ifEnv = env.subEnvironment();
+                return analyze(ifStat.thenPart, ifEnv) | Exit.NORMALLY;
+            }
+
+            if (ifStat.condition.type.IsFalse) {
+                return analyze(ifStat.elsePart, env);
+            }
+            
+            var (whenTrue, whenFalse) = env.split();
+            Exit exit = analyze(ifStat.thenPart, whenTrue) | 
+                        analyze(ifStat.elsePart, whenFalse);
+            whenTrue.merge(whenFalse);
+            return exit;
+        }
+
+        /* If condition is not constant true the loop can complete
+         * normally by not entering the loop body.
+         */
+        public override Exit visitWhileLoop(WhileStatement whileStat, Environment env)
+        {
+            analyzeExpr(whileStat.condition, env);
+
+            // If condition is true than we always enter the body,
+            // so no need to split the environment.
+            if (whileStat.condition.type.IsTrue) {
+                return analyzeLoopBody(whileStat.body, env);
+            }
+
+            Environment bodyEnv = env.subEnvironment();
+            return analyzeLoopBody(whileStat.body, bodyEnv) | Exit.NORMALLY;
+        }
+
+        /* If condition exists and is not constant true the loop 
+         * can complete normally by not entering the loop body.
+         */
+        public override Exit visitForLoop(ForLoop forLoop, Environment env)
+        {
+            analyze(forLoop.init, env);
+            analyzeExpr(forLoop.condition, env);
+
+            if (forLoop.condition == null || forLoop.condition.type.IsTrue) {
+                return analyzeLoopBody(forLoop.body, env);
+            }
+
+            Environment loopEnv = env.subEnvironment();
+            Exit bodyExit = analyzeLoopBody(forLoop.body, loopEnv);
+
+            return bodyExit | Exit.NORMALLY;
+        }
+
+        /* "Do-While" loop always enters the loop body.
+         */
+        public override Exit visitDo(DoStatement doStat, Environment env)
+        {
+            Exit bodyExit = analyzeLoopBody(doStat.body, env);
+            analyzeExpr(doStat.condition, env);
+            return bodyExit;
+        }
+
+        /* Loop body statements "swollow" any "break" and "continue" and
+         * replace them with "completes normally". Exit by return
+         * is not examined.
+         */
+        private Exit analyzeLoopBody(StatementNode body, Environment env)
+        {
+            const Exit breakCont = Exit.CONTINUE | Exit.BREAK;
+
+            Exit res = analyze(body, env);
+            if ((res & breakCont) != 0) {
+                return (res & ~breakCont) | Exit.NORMALLY;
+            }
+            return res;
+        }
+
+        /* Empty switch completes notmally.
+         * If any case can break then switch can complete normally.
+         * If there is not default, the switch can complete normally
+         * by not entering any case.
+         */
+        public override Exit visitSwitch(Switch @switch, Environment env)
+        {
+            if (@switch.cases.Count == 0) {
+                return Exit.NORMALLY;
+            }
+
+            analyzeExpr(@switch.selector, env);
+
+            bool hasDefault = false;
+            Exit total = 0;
+            IList<Environment> caseEnvs = env.split(@switch.cases.Count);
+            for (int i = 0; i < @switch.cases.Count; i++) {
+                Case @case = @switch.cases[i];
+                Exit caseRes = analyze(@case.Statements, env);
+                total |= caseRes;
+                if (@case.expression == null) {
+                    hasDefault = true;
+                }
+            }
+
+            if (total.HasFlag(Exit.BREAK)) {
+                total &= ~Exit.BREAK;
+                total |= Exit.NORMALLY;
+            }
+
+            if (!hasDefault) {
+                total |= Exit.NORMALLY;
+            } else {
+                Environment.merge(caseEnvs);
+            }
+
+            return total;
+        }
+
+        public override Exit visitBreak(Break @break, Environment env) => Exit.BREAK;
+        public override Exit visitContinue(Continue @continue, Environment env) => Exit.CONTINUE;
+
+        public override Exit visitExpresionStmt(ExpressionStatement expr, Environment env)
+        {
+            analyzeExpr(expr.expression, env);
+            return Exit.NORMALLY;
+        }
+
+        public override Exit visitAssign(AssignNode expr, Environment env)
+        {
+            analyzeExpr(expr.right, env);
+
+            var ident = (Identifier)expr.left;
+            env.assigned((VarSymbol)ident.symbol);
+
+            return 0;
+        }
+
+        public override Exit visitVarDef(VariableDeclaration varDef, Environment env)
+        {
+            if (varDef.init != null) {
+                analyzeExpr(varDef.init, env);
+                env.assigned(varDef.symbol);
+            }
+            return Exit.NORMALLY;
+        }
+
+        public override Exit visitBinary(BinaryExpressionNode expr, Environment env)
+        {
+            analyzeExpr(expr.left, env);
+            analyzeExpr(expr.right, env);
+
+            return 0;
+        }
+
+        public override Exit visitUnary(UnaryExpressionNode expr, Environment env)
+        {
+            analyzeExpr(expr.operand, env);
+            return 0;
+        }
+
+        public override Exit visitCompoundAssign(CompoundAssignNode expr, Environment env)
+        {
+            analyzeExpr(expr.left, env);
+            analyzeExpr(expr.right, env);
+            return 0;
+        }
+
+        public override Exit visitIdent(Identifier ident, Environment env)
+        {
+            var varSym = (VarSymbol)ident.symbol;
+            if (varSym.kind != Kind.PARAM && !env.isAssigned(varSym)) {
+                log.error(ident.Pos, messages.unassignedVariable, ident.name);
+            }
+            return 0;
+        }
+
+        public override Exit visitMethodInvoke(MethodInvocation methodInvocation, Environment env)
+        {
+            for (var i = 0; i < methodInvocation.args.Count; i++) {
+                analyzeExpr(methodInvocation.args[i], env);
+            }
+            return 0;
+        }
+
+        public override Exit visitConditional(ConditionalExpression conditional, Environment env)
+        {
+            analyzeExpr(conditional.condition, env);
+
+            var (whenTrue, whenFalse) = env.split();
+
+            analyzeExpr(conditional.ifTrue, whenTrue);
+            analyzeExpr(conditional.ifFalse, whenFalse);
+
+            whenTrue.merge(whenFalse);
+
+            return 0;
+        }
+
+        public override Exit visitLiteral(LiteralExpression literal, Environment arg) => 0;
+
+        public override Exit visitReturn(ReturnStatement returnStatement, Environment env)
+        {
+            if (returnStatement.value != null) {
+                analyzeExpr(returnStatement.value, env);
+            }
+            return Exit.RETURN;
+        }
+
+        [Flags]
+        public enum Exit
+        {
+            NORMALLY = 0x1,
+            BREAK = 0x2,
+            CONTINUE = 0x4,
+            RETURN = 0x8,
+        }
+
+        /// <summary>
+        /// Within this analysis normal exit is esclusive with other kinds,
+        /// because having a possibility of abnormal exit is sufficient to 
+        /// disprove definite assignment of any variable within a list of 
+        /// statements after the offending statement.
+        /// </summary>
+        public class Environment
+        {
+            private Environment parent;
+            private ISet<VarSymbol> inits = new HashSet<VarSymbol>(5);
+
+            public void assigned(VarSymbol varSym)
             {
-                this.log = log;
+                inits.Add(varSym);
+            }
+
+            public bool isAssigned(VarSymbol varSym)
+            {
+                bool contains = inits.Contains(varSym);
+                if (contains) {
+                    return true;
+                }
+                if (parent != null) {
+                    return parent.isAssigned(varSym);
+                }
+                return false;
+            }
+
+            // Intersect variables from this (true) and other (false) 
+            // branch and  add the result to the set of definitelly 
+            // initialized variables
+            public void merge(Environment whenFalse)
+            {
+                inits.IntersectWith(whenFalse.inits);
+                parent.inits.UnionWith(inits);
+            }
+
+            public void merge()
+            {
+                parent.inits.UnionWith(inits);
+            }
+
+            public static void merge(IList<Environment> caseEnvs)
+            {
+                Environment first = caseEnvs[0];
+                for (var i = 1; i < caseEnvs.Count; i++) {
+                    first.inits.IntersectWith(caseEnvs[i].inits);
+                }
+                first.merge();
+            }
+
+            // Split the environment into true and false branches.
+            // 
+            public (Environment whenTrue, Environment whenFalse) split()
+            {
+                Environment whenTrue = new Environment {parent = this};
+                Environment whenFalse = new Environment {parent = this};
+                return (whenTrue, whenFalse);
+            }
+
+            // Split into n branches
+            public IList<Environment> split(int numEnvs)
+            {
+                Environment[] envs = new Environment[numEnvs];
+                for (var i = 0; i < numEnvs; i++) {
+                    envs[i] = new Environment() {parent = this};
+                }
+                return envs;
+            }
+
+            public Environment subEnvironment()
+            {
+                return new Environment {parent = this};
             }
         }
     }
