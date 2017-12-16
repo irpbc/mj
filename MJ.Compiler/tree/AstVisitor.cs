@@ -120,5 +120,14 @@ namespace mj.compiler.tree
         public virtual void visitCase(Case @case) => visit(@case);
 
         public virtual void visit(Tree node) => throw new InvalidOperationException();
+        
+        public void scan<T>(IList<T> trees) where T : Tree
+        {
+            for (var i = 0; i < trees.Count; i++) {
+                scan(trees[i]);
+            }
+        }
+        
+        public void scan(Tree tree) => tree?.accept(this);
     }
 }

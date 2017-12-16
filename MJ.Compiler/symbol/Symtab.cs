@@ -58,7 +58,7 @@ namespace mj.compiler.symbol
             noSymbol = new NoSymbol(topLevelSymbol, Type.NO_TYPE);
             //noOpSymbol = new Symbol.OperatorSymbol("", noSymbol, Type.NO_TYPE);
 
-            errorOpSymbol = new Symbol.OperatorSymbol("", noSymbol, errorType);
+            errorOpSymbol = new Symbol.OperatorSymbol("", noSymbol, errorType, 0);
         }
 
         private PrimitiveType primitive(TypeTag typeTag, string name)

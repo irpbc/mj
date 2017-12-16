@@ -204,7 +204,7 @@ namespace mj.compiler.symbol
                     hasDefault = true;
                 }
 
-                analyze(@case.Statements, switchEnv);
+                analyze(@case.statements, switchEnv);
             }
 
             return null;
@@ -245,6 +245,7 @@ namespace mj.compiler.symbol
                 }
             }
 
+            invocation.methodSym = msym;
             invocation.type = msym.type.ReturnType;
             return msym.type.ReturnType;
         }
@@ -271,7 +272,7 @@ namespace mj.compiler.symbol
                 log.error(ident.Pos, messages.undefinedVariable, ident.name);
                 varSym = symtab.errorSymbol;
             }
-            ident.symbol = varSym;
+            ident.symbol = (VarSymbol)varSym;
             return varSym.type;
         }
 
@@ -333,6 +334,7 @@ namespace mj.compiler.symbol
             // Search for an enclosing loop
             for (; env.enclStatement != null; env = env.parent) {
                 if (env.enclStatement.Tag.isLoop()) {
+                    cont.target = env.enclStatement;
                     return null;
                 }
             }
@@ -345,6 +347,7 @@ namespace mj.compiler.symbol
             // Search for an enclosing loop
             for (; env.enclStatement != null; env = env.parent) {
                 if (env.enclStatement.Tag.isLoop() || env.enclStatement.Tag == Tag.SWITCH) {
+                    @break.target = env.enclStatement;
                     return null;
                 }
             }

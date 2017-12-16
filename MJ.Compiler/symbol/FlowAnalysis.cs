@@ -209,7 +209,7 @@ namespace mj.compiler.symbol
             IList<Environment> caseEnvs = env.split(@switch.cases.Count);
             for (int i = 0; i < @switch.cases.Count; i++) {
                 Case @case = @switch.cases[i];
-                Exit caseRes = analyze(@case.Statements, env);
+                Exit caseRes = analyze(@case.statements, env);
                 total |= caseRes;
                 if (@case.expression == null) {
                     hasDefault = true;

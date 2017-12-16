@@ -73,7 +73,7 @@ namespace mj.compiler.main
 
         private IList<CompilationUnit> flow(IList<CompilationUnit> trees) => stopIfError(flowAnalysis.main(trees));
 
-        private void generateCode(IEnumerable<CompilationUnit> trees)
+        private void generateCode(IList<CompilationUnit> trees)
         {
             codeGenerator.main(trees);
         }

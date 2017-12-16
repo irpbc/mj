@@ -60,6 +60,8 @@ namespace mj.compiler.symbol
         /// </summary>
         /// <returns></returns>
         public abstract override string ToString();
+
+        public abstract T accept<T>(TypeVisitor<T> v);
     }
 
     /// <summary>
@@ -92,6 +94,8 @@ namespace mj.compiler.symbol
         public override TypeTag Tag => tag;
 
         public override bool IsVoid => tag == TypeTag.VOID;
+
+        public override T accept<T>(TypeVisitor<T> v) => v.visitPrimitiveType(this);
 
         /** Define a constant type, of the same kind as this type
          *  and with given constant value
@@ -149,6 +153,8 @@ namespace mj.compiler.symbol
         {
             return resType + "(" + String.Join(", ", argTypes) + ")";
         }
+
+        public override T accept<T>(TypeVisitor<T> v) => v.visitMethodType(this);
     }
 
     public sealed class NoType : Type
@@ -158,6 +164,8 @@ namespace mj.compiler.symbol
         public override bool IsError => true;
 
         public override string ToString() => "";
+
+        public override T accept<T>(TypeVisitor<T> v) => throw new NotImplementedException();
     }
 
     public sealed class ErrorType : Type
@@ -171,5 +179,15 @@ namespace mj.compiler.symbol
         public override Type ReturnType => this;
 
         public override string ToString() => "<error>";
+
+        public override T accept<T>(TypeVisitor<T> v) => throw new NotImplementedException();
+    }
+
+    public class TypeVisitor<T>
+    {
+        public virtual T visitPrimitiveType(PrimitiveType prim) => visit(prim);
+        public virtual T visitMethodType(MethodType methodType) => visit(methodType);
+
+        public virtual T visit(Type type) => throw new InvalidOperationException();
     }
 }

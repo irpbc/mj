@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using LLVMSharp;
+
 using mj.compiler.utils;
 
 using Newtonsoft.Json;
@@ -49,6 +51,7 @@ namespace mj.compiler.symbol
         {
             public IList<VarSymbol> parameters;
             public Scope.WriteableScope scope;
+            public LLVMValueRef llvmPointer;
 
             public MethodSymbol(string name, Symbol owner, Type type) : base(Kind.MTH, name, owner, type) { }
 
@@ -57,6 +60,8 @@ namespace mj.compiler.symbol
 
         public class VarSymbol : Symbol
         {
+            public LLVMValueRef llvmPointer;
+
             public VarSymbol(Kind kind, string name, Type type, Symbol owner) : base(kind, name, owner, type) { }
 
             public override string ToString() => name + ": " + type;
@@ -76,7 +81,20 @@ namespace mj.compiler.symbol
 
         public class OperatorSymbol : MethodSymbol
         {
-            public OperatorSymbol(string name, Symbol owner, Type type) : base(name, owner, type) { }
+            public LLVMOpcode opcode;
+            public int llvmPredicate;
+
+            public OperatorSymbol(string name, Symbol owner, Type type, LLVMOpcode opcode) : base(name, owner, type)
+            {
+                this.opcode = opcode;
+            }
+
+            public OperatorSymbol(string name, Symbol owner, Type type, LLVMOpcode opcode,
+                                  int predicate) 
+                : this(name, owner, type, opcode)
+            {
+                llvmPredicate = predicate;
+            }
         }
 
         public sealed class ErrorSymbol : TypeSymbol

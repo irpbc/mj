@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using LLVMSharp;
+
 using mj.compiler.main;
 using mj.compiler.symbol;
 
@@ -276,7 +278,7 @@ namespace mj.compiler.tree
     public sealed class Identifier : Expression
     {
         public String name;
-        public Symbol symbol;
+        public Symbol.VarSymbol symbol;
 
         public Identifier(int beginLine, int beginCol, int endLine, int endCol, string name)
             : base(beginLine, beginCol, endLine, endCol)
@@ -296,6 +298,8 @@ namespace mj.compiler.tree
     {
         public String methodName;
         public IList<Expression> args;
+        public Symbol.MethodSymbol methodSym;
+        public LLVMValueRef instruction;
 
         public MethodInvocation(int beginLine, int beginCol, int endLine, int endCol, string methodName,
                                 IList<Expression> args) : base(beginLine, beginCol, endLine, endCol)
@@ -315,6 +319,16 @@ namespace mj.compiler.tree
     {
         protected StatementNode(int beginLine, int beginCol, int endLine, int endCol)
             : base(beginLine, beginCol, endLine, endCol) { }
+
+        public virtual LLVMBasicBlockRef BreakBlock {
+            get => default(LLVMBasicBlockRef);
+            set { }
+        }
+
+        public virtual LLVMBasicBlockRef ContinueBlock {
+            get => default(LLVMBasicBlockRef);
+            set { }
+        }
     }
 
     public sealed class ReturnStatement : StatementNode
@@ -354,6 +368,7 @@ namespace mj.compiler.tree
     public abstract class JumpStatement : StatementNode
     {
         public StatementNode target;
+        public LLVMValueRef instruction;
 
         protected JumpStatement(int beginLine, int beginCol, int endLine, int endCol)
             : base(beginLine, beginCol, endLine, endCol) { }
@@ -420,6 +435,9 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.WHILE;
 
+        public override LLVMBasicBlockRef BreakBlock { get; set; }
+        public override LLVMBasicBlockRef ContinueBlock { get; set; }
+
         public override void accept(AstVisitor v) => v.visitWhile(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitWhile(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitWhileLoop(this, arg);
@@ -432,6 +450,9 @@ namespace mj.compiler.tree
             : base(beginLine, beginCol, endLine, endCol, condition, body) { }
 
         public override Tag Tag => Tag.DO;
+
+        public override LLVMBasicBlockRef BreakBlock { get; set; }
+        public override LLVMBasicBlockRef ContinueBlock { get; set; }
 
         public override void accept(AstVisitor v) => v.visitDo(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitDo(this);
@@ -457,6 +478,9 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.FOR;
 
+        public override LLVMBasicBlockRef BreakBlock { get; set; }
+        public override LLVMBasicBlockRef ContinueBlock { get; set; }
+
         public override void accept(AstVisitor v) => v.visitFor(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitFor(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitForLoop(this, arg);
@@ -474,6 +498,8 @@ namespace mj.compiler.tree
             this.cases = cases;
         }
 
+        public override LLVMBasicBlockRef BreakBlock { get; set; }
+
         public override Tag Tag => Tag.SWITCH;
 
         public override void accept(AstVisitor v) => v.visitSwitch(this);
@@ -484,13 +510,13 @@ namespace mj.compiler.tree
     public sealed class Case : Tree
     {
         public Expression expression;
-        public IList<StatementNode> Statements;
+        public IList<StatementNode> statements;
 
         public Case(int beginLine, int beginCol, int endLine, int endCol, Expression expression,
                     IList<StatementNode> statements) : base(beginLine, beginCol, endLine, endCol)
         {
             this.expression = expression;
-            Statements = statements;
+            this.statements = statements;
         }
 
         public override Tag Tag => Tag.CASE;
@@ -607,6 +633,11 @@ namespace mj.compiler.tree
             return tag >= Tag.PRE_INC && tag <= Tag.POST_DEC;
         }
 
+        public static bool isPre(this Tag tag)
+        {
+            return tag == Tag.PRE_INC || tag == Tag.PRE_DEC;
+        }
+
         // Relies on NEG being the first operator declared in enum!
         public static int operatorIndex(this Tag opTag)
         {
@@ -615,9 +646,14 @@ namespace mj.compiler.tree
 
         // Find base operator for a given compound assignment operator.
         // Relies on order of enum constants!
-        public static Tag baseOperator(this Tag compOpTag)
+        public static Tag baseOperator(this Tag compAssTag)
         {
-            return compOpTag - (Tag.MOD - Tag.BITOR + 1);
+            return compAssTag - (Tag.MOD - Tag.BITOR + 1);
+        }
+
+        public static bool isComparison(this Tag tag)
+        {
+            return tag >= Tag.EQ && tag <= Tag.GE;
         }
     }
 }
