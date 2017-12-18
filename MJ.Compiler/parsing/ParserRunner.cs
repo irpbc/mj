@@ -13,20 +13,17 @@ namespace mj.compiler.parsing
     {
         private static readonly Context.Key<ParserRunner> CONTEX_KEY = new Context.Key<ParserRunner>();
 
-        public static ParserRunner instance(Context context)
-        {
-            if (context.tryGet(CONTEX_KEY, out var instance)) {
-                return instance;
-            }
-            return new ParserRunner(context);
-        }
+        public static ParserRunner instance(Context context) => 
+            context.tryGet(CONTEX_KEY, out var instance) ? instance : new ParserRunner(context);
 
         private CommandLineOptions options;
+        private Log log;
 
         private ParserRunner(Context context)
         {
             context.put(CONTEX_KEY, this);
             options = CommandLineOptions.instance(context);
+            log = Log.instance(context);
         }
 
         public CompilationUnit parse(SourceFile sourceFile)
@@ -45,7 +42,7 @@ namespace mj.compiler.parsing
                     Console.WriteLine("SYNTAX ERRORS");
                 }
                 
-                return (CompilationUnit)compilationUnit.Accept(new AstGeneratingParseTreeVisitor());
+                return (CompilationUnit)compilationUnit.Accept(new AstGeneratingParseTreeVisitor(log));
             }
         }
     }

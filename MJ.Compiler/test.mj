@@ -2,6 +2,9 @@
 int fib(int n) {
     if (n < 2) {
         return 1;
+    } else if (n < 4) {
+        int a = 789;
+        fib(a);
     }
     
     int fib1 = fib(n-1);
@@ -10,37 +13,41 @@ int fib(int n) {
 }
 
 int main() {
+    //switchTest(42);
+    fib(10);
+    return 0;
+}
 
-    int uslov = 10;
-    switch (uslov) {
-        case 1:
-            return 16;
-            break;
-        case 2:
-            return 42;
-        // default:
-        //    return 42;
+float switchTest(int input) {
+    int a;
+    switch (input) {
+        case 42: return 98;
+        case 79: return 14;
+        default:
+            return 864;
     }
+}
 
-    float a = 5.87;
-    
-    while (true) {
-        break;
-        a = 2.1;
-    }
-    
-    int maybe;
-    if (a > true) {
-        maybe = 5;
+void testIf(int input) {
+    int a;
+    if (input < 787) {
+        switch (input) {
+            case 42: a =  98; break;
+            case 79: a =  14; break;
+            default:
+                a =  864; break;
+        }
     } else {
-        //maybe = 8;
+        if (input < 900) {
+            switch (input) {
+                case 42: a =  98;
+                case 79: a =  14; break;
+                default:
+                    a =  864; break;
+            }
+        } else {
+            a =  78;
+        }
     }
-    
-    int r = maybe + 2;
-    
-    float someInt = a;
-    
-    int đšđš;
-    
-    return fib(10);
+    fib(a);
 }

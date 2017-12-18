@@ -1,12 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 using LLVMSharp;
 
+using mj.compiler.main;
 using mj.compiler.symbol;
 using mj.compiler.tree;
 using mj.compiler.utils;
+
+using Type = mj.compiler.symbol.Type;
 
 namespace mj.compiler.codegen
 {
@@ -17,144 +22,210 @@ namespace mj.compiler.codegen
         public static CodeGenerator instance(Context ctx) =>
             ctx.tryGet(CONTEXT_KEY, out var instance) ? instance : new CodeGenerator(ctx);
 
-        private LLVMBuilderRef builder;
-        private LLVMValueRef function;
-        private LLVMModuleRef module;
-
         private readonly LLVMTypeResolver typeResolver;
         private VariableAllocator variableAllocator;
-        private readonly JumpPatcher jumpPatcher;
-        private readonly CallPatcher callPatcher;
         private readonly Typings typings;
+        private readonly CommandLineOptions options;
 
         public CodeGenerator(Context ctx)
         {
             ctx.put(CONTEXT_KEY, this);
 
             typings = Typings.instance(ctx);
-            jumpPatcher = new JumpPatcher();
-            callPatcher = new CallPatcher();
             typeResolver = new LLVMTypeResolver();
+            options = CommandLineOptions.instance(ctx);
         }
 
-        [UnmanagedFunctionPointer(CallingConvention.FastCall)]
+        private LLVMContextRef context;
+        private LLVMModuleRef module;
+        private LLVMValueRef function;
+        private MethodDef method;
+        private LLVMBuilderRef builder;
+
+        private static readonly LLVMValueRef nullValue = default(LLVMValueRef);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int MainFunction();
 
         public void main(IList<CompilationUnit> trees)
         {
-            module = LLVM.ModuleCreateWithName("TheProgram");
-            builder = LLVM.CreateBuilder();
+            if (trees.Count == 0) {
+                return;
+            }
+
+            LLVMPassManagerRef passManager = LLVM.CreatePassManager();
+            LLVM.AddPromoteMemoryToRegisterPass(passManager);
+            LLVM.AddCFGSimplificationPass(passManager);
+
+            context = LLVM.GetGlobalContext();
+            module = LLVM.ModuleCreateWithNameInContext("TheProgram", context);
+            builder = context.CreateBuilderInContext();
 
             variableAllocator = new VariableAllocator(builder, typeResolver);
 
             scan(trees);
-            callPatcher.scan(trees);
+            LLVM.DumpModule(module);
 
             LLVMBool success = new LLVMBool(value: 0);
 
             if (LLVM.VerifyModule(module, LLVMVerifierFailureAction.LLVMPrintMessageAction, out var error) != success) {
-                Console.WriteLine($"Error: {error}");
+                Console.WriteLine($"Verfy Error: {error}");
                 return;
             }
 
-            LLVM.LinkInMCJIT();
+            LLVM.RunPassManager(passManager, module);
 
-            LLVM.InitializeX86TargetMC();
-            LLVM.InitializeX86Target();
-            LLVM.InitializeX86TargetInfo();
-            LLVM.InitializeX86AsmParser();
-            LLVM.InitializeX86AsmPrinter();
-
-            LLVMMCJITCompilerOptions options = new LLVMMCJITCompilerOptions {NoFramePointerElim = 1, OptLevel = 0};
-            LLVM.InitializeMCJITCompilerOptions(options);
-            if (LLVM.CreateMCJITCompilerForModule(out var engine, module, options, out error) != success) {
-                Console.WriteLine($"Error: {error}");
+            if (options.DumpIR) {
+                LLVM.DumpModule(module);
             }
 
-            LLVMValueRef mainFunction = LLVM.GetNamedFunction(module, "main");
-            var execute = (MainFunction)Marshal.GetDelegateForFunctionPointer(
-                LLVM.GetPointerToGlobal(engine, mainFunction), typeof(MainFunction));
+            //LLVM.LinkInMCJIT();
 
-            int result = execute();
+            //LLVM.InitializeX86TargetMC();
+            //LLVM.InitializeX86Target();
+            //LLVM.InitializeX86TargetInfo();
+            //LLVM.InitializeX86AsmParser();
+            //LLVM.InitializeX86AsmPrinter();
 
-            Console.WriteLine($"Program excuted with result: {result}");
+            //LLVMMCJITCompilerOptions options = new LLVMMCJITCompilerOptions {NoFramePointerElim = 1, OptLevel = 0};
+            //LLVM.InitializeMCJITCompilerOptions(options);
+            //if (LLVM.CreateMCJITCompilerForModule(out var engine, module, options, out error) != success) {
+            //Console.WriteLine($"Error: {error}");
+            //}
 
-            LLVM.DumpModule(module);
+            //LLVMValueRef mainFunction = LLVM.GetNamedFunction(module, "main");
+            //var execute = (MainFunction)Marshal.GetDelegateForFunctionPointer(
+            //    LLVM.GetPointerToGlobal(engine, mainFunction), typeof(MainFunction));
+
+            //int result = execute();
+
+            //Console.WriteLine($"Program excuted with result: {result}");
+
+            LLVM.DisposePassManager(passManager);
             LLVM.DisposeBuilder(builder);
-            LLVM.DisposeExecutionEngine(engine);
+            //LLVM.DisposeExecutionEngine(engine);
         }
 
         public override LLVMValueRef visitCompilationUnit(CompilationUnit compilationUnit)
         {
             foreach (MethodDef mt in compilationUnit.methods) {
                 LLVMTypeRef llvmType = mt.symbol.type.accept(typeResolver);
-                function = LLVM.AddFunction(module, mt.name, llvmType);
-                function.SetFunctionCallConv((uint)LLVMCallConv.LLVMFastCallConv);
-                mt.symbol.llvmPointer = function;
+                LLVMValueRef func = LLVM.AddFunction(module, mt.name, llvmType);
+                func.SetFunctionCallConv((uint)LLVMCallConv.LLVMCCallConv);
+
+                mt.symbol.llvmPointer = func;
+            }
+
+            foreach (MethodDef mt in compilationUnit.methods) {
+                function = mt.symbol.llvmPointer;
 
                 LLVMBasicBlockRef entryBlock = function.AppendBasicBlock("entry");
                 LLVM.PositionBuilderAtEnd(builder, entryBlock);
 
                 variableAllocator.scan(mt.body);
 
+                LLVMValueRef[] llvmParams = function.GetParams();
+                for (var i = 0; i < llvmParams.Length; i++) {
+                    mt.symbol.parameters[i].llvmPointer = llvmParams[i];
+                }
+
+                method = mt;
                 scan(mt.body.statements);
-                jumpPatcher.scan(mt.body.statements);
+
+                endFunction();
             }
 
-            return default(LLVMValueRef);
+            return nullValue;
+        }
+
+        private void endFunction()
+        {
+            LLVMBasicBlockRef lastBlock = LLVM.GetInsertBlock(builder);
+            LLVMValueRef lastInst = lastBlock.GetLastInstruction();
+            // if last block is empty
+            if (lastInst.Pointer == IntPtr.Zero) {
+                // method must be void if an empty block was produced
+                // at end
+                Assert.assert(method.symbol.type.ReturnType.IsVoid);
+                
+                LLVM.BuildRetVoid(builder);
+                return;
+            }
+            LLVMOpcode prevInstOpcode = lastInst.GetInstructionOpcode();
+            if (prevInstOpcode != LLVMOpcode.LLVMBr && prevInstOpcode != LLVMOpcode.LLVMRet) {
+                // method must be void if it's not already terminated 
+                Assert.assert(method.symbol.type.ReturnType.IsVoid);
+
+                LLVM.BuildRetVoid(builder);
+            }
         }
 
         public override LLVMValueRef visitBlock(Block block)
         {
             scan(block.statements);
-            return default(LLVMValueRef);
+            return nullValue;
         }
 
         public override LLVMValueRef visitIf(If ifStat)
         {
+            // gen condition
             LLVMValueRef conditionVal = scan(ifStat.condition);
 
-            LLVMBasicBlockRef thenBlock = LLVM.AppendBasicBlock(function, "then");
+            // make "then" block
+            LLVMBasicBlockRef thenBlock = function.AppendBasicBlock("then");
+            LLVMBasicBlockRef afterIf = context.AppendBasicBlockInContext(function, "afterIf");
+
+            bool didJump = false;
 
             if (ifStat.elsePart == null) {
-                LLVMBasicBlockRef afterIf = LLVM.AppendBasicBlock(function, "afterIf");
-
                 LLVM.BuildCondBr(builder, conditionVal, thenBlock, afterIf);
                 LLVM.PositionBuilderAtEnd(builder, thenBlock);
                 scan(ifStat.thenPart);
-                LLVM.PositionBuilderAtEnd(builder, afterIf);
+                didJump = safeJumpTo(afterIf);
             } else {
-                LLVMBasicBlockRef elseBlock = LLVM.AppendBasicBlock(function, "else");
+                LLVMBasicBlockRef elseBlock = context.AppendBasicBlockInContext(function, "else");
                 LLVM.BuildCondBr(builder, conditionVal, thenBlock, elseBlock);
                 LLVM.PositionBuilderAtEnd(builder, thenBlock);
                 scan(ifStat.thenPart);
+                didJump |= safeJumpTo(afterIf);
+                elseBlock.MoveBasicBlockAfter(function.GetLastBasicBlock());
                 LLVM.PositionBuilderAtEnd(builder, elseBlock);
                 scan(ifStat.elsePart);
-                LLVMBasicBlockRef afterIf = LLVM.AppendBasicBlock(function, "afterIf");
-                LLVM.PositionBuilderAtEnd(builder, afterIf);
+                didJump |= safeJumpTo(afterIf);
             }
 
-            return default(LLVMValueRef);
+            if (didJump) {
+                afterIf.MoveBasicBlockAfter(function.GetLastBasicBlock());
+                LLVM.PositionBuilderAtEnd(builder, afterIf);
+            } else {
+                afterIf.DeleteBasicBlock();
+            }
+
+            return nullValue;
         }
 
         public override LLVMValueRef visitWhile(WhileStatement whileStat)
         {
             LLVMBasicBlockRef whileBlock = LLVM.AppendBasicBlock(function, "while");
+            LLVM.PositionBuilderAtEnd(builder, whileBlock);
             LLVMValueRef conditionVal = scan(whileStat.condition);
+
             LLVMBasicBlockRef thenBlock = LLVM.AppendBasicBlock(function, "then");
             LLVMBasicBlockRef afterWhile = LLVM.AppendBasicBlock(function, "afterWhile");
-            LLVM.BuildCondBr(builder, conditionVal, thenBlock, afterWhile);
-
-            LLVM.PositionBuilderAtEnd(builder, thenBlock);
-            scan(whileStat.body);
-            LLVM.BuildBr(builder, whileBlock);
-
-            LLVM.PositionBuilderAtEnd(builder, afterWhile);
 
             whileStat.ContinueBlock = whileBlock;
             whileStat.BreakBlock = afterWhile;
 
-            return default(LLVMValueRef);
+            LLVM.BuildCondBr(builder, conditionVal, thenBlock, afterWhile);
+
+            LLVM.PositionBuilderAtEnd(builder, thenBlock);
+            scan(whileStat.body);
+            safeJumpTo(whileBlock);
+
+            afterWhile.MoveBasicBlockAfter(function.GetLastBasicBlock());
+            LLVM.PositionBuilderAtEnd(builder, afterWhile);
+
+            return nullValue;
         }
 
         public override LLVMValueRef visitDo(DoStatement doStat)
@@ -162,24 +233,31 @@ namespace mj.compiler.codegen
             LLVMBasicBlockRef doBlock = LLVM.AppendBasicBlock(function, "do");
             LLVMBasicBlockRef afterDo = LLVM.AppendBasicBlock(function, "afterDo");
 
+            doStat.ContinueBlock = doBlock;
+            doStat.BreakBlock = afterDo;
+
+            // explicit jump from the previous block as required by LLVM
+            safeJumpTo(doBlock);
+
             LLVM.PositionBuilderAtEnd(builder, doBlock);
             scan(doStat.body);
             LLVMValueRef conditionVal = scan(doStat.condition);
             LLVM.BuildCondBr(builder, conditionVal, doBlock, afterDo);
 
+            afterDo.MoveBasicBlockAfter(function.GetLastBasicBlock());
             LLVM.PositionBuilderAtEnd(builder, afterDo);
 
-            doStat.ContinueBlock = doBlock;
-            doStat.BreakBlock = afterDo;
-
-            return default(LLVMValueRef);
+            return nullValue;
         }
 
         public override LLVMValueRef visitFor(ForLoop forLoop)
         {
             scan(forLoop.init);
-            LLVMBasicBlockRef forBlock = function.AppendBasicBlock("for");
-            LLVMBasicBlockRef afterFor = function.AppendBasicBlock("afterfor");
+            LLVMBasicBlockRef forBlock = LLVM.AppendBasicBlock(function, "for");
+            LLVMBasicBlockRef afterFor = LLVM.AppendBasicBlock(function, "afterfor");
+
+            forLoop.ContinueBlock = forBlock;
+            forLoop.BreakBlock = afterFor;
 
             LLVM.PositionBuilderAtEnd(builder, forBlock);
             if (forLoop.condition != null) {
@@ -191,82 +269,97 @@ namespace mj.compiler.codegen
             scan(forLoop.body);
 
             scan(forLoop.update);
-            LLVM.BuildBr(builder, forBlock);
+            safeJumpTo(forBlock);
+
+            afterFor.MoveBasicBlockAfter(function.GetLastBasicBlock());
             LLVM.PositionBuilderAtEnd(builder, afterFor);
 
-            forLoop.ContinueBlock = forBlock;
-            forLoop.BreakBlock = afterFor;
-
-            return default(LLVMValueRef);
+            return nullValue;
         }
 
         public override LLVMValueRef visitSwitch(Switch @switch)
         {
             LLVMValueRef selectorVal = scan(@switch.selector);
-            int numCases = @switch.cases.Count;
-            if (numCases == 0) {
-                return default(LLVMValueRef);
+
+            if (@switch.cases.Count == 0) {
+                return nullValue;
             }
 
-            Case defaultCase = null;
+            int numRealCases = @switch.cases.Count(@case => @case.expression != null);
 
-            for (var index = 0; index < @switch.cases.Count; index++) {
-                Case @case = @switch.cases[index];
-                if (@case.expression == null) {
-                    defaultCase = @case;
-                    break;
-                }
-            }
+            LLVMBasicBlockRef dummy = LLVM.AppendBasicBlock(function, "dummy");
+            LLVMValueRef switchInst = LLVM.BuildSwitch(builder, selectorVal, dummy, (uint)numRealCases);
 
-            LLVMBasicBlockRef[] caseBlocks = new LLVMBasicBlockRef[numCases];
-            LLVMBasicBlockRef? elseBlock = null;
+            LLVMBasicBlockRef? defaultBlock = null;
 
-            for (var i = 0; i < caseBlocks.Length; i++) {
-                Case @case = @switch.cases[i];
-                LLVMBasicBlockRef caseBlock = function.AppendBasicBlock("case");
-                LLVM.PositionBuilderAtEnd(builder, caseBlock);
-                scan(@case.statements);
-                if (@case.expression != null) {
-                    caseBlocks[i] = caseBlock;
-                } else {
-                    elseBlock = caseBlock;
-                }
-            }
-
-            LLVMBasicBlockRef afterSwitch = function.AppendBasicBlock("afterSwitch");
-            if (elseBlock == null) {
-                elseBlock = afterSwitch;
-            }
-
-            LLVMValueRef switchInst = LLVM.BuildSwitch(builder, selectorVal, elseBlock.Value, (uint)numCases);
-
-            for (var i = 0; i < caseBlocks.Length; i++) {
-                Case @case = @switch.cases[i];
-                if (@case != null) {
-                    LLVMBasicBlockRef llvmBasicBlockRef = caseBlocks[i];
-                    LLVMValueRef caseVal = scan(@case.expression);
-                    Assert.assert(caseVal.IsConstant());
-                    switchInst.AddCase(caseVal, llvmBasicBlockRef);
-                }
-            }
-
+            LLVMBasicBlockRef afterSwitch = LLVM.AppendBasicBlock(function, "afterSwitch");
             @switch.BreakBlock = afterSwitch;
 
-            return default(LLVMValueRef);
+            for (var i = 0; i < @switch.cases.Count; i++) {
+                Case @case = @switch.cases[i];
+                LLVMBasicBlockRef caseBlock = function.AppendBasicBlock("case");
+
+                if (i > 0) {
+                    safeJumpTo(caseBlock);
+                }
+
+                if (@case.expression != null) {
+                    LLVMValueRef caseVal = scan(@case.expression);
+                    Assert.assert(caseVal.IsConstant());
+                    switchInst.AddCase(caseVal, caseBlock);
+                } else {
+                    defaultBlock = caseBlock;
+                }
+
+                LLVM.PositionBuilderAtEnd(builder, caseBlock);
+                scan(@case.statements);
+            }
+
+            switchInst.SetOperand(1, defaultBlock ?? afterSwitch);
+            dummy.DeleteBasicBlock();
+
+            if (@switch.didBreak || safeJumpTo(afterSwitch)) {
+                afterSwitch.MoveBasicBlockAfter(function.GetLastBasicBlock());
+                LLVM.PositionBuilderAtEnd(builder, afterSwitch);
+            } else {
+                afterSwitch.DeleteBasicBlock();
+            }
+
+            return nullValue;
+        }
+
+        // result is used by visitIf and visitSwitch to determine
+        // if it's needed or not to emit the "after" block
+        // if we dont jump here, that means all branches have
+        // terminating statements, which means it is impossible to
+        // continue 
+        private bool safeJumpTo(LLVMBasicBlockRef destBlock)
+        {
+            LLVMBasicBlockRef prevBlock = LLVM.GetInsertBlock(builder);
+            LLVMValueRef lastInst = prevBlock.GetLastInstruction();
+            if (lastInst.Pointer == IntPtr.Zero) {
+                LLVM.BuildBr(builder, destBlock);
+                return true;
+            }
+            LLVMOpcode prevInstOpcode = lastInst.GetInstructionOpcode();
+            if (prevInstOpcode != LLVMOpcode.LLVMBr && prevInstOpcode != LLVMOpcode.LLVMRet) {
+                LLVM.BuildBr(builder, destBlock);
+                return true;
+            }
+            return false;
         }
 
         public override LLVMValueRef visitBreak(Break @break)
         {
-            // Write dummy instruction, and remember it for later patching
-            @break.instruction = LLVM.BuildBr(builder, default(LLVMValueRef));
-            return default(LLVMValueRef);
+            @break.target.setBreak();
+            LLVM.BuildBr(builder, @break.target.BreakBlock);
+            return nullValue;
         }
 
         public override LLVMValueRef visitContinue(Continue @continue)
         {
-            // Write dummy instruction, and remember it for later patching
-            @continue.instruction = LLVM.BuildBr(builder, default(LLVMValueRef));
-            return default(LLVMValueRef);
+            LLVM.BuildBr(builder, @continue.target.ContinueBlock);
+            return nullValue;
         }
 
         public override LLVMValueRef visitReturn(ReturnStatement returnStatement)
@@ -274,23 +367,28 @@ namespace mj.compiler.codegen
             if (returnStatement.value == null) {
                 LLVM.BuildRetVoid(builder);
             } else {
-                LLVM.BuildRet(builder, scan(returnStatement.value));
+                LLVMValueRef value = scan(returnStatement.value);
+                value = promote((PrimitiveType)returnStatement.value.type, (PrimitiveType)method.symbol.type.ReturnType,
+                    value);
+                LLVM.BuildRet(builder, value);
             }
-            return default(LLVMValueRef);
+            return nullValue;
         }
 
         public override LLVMValueRef visitExpresionStmt(ExpressionStatement expr)
         {
             scan(expr.expression);
-            return default(LLVMValueRef);
+            return nullValue;
         }
 
         public override LLVMValueRef visitVarDef(VariableDeclaration varDef)
         {
             if (varDef.init != null) {
-                LLVM.BuildStore(builder, scan(varDef.init), varDef.symbol.llvmPointer);
+                LLVMValueRef initVal = scan(varDef.init);
+                initVal = promote((PrimitiveType)varDef.init.type, (PrimitiveType)varDef.symbol.type, initVal);
+                LLVM.BuildStore(builder, initVal, varDef.symbol.llvmPointer);
             }
-            return default(LLVMValueRef);
+            return nullValue;
         }
 
         public override LLVMValueRef visitConditional(ConditionalExpression conditional)
@@ -303,10 +401,14 @@ namespace mj.compiler.codegen
             LLVM.BuildCondBr(builder, conditionVal, thenBlock, elseBlock);
 
             LLVM.PositionBuilderAtEnd(builder, thenBlock);
-            LLVMValueRef trueVal = scan(conditional.ifTrue);
+            Expression trueExpr = conditional.ifTrue;
+            LLVMValueRef trueVal = scan(trueExpr);
+            trueVal = promote(trueExpr.type, conditional.type, trueVal);
 
             LLVM.PositionBuilderAtEnd(builder, elseBlock);
-            LLVMValueRef falseVal = scan(conditional.ifFalse);
+            Expression falseExpr = conditional.ifFalse;
+            LLVMValueRef falseVal = scan(falseExpr);
+            falseVal = promote(falseExpr.type, conditional.type, falseVal);
 
             LLVMBasicBlockRef afterIf = LLVM.AppendBasicBlock(function, "afterIf");
             LLVM.PositionBuilderAtEnd(builder, afterIf);
@@ -316,23 +418,27 @@ namespace mj.compiler.codegen
             return phi;
         }
 
-        public override LLVMValueRef visitMethodInvoke(MethodInvocation methodInvocation)
+        public override LLVMValueRef visitMethodInvoke(MethodInvocation mi)
         {
-            LLVMValueRef[] args = new LLVMValueRef[methodInvocation.args.Count];
-            for (var i = 0; i < methodInvocation.args.Count; i++) {
-                args[i] = scan(methodInvocation.args[i]);
+            LLVMValueRef[] args = new LLVMValueRef[mi.args.Count];
+            for (var i = 0; i < mi.args.Count; i++) {
+                Expression arg = mi.args[i];
+                LLVMValueRef argVal = scan(arg);
+                args[i] = promote((PrimitiveType)arg.type, (PrimitiveType)mi.methodSym.type.ParameterTypes[i], argVal);
             }
 
-            // The target method might not be genearted yet, so we dont supply 
-            // the function, but save the instruction for later patching.
-            LLVMValueRef callInst =
-                LLVM.BuildCall(builder, default(LLVMValueRef), args, methodInvocation.methodSym.name);
-            methodInvocation.instruction = callInst;
+            string name = mi.type.IsVoid ? null : mi.methodSym.name;
+            LLVMValueRef callInst = LLVM.BuildCall(builder, mi.methodSym.llvmPointer, args, name);
             return callInst;
         }
 
         public override LLVMValueRef visitIdent(Identifier ident)
         {
+            if (ident.symbol.kind == Symbol.Kind.PARAM) {
+                // parameters are direct values
+                return ident.symbol.llvmPointer;
+            }
+            // local variables are "allocated"
             return LLVM.BuildLoad(builder, ident.symbol.llvmPointer, "load." + ident.name);
         }
 
@@ -443,17 +549,18 @@ namespace mj.compiler.codegen
         {
             LLVMOpcode llvmOpcode = binary.opcode;
             if (llvmOpcode == LLVMOpcode.LLVMICmp) {
-                LLVM.BuildICmp(builder, (LLVMIntPredicate)binary.llvmPredicate, leftVal, rightVal, "icmp");
-            } else if (llvmOpcode == LLVMOpcode.LLVMICmp) {
-                LLVM.BuildFCmp(builder, (LLVMRealPredicate)binary.llvmPredicate, leftVal, rightVal, "fcmp");
+                return LLVM.BuildICmp(builder, (LLVMIntPredicate)binary.llvmPredicate, leftVal, rightVal, "icmp");
             }
-
+            if (llvmOpcode == LLVMOpcode.LLVMICmp) {
+                return LLVM.BuildFCmp(builder, (LLVMRealPredicate)binary.llvmPredicate, leftVal, rightVal, "fcmp");
+            }
             return LLVM.BuildBinOp(builder, llvmOpcode, leftVal, rightVal, "tmp");
         }
 
-        public LLVMValueRef promote(PrimitiveType actualType, PrimitiveType requestedType, LLVMValueRef value)
+        public LLVMValueRef promote(Type actualType, Type requestedType, LLVMValueRef value)
         {
-            if (actualType == requestedType) {
+            // Compare base types to acount for constants
+            if (actualType.BaseType == requestedType.BaseType) {
                 return value;
             }
 

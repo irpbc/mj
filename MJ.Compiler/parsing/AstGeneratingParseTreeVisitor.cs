@@ -6,6 +6,8 @@ using Antlr4.Runtime;
 using Antlr4.Runtime.Atn;
 using Antlr4.Runtime.Tree;
 
+using mj.compiler.main;
+using mj.compiler.resources;
 using mj.compiler.symbol;
 using mj.compiler.tree;
 using mj.compiler.utils;
@@ -16,6 +18,13 @@ namespace mj.compiler.parsing
 {
     public class AstGeneratingParseTreeVisitor : MJBaseVisitor<Tree>
     {
+        private readonly Log log;
+
+        public AstGeneratingParseTreeVisitor(Log log)
+        {
+            this.log = log;
+        }
+
         public override Tree VisitChildren(IRuleNode node) => throw new InvalidOperationException();
         public override Tree VisitErrorNode(IErrorNode node) => throw new InvalidOperationException();
 
@@ -304,7 +313,7 @@ namespace mj.compiler.parsing
 
         public override Tree VisitSwitchStatement(SwitchStatementContext context)
         {
-            Expression expression = (Expression)VisitExpression(context.expression());
+            Expression selector = (Expression)VisitExpression(context.expression());
             CaseGroupContext[] caseGroups = context.caseGroup();
             IList<SwitchLabelContext> bottomLabels = context._bottomLabels;
 
@@ -313,6 +322,7 @@ namespace mj.compiler.parsing
             Case[] cases = new Case[count + bottomLabels.Count];
 
             int iCases = 0;
+            bool hasDefault = false;
             foreach (CaseGroupContext caseGroup in caseGroups) {
                 IList<SwitchLabelContext> labels = caseGroup.labels._labels;
                 int last = labels.Count - 1;
@@ -320,12 +330,14 @@ namespace mj.compiler.parsing
                 for (var index = 0; index < last; index++) {
                     SwitchLabelContext label = labels[index];
                     Expression caseExpression = getCaseExpression(label);
+                    checkDefault(label, caseExpression, ref hasDefault);
                     cases[iCases++] = new Case(label.start.Line, label.start.Column, label.stop.Line,
                         label.stop.Column, caseExpression,
                         CollectionUtils.emptyList<StatementNode>());
                 }
                 SwitchLabelContext lastLabel = labels[last];
                 Expression lastCaseExpression = getCaseExpression(lastLabel);
+                checkDefault(lastLabel, lastCaseExpression, ref hasDefault);
                 IList<StatementNode> statements = convertBlockStatementList(caseGroup.stmts);
 
                 cases[iCases++] = new Case(lastLabel.start.Line, lastLabel.start.Column, caseGroup.stop.Line,
@@ -334,13 +346,26 @@ namespace mj.compiler.parsing
 
             foreach (SwitchLabelContext label in bottomLabels) {
                 Expression caseExpression = getCaseExpression(label);
+                checkDefault(label, caseExpression, ref hasDefault);
                 cases[iCases++] = new Case(label.start.Line, label.start.Column, label.stop.Line,
                     label.stop.Column, caseExpression,
                     CollectionUtils.emptyList<StatementNode>());
             }
 
             return new Switch(context.start.Line, context.start.Column, context.stop.Line,
-                context.stop.Column, expression, cases);
+                context.stop.Column, selector, cases, hasDefault);
+        }
+
+        private void checkDefault(SwitchLabelContext label, Expression caseExpression, ref bool hasDefault)
+        {
+            if (caseExpression == null) {
+                if (hasDefault) {
+                    log.error(
+                        new DiagnosticPosition(label.start.Line, label.start.Column),
+                        messages.multipleDefaults);
+                }
+                hasDefault = true;
+            }
         }
 
         private Expression getCaseExpression(SwitchLabelContext label)
@@ -422,7 +447,7 @@ namespace mj.compiler.parsing
             if (forInit == null) {
                 return CollectionUtils.emptyList<StatementNode>();
             }
-            
+
             StatementExpressionListContext statementExpressionList = forInit.statementExpressionList();
             if (statementExpressionList != null) {
                 IList<StatementExpressionContext> statementExpressionContexts = statementExpressionList._statements;

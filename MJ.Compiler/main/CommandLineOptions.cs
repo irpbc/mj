@@ -16,6 +16,7 @@ namespace mj.compiler.main
 
         public bool Verbose { get; private set; }
         public bool DumpTree { get; private set; }
+        public bool DumpIR { get; private set; }
         public bool PrettyPrintTree { get; private set; }
         public bool ShowHelp { get; private set; }
         public IList<String> InputFiles { get; } = new List<String>();
@@ -33,7 +34,8 @@ namespace mj.compiler.main
                 {"pretty-print-tree", s => PrettyPrintTree = true},
                 {"h|help", s => ShowHelp = true},
                 {"<>", "Input files", s => InputFiles.Add(s), true},
-                {"o|output", "Output file path", s => OutPath = s}
+                {"o|output", "Output file path", s => OutPath = s},
+                {"dump-ir", "Dump LLVM IR", s => DumpIR = true}
             };
         }
 

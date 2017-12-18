@@ -299,7 +299,6 @@ namespace mj.compiler.tree
         public String methodName;
         public IList<Expression> args;
         public Symbol.MethodSymbol methodSym;
-        public LLVMValueRef instruction;
 
         public MethodInvocation(int beginLine, int beginCol, int endLine, int endCol, string methodName,
                                 IList<Expression> args) : base(beginLine, beginCol, endLine, endCol)
@@ -329,6 +328,8 @@ namespace mj.compiler.tree
             get => default(LLVMBasicBlockRef);
             set { }
         }
+        
+        public virtual void setBreak() {}
     }
 
     public sealed class ReturnStatement : StatementNode
@@ -490,15 +491,23 @@ namespace mj.compiler.tree
     {
         public Expression selector;
         public IList<Case> cases;
+        public bool hasDefault;
+        public bool didBreak;
 
-        public Switch(int beginLine, int beginCol, int endLine, int endCol, Expression selector, IList<Case> cases)
+        public Switch(int beginLine, int beginCol, int endLine, int endCol, Expression selector, IList<Case> cases,
+                      bool hasDefault)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.selector = selector;
             this.cases = cases;
+            this.hasDefault = hasDefault;
         }
 
         public override LLVMBasicBlockRef BreakBlock { get; set; }
+        public override void setBreak()
+        {
+            this.didBreak = true;
+        }
 
         public override Tag Tag => Tag.SWITCH;
 

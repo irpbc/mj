@@ -41,7 +41,8 @@ namespace mj.compiler.symbol
             if (left.IsNumeric && right.IsNumeric) {
                 return left.Tag.isNumericAssignableFrom(right.Tag);
             }
-            return left == right;
+            // compare base types to account for constants
+            return left.BaseType == right.BaseType;
         }
     }
 }

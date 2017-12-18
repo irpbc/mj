@@ -59,4 +59,18 @@ as well as some utility symbols used during analysis (error types and error symb
 
 ### Executable code generation
 
-TODO.
+For code generation the compiler uses LLVM via [LLVMSharp](https://github.com/Microsoft/LLVMSharp)
+bindings.
+
+Important classes:
+* [`CodeGenerator`](../MJ.Compiler/codegen/CodeGenerator.cs) - Code generation visitor.
+* [`LLVMTypeResolver`](../MJ.Compiler/codegen/LLVMTypeResolver.cs) - Returns LLVM types for MJ types.
+* [`VariableAllocator`](../MJ.Compiler/codegen/VariableAllocator.cs) - Gathers all local variables to 
+declare them at the tom of the function.
+
+#### Code generation techniques
+
+All local variables are predeclared at the top of the function using `alloca` instructions, as per the
+recomendation of the LLVM docs. Later, load and store instructions are generated when accessing variables.
+LLVM then runs an algorithm to remove `allocas` and convert the variables to SSA form. Clang itself 
+uses this technique to generate code.
