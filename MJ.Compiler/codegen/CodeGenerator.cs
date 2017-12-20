@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Data.SqlTypes;
 using System.Linq;
 using System.Runtime.InteropServices;
 
@@ -26,6 +27,7 @@ namespace mj.compiler.codegen
         private VariableAllocator variableAllocator;
         private readonly Typings typings;
         private readonly CommandLineOptions options;
+        private readonly Symtab symtab;
 
         public CodeGenerator(Context ctx)
         {
@@ -34,6 +36,7 @@ namespace mj.compiler.codegen
             typings = Typings.instance(ctx);
             typeResolver = new LLVMTypeResolver();
             options = CommandLineOptions.instance(ctx);
+            symtab = Symtab.instance(ctx);
         }
 
         private LLVMContextRef context;
@@ -46,6 +49,13 @@ namespace mj.compiler.codegen
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int MainFunction();
+
+        [DllImport(dllName: "libc", EntryPoint = "puts",
+            CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern int puts([MarshalAs(UnmanagedType.LPUTF8Str)] string str);
+        
+        [DllImport(dllName: "libc", EntryPoint = "putchar", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int putchar(uint c);
 
         public void main(IList<CompilationUnit> trees)
         {
@@ -61,10 +71,15 @@ namespace mj.compiler.codegen
             module = LLVM.ModuleCreateWithNameInContext("TheProgram", context);
             builder = context.CreateBuilderInContext();
 
+            declareBuiltins();
+
             variableAllocator = new VariableAllocator(builder, typeResolver);
 
             scan(trees);
-            LLVM.DumpModule(module);
+
+            if (options.DumpIR) {
+                LLVM.DumpModule(module);
+            }
 
             LLVMBool success = new LLVMBool(value: 0);
 
@@ -79,37 +94,55 @@ namespace mj.compiler.codegen
                 LLVM.DumpModule(module);
             }
 
-            //LLVM.LinkInMCJIT();
+            LLVM.LinkInMCJIT();
 
-            //LLVM.InitializeX86TargetMC();
-            //LLVM.InitializeX86Target();
-            //LLVM.InitializeX86TargetInfo();
-            //LLVM.InitializeX86AsmParser();
-            //LLVM.InitializeX86AsmPrinter();
+            LLVM.InitializeX86TargetMC();
+            LLVM.InitializeX86Target();
+            LLVM.InitializeX86TargetInfo();
+            LLVM.InitializeX86AsmParser();
+            LLVM.InitializeX86AsmPrinter();
 
-            //LLVMMCJITCompilerOptions options = new LLVMMCJITCompilerOptions {NoFramePointerElim = 1, OptLevel = 0};
-            //LLVM.InitializeMCJITCompilerOptions(options);
-            //if (LLVM.CreateMCJITCompilerForModule(out var engine, module, options, out error) != success) {
-            //Console.WriteLine($"Error: {error}");
-            //}
+            LLVMMCJITCompilerOptions jitOptions = new LLVMMCJITCompilerOptions {NoFramePointerElim = 1, OptLevel = 0};
+            LLVM.InitializeMCJITCompilerOptions(jitOptions);
+            if (LLVM.CreateMCJITCompilerForModule(out var engine, module, jitOptions, out error) != success) {
+                Console.WriteLine($"Error: {error}");
+            }
 
-            //LLVMValueRef mainFunction = LLVM.GetNamedFunction(module, "main");
-            //var execute = (MainFunction)Marshal.GetDelegateForFunctionPointer(
-            //    LLVM.GetPointerToGlobal(engine, mainFunction), typeof(MainFunction));
+            LLVMValueRef mainFunction = LLVM.GetNamedFunction(module, "main");
+            var execute = (MainFunction)Marshal.GetDelegateForFunctionPointer(
+                LLVM.GetPointerToGlobal(engine, mainFunction), typeof(MainFunction));
 
-            //int result = execute();
+            LLVMValueRef putcharFunc = LLVM.GetNamedFunction(module, "putchar");
+            IntPtr putcharPtr = LLVM.GetPointerToGlobal(engine, putcharFunc);
+            Console.WriteLine(putcharPtr.ToInt64());
 
-            //Console.WriteLine($"Program excuted with result: {result}");
+            //            putchar('8');
+            puts("asdasdasd");
+
+            int result = execute();
+
+            Console.WriteLine($"Program excuted with result: {result}");
 
             LLVM.DisposePassManager(passManager);
             LLVM.DisposeBuilder(builder);
-            //LLVM.DisposeExecutionEngine(engine);
+            LLVM.DisposeExecutionEngine(engine);
+        }
+
+        public void declareBuiltins()
+        {
+            IList<Symbol.MethodSymbol> builtins = symtab.builtins;
+            for (var i = 0; i < builtins.Count; i++) {
+                Symbol.MethodSymbol m = builtins[i];
+                LLVMValueRef func = LLVM.AddFunction(module, m.name, typeResolver.resolve(m.type));
+                func.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
+                m.llvmPointer = func;
+            }
         }
 
         public override LLVMValueRef visitCompilationUnit(CompilationUnit compilationUnit)
         {
             foreach (MethodDef mt in compilationUnit.methods) {
-                LLVMTypeRef llvmType = mt.symbol.type.accept(typeResolver);
+                LLVMTypeRef llvmType = typeResolver.resolve(mt.symbol.type);
                 LLVMValueRef func = LLVM.AddFunction(module, mt.name, llvmType);
                 func.SetFunctionCallConv((uint)LLVMCallConv.LLVMCCallConv);
 
@@ -147,7 +180,7 @@ namespace mj.compiler.codegen
                 // method must be void if an empty block was produced
                 // at end
                 Assert.assert(method.symbol.type.ReturnType.IsVoid);
-                
+
                 LLVM.BuildRetVoid(builder);
                 return;
             }
@@ -444,7 +477,7 @@ namespace mj.compiler.codegen
 
         public override LLVMValueRef visitLiteral(LiteralExpression literal)
         {
-            switch (literal.type) {
+            switch (literal.typeTag) {
                 case TypeTag.INT:
                     return LLVM.ConstInt(LLVMTypeRef.Int32Type(), (ulong)(int)literal.value, new LLVMBool(1));
                 case TypeTag.LONG:
@@ -455,6 +488,9 @@ namespace mj.compiler.codegen
                     return LLVM.ConstReal(LLVMTypeRef.DoubleType(), (double)literal.value);
                 case TypeTag.BOOLEAN:
                     return LLVM.ConstInt(LLVMTypeRef.Int1Type(), (ulong)((bool)literal.value ? 1 : 0), new LLVMBool(0));
+                case TypeTag.STRING:
+                    LLVMValueRef val = LLVM.BuildGlobalStringPtr(builder, (string)literal.value, "strLit");
+                    return val;
                 default:
                     throw new ArgumentOutOfRangeException();
             }

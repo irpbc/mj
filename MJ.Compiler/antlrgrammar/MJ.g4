@@ -12,6 +12,7 @@ literal returns [ int literalType ]
 	:	IntegerLiteral       { $literal::literalType=INT; }
 	|	FloatingPointLiteral { $literal::literalType=FLOAT; }
 	|	BooleanLiteral       { $literal::literalType=BOOLEAN; }
+	|   StringLiteral        { $literal::literalType=STRING; }
     ;
 
 type
@@ -20,6 +21,7 @@ type
     |	primitive='float'
     |	primitive='double'
     |	primitive='boolean'
+    |	primitive='string'
 	;
 
 nameExpression
@@ -360,6 +362,7 @@ SHORT : 'short';
 STATIC : 'static';
 STRICTFP : 'strictfp';
 SUPER : 'super';
+STRING : 'string';
 SWITCH : 'switch';
 SYNCHRONIZED : 'synchronized';
 THIS : 'this';
@@ -589,6 +592,30 @@ BooleanLiteral
 	|	'false'
 	;
 
+StringLiteral
+	:	'"' StringCharacters? '"'
+	;
+fragment
+StringCharacters
+	:	StringCharacter+
+	;
+fragment
+StringCharacter
+	:	~["\\\r\n]
+	|	EscapeSequence
+	;
+// §3.10.6 Escape Sequences for Character and String Literals
+fragment
+EscapeSequence
+	:	'\\' [btnfr"'\\]
+    |   UnicodeEscape // This is not in the spec but prevents having to preprocess the input
+	;
+
+// This is not in the spec but prevents having to preprocess the input
+fragment
+UnicodeEscape
+    :   '\\' 'u'+  HexDigit HexDigit HexDigit HexDigit
+    ;
 
 LPAREN : '(';
 RPAREN : ')';

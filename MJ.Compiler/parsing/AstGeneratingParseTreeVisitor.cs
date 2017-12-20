@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Text;
 
 using Antlr4.Runtime;
 using Antlr4.Runtime.Atn;
@@ -47,6 +49,9 @@ namespace mj.compiler.parsing
                     break;
                 case BOOLEAN:
                     type = TypeTag.BOOLEAN;
+                    break; 
+                case STRING:
+                    type = TypeTag.STRING;
                     break;
                 default:
                     throw new ArgumentException();
@@ -891,6 +896,12 @@ namespace mj.compiler.parsing
                     type = TypeTag.BOOLEAN;
                     value = Boolean.Parse(text);
                     break;
+                case STRING:
+                    symbol = context.StringLiteral().Symbol;
+                    text = symbol.Text;
+                    type = TypeTag.STRING;
+                    value = parseStringLiteral(text);
+                    break;
                 default:
                     throw new InvalidOperationException();
             }
@@ -900,6 +911,56 @@ namespace mj.compiler.parsing
             int endColumn = startColumn + text.Length;
 
             return new LiteralExpression(line, startColumn, line, endColumn, type, value);
+        }
+
+        private String parseStringLiteral(String text)
+        {
+            StringBuilder sb = new StringBuilder();
+            // from 1 to <len-1 to ignore quotes
+            for (var i = 1; i < text.Length - 1; i++) {
+                char c = text[i];
+                if (c == '\\') {
+                    switch (text[++i]) {
+                        case 't':
+                            sb.Append('\t');
+                            break;
+                        case 'n':
+                            sb.Append('\n');
+                            break;
+                        case 'r':
+                            sb.Append('\r');
+                            break;
+                        case 'b':
+                            sb.Append('\b');
+                            break;
+                        case 'f':
+                            sb.Append('\f');
+                            break;
+                        case '\\':
+                            sb.Append('\\');
+                            break;
+                        case 'u':
+                            int charLit = (hexDigit(text[++i]) << 12) +
+                                          (hexDigit(text[++i]) << 8) +
+                                          (hexDigit(text[++i]) << 4) +
+                                          (hexDigit(text[++i]));
+
+                            sb.Append(charLit);
+                            break;
+                    }
+                } else {
+                    sb.Append(c);
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        private static int hexDigit(char hexChar)
+        {
+            hexChar = Char.ToUpper(hexChar);  // may not be necessary
+
+            return hexChar < 'A' ? (hexChar - '0') : 10 + (hexChar - 'A');
         }
 
         public override Tree VisitAdditiveExpression(AdditiveExpressionContext context)

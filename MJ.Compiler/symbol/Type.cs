@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading;
 
 using mj.compiler.utils;
 
@@ -100,13 +99,13 @@ namespace mj.compiler.symbol
         /** Define a constant type, of the same kind as this type
          *  and with given constant value
          */
-        public Type constType(Object constValue)
+        public ConstType constType(Object constValue)
         {
             Object value = constValue;
             return new ConstType(tag, value, this);
         }
 
-        private class ConstType : PrimitiveType
+        public class ConstType : PrimitiveType
         {
             public ConstType(TypeTag tag, Object value, PrimitiveType baseType) : base(tag, baseType.definer)
             {

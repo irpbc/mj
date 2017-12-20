@@ -182,7 +182,7 @@ namespace mj.compiler.tree
     public sealed class LiteralExpression : Expression
     {
         [JsonConverter(typeof(StringEnumConverter))]
-        public TypeTag type;
+        public TypeTag typeTag;
 
         public Object value;
 
@@ -190,7 +190,7 @@ namespace mj.compiler.tree
                                  object value)
             : base(beginLine, beginCol, endLine, endCol)
         {
-            this.type = typeTag;
+            this.typeTag = typeTag;
             this.value = value;
         }
 

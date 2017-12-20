@@ -262,7 +262,7 @@ namespace mj.compiler.symbol
 
         public override Type visitLiteral(LiteralExpression literal, Environment env)
         {
-            return symtab.typeForTag(literal.type).constType(literal.value);
+            return symtab.typeForTag(literal.typeTag).constType(literal.value);
         }
 
         public override Type visitIdent(Identifier ident, Environment env)
@@ -270,7 +270,7 @@ namespace mj.compiler.symbol
             Symbol varSym = env.scope.findFirst(ident.name, s => s.kind.hasAny(Kind.VAR));
             if (varSym == null) {
                 log.error(ident.Pos, messages.undefinedVariable, ident.name);
-                varSym = symtab.errorSymbol;
+                varSym = symtab.errorVarSymbol;
             }
             ident.symbol = (VarSymbol)varSym;
             return varSym.type;

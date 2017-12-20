@@ -1,0 +1,8 @@
+
+int something(string s) {
+    return puts(s);
+}
+
+int main() {
+    return something("Hello world");
+}
