@@ -67,7 +67,7 @@ namespace mj.compiler.symbol
             //noOpSymbol = new Symbol.OperatorSymbol("", noSymbol, Type.NO_TYPE);
 
             errorOpSymbol = new Symbol.OperatorSymbol("", noSymbol, errorType, 0);
-            
+
             enterBuiltins();
         }
 
@@ -88,15 +88,29 @@ namespace mj.compiler.symbol
 
             scope.enter(builtin("puts", intType, stringType));
             scope.enter(builtin("putchar", intType, intType));
+            scope.enter(builtin("hello", voidType));
+        }
+
+        private Symbol builtin(string name, Type resType)
+        {
+            return builtin(name, resType, CollectionUtils.emptyList<Type>());
         }
 
         private Symbol builtin(string name, Type resType, Type arg)
         {
-            Symbol.MethodSymbol ms = new Symbol.MethodSymbol(name, topLevelSymbol,
-                new MethodType(CollectionUtils.singletonList(arg), resType));
+            return builtin(name, resType, CollectionUtils.singletonList(arg));
+        }
 
-            ms.parameters = CollectionUtils.singletonList(new Symbol.VarSymbol(Symbol.Kind.PARAM, "arg1", arg, ms));
-            
+        private Symbol builtin(string name, Type resType, IList<Type> args)
+        {
+            Symbol.MethodSymbol ms = new Symbol.MethodSymbol(name, topLevelSymbol,
+                new MethodType(args, resType));
+
+            ms.parameters = new List<Symbol.VarSymbol>(args.Count);
+            foreach (Type type in args) {
+                ms.parameters.Add(new Symbol.VarSymbol(Symbol.Kind.PARAM, "arg", type, ms));
+            }
+
             builtins.Add(ms);
             return ms;
         }

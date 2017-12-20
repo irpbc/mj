@@ -50,15 +50,13 @@ namespace mj.compiler.codegen
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int MainFunction();
 
-        [DllImport(dllName: "libc", EntryPoint = "puts",
-            CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-        private static extern int puts([MarshalAs(UnmanagedType.LPUTF8Str)] string str);
-        
-        [DllImport(dllName: "libc", EntryPoint = "putchar", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int putchar(uint c);
+        [DllImport(dllName: "libmj_rt", EntryPoint = "mj_init", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void init();
 
         public void main(IList<CompilationUnit> trees)
         {
+            init();
+            
             if (trees.Count == 0) {
                 return;
             }
@@ -112,13 +110,6 @@ namespace mj.compiler.codegen
             var execute = (MainFunction)Marshal.GetDelegateForFunctionPointer(
                 LLVM.GetPointerToGlobal(engine, mainFunction), typeof(MainFunction));
 
-            LLVMValueRef putcharFunc = LLVM.GetNamedFunction(module, "putchar");
-            IntPtr putcharPtr = LLVM.GetPointerToGlobal(engine, putcharFunc);
-            Console.WriteLine(putcharPtr.ToInt64());
-
-            //            putchar('8');
-            puts("asdasdasd");
-
             int result = execute();
 
             Console.WriteLine($"Program excuted with result: {result}");
@@ -133,7 +124,7 @@ namespace mj.compiler.codegen
             IList<Symbol.MethodSymbol> builtins = symtab.builtins;
             for (var i = 0; i < builtins.Count; i++) {
                 Symbol.MethodSymbol m = builtins[i];
-                LLVMValueRef func = LLVM.AddFunction(module, m.name, typeResolver.resolve(m.type));
+                LLVMValueRef func = LLVM.AddFunction(module, "mj_" + m.name, typeResolver.resolve(m.type));
                 func.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
                 m.llvmPointer = func;
             }
@@ -460,7 +451,7 @@ namespace mj.compiler.codegen
                 args[i] = promote((PrimitiveType)arg.type, (PrimitiveType)mi.methodSym.type.ParameterTypes[i], argVal);
             }
 
-            string name = mi.type.IsVoid ? null : mi.methodSym.name;
+            string name = mi.type.IsVoid ? "" : mi.methodSym.name;
             LLVMValueRef callInst = LLVM.BuildCall(builder, mi.methodSym.llvmPointer, args, name);
             return callInst;
         }

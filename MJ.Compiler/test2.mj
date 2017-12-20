@@ -4,5 +4,7 @@ int something(string s) {
 }
 
 int main() {
-    return something("Hello world");
+    hello();
+    something("Hehe");
+    return 42;
 }
