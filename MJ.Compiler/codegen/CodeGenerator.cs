@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data.SqlTypes;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 
@@ -50,13 +49,8 @@ namespace mj.compiler.codegen
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int MainFunction();
 
-        [DllImport(dllName: "libmj_rt", EntryPoint = "mj_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void init();
-
         public void main(IList<CompilationUnit> trees)
         {
-            init();
-            
             if (trees.Count == 0) {
                 return;
             }
@@ -76,10 +70,10 @@ namespace mj.compiler.codegen
             scan(trees);
 
             if (options.DumpIR) {
-                LLVM.DumpModule(module);
+                dumpIR();
             }
 
-            LLVMBool success = new LLVMBool(value: 0);
+            LLVMBool success = new LLVMBool(0);
 
             if (LLVM.VerifyModule(module, LLVMVerifierFailureAction.LLVMPrintMessageAction, out var error) != success) {
                 Console.WriteLine($"Verfy Error: {error}");
@@ -89,9 +83,82 @@ namespace mj.compiler.codegen
             LLVM.RunPassManager(passManager, module);
 
             if (options.DumpIR) {
-                LLVM.DumpModule(module);
+                dumpIR();
             }
 
+            makeObjectFile();
+
+            LLVM.DisposePassManager(passManager);
+        }
+
+        private void dumpIR()
+        { // LLVM.DumpModule() is unreliable on Windows. It sometimes prints giberrish.
+            IntPtr stringPtr = LLVM.PrintModuleToString(module);
+            string str = Marshal.PtrToStringUTF8(stringPtr);
+            Console.WriteLine(str);
+        }
+
+        private void makeObjectFile()
+        {
+            LLVM.InitializeX86TargetMC();
+            LLVM.InitializeX86Target();
+            LLVM.InitializeX86TargetInfo();
+            LLVM.InitializeX86AsmParser();
+            LLVM.InitializeX86AsmPrinter();
+
+            LLVMTargetRef target = LLVM.GetFirstTarget();
+            if (target.Pointer == IntPtr.Zero) {
+                Console.WriteLine("Cvrc");
+                return;
+            }
+            
+            string triple; 
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                triple = "x86_64-unknown-win32";
+            } else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+                triple = "x86_64-unknown-osx"; // ???
+            } else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
+                triple = "x86_64-unknown-linux"; // ???
+            } else {
+                throw new ArgumentOutOfRangeException("OSPlatform unknown");
+            }
+
+            LLVMTargetMachineRef targetMachine = LLVM.CreateTargetMachine(target, triple, "generic", "",
+                LLVMCodeGenOptLevel.LLVMCodeGenLevelDefault, LLVMRelocMode.LLVMRelocDefault,
+                LLVMCodeModel.LLVMCodeModelDefault);
+
+            LLVM.TargetMachineEmitToMemoryBuffer(targetMachine, module, LLVMCodeGenFileType.LLVMObjectFile,
+                out var targetDescription, out var memoryBuffer);
+            
+            Console.WriteLine(targetDescription);
+
+            size_t bufferSize = LLVM.GetBufferSize(memoryBuffer);
+            IntPtr bufferStart = LLVM.GetBufferStart(memoryBuffer);
+
+            unsafe {
+                Stream s = new UnmanagedMemoryStream((byte*) bufferStart.ToPointer(), bufferSize);
+                FileInfo file = new FileInfo(options.OutPath);
+                if (file.Exists) {
+                    file.Delete();
+                }
+                
+                using (FileStream fs = file.Open(FileMode.Create, FileAccess.Write))
+                using (DisposableBuffer buffer = new DisposableBuffer(memoryBuffer)) {
+                    s.CopyTo(fs);
+                }
+            }
+        }
+        
+        private struct DisposableBuffer : IDisposable
+        {
+            private readonly LLVMMemoryBufferRef buffer;
+            public DisposableBuffer(LLVMMemoryBufferRef buffer) => this.buffer = buffer;
+            public void Dispose() => LLVM.DisposeMemoryBuffer(buffer);
+        }
+
+        private void mcJit()
+        {
+            LLVMBool success = new LLVMBool(0);
             LLVM.LinkInMCJIT();
 
             LLVM.InitializeX86TargetMC();
@@ -102,19 +169,18 @@ namespace mj.compiler.codegen
 
             LLVMMCJITCompilerOptions jitOptions = new LLVMMCJITCompilerOptions {NoFramePointerElim = 1, OptLevel = 0};
             LLVM.InitializeMCJITCompilerOptions(jitOptions);
-            if (LLVM.CreateMCJITCompilerForModule(out var engine, module, jitOptions, out error) != success) {
+            if (LLVM.CreateMCJITCompilerForModule(out var engine, module, jitOptions, out var error) != success) {
                 Console.WriteLine($"Error: {error}");
             }
 
             LLVMValueRef mainFunction = LLVM.GetNamedFunction(module, "main");
-            var execute = (MainFunction)Marshal.GetDelegateForFunctionPointer(
+            var execute = (MainFunction) Marshal.GetDelegateForFunctionPointer(
                 LLVM.GetPointerToGlobal(engine, mainFunction), typeof(MainFunction));
 
             int result = execute();
 
             Console.WriteLine($"Program excuted with result: {result}");
 
-            LLVM.DisposePassManager(passManager);
             LLVM.DisposeBuilder(builder);
             LLVM.DisposeExecutionEngine(engine);
         }
@@ -135,7 +201,7 @@ namespace mj.compiler.codegen
             foreach (MethodDef mt in compilationUnit.methods) {
                 LLVMTypeRef llvmType = typeResolver.resolve(mt.symbol.type);
                 LLVMValueRef func = LLVM.AddFunction(module, mt.name, llvmType);
-                func.SetFunctionCallConv((uint)LLVMCallConv.LLVMCCallConv);
+                func.SetFunctionCallConv((uint) LLVMCallConv.LLVMCCallConv);
 
                 mt.symbol.llvmPointer = func;
             }
@@ -175,6 +241,7 @@ namespace mj.compiler.codegen
                 LLVM.BuildRetVoid(builder);
                 return;
             }
+
             LLVMOpcode prevInstOpcode = lastInst.GetInstructionOpcode();
             if (prevInstOpcode != LLVMOpcode.LLVMBr && prevInstOpcode != LLVMOpcode.LLVMRet) {
                 // method must be void if it's not already terminated 
@@ -278,6 +345,8 @@ namespace mj.compiler.codegen
         {
             scan(forLoop.init);
             LLVMBasicBlockRef forBlock = LLVM.AppendBasicBlock(function, "for");
+            safeJumpTo(forBlock);
+            
             LLVMBasicBlockRef afterFor = LLVM.AppendBasicBlock(function, "afterfor");
 
             forLoop.ContinueBlock = forBlock;
@@ -290,6 +359,7 @@ namespace mj.compiler.codegen
                 LLVM.BuildCondBr(builder, condValue, thenBlock, afterFor);
                 LLVM.PositionBuilderAtEnd(builder, thenBlock);
             }
+
             scan(forLoop.body);
 
             scan(forLoop.update);
@@ -312,7 +382,7 @@ namespace mj.compiler.codegen
             int numRealCases = @switch.cases.Count(@case => @case.expression != null);
 
             LLVMBasicBlockRef dummy = LLVM.AppendBasicBlock(function, "dummy");
-            LLVMValueRef switchInst = LLVM.BuildSwitch(builder, selectorVal, dummy, (uint)numRealCases);
+            LLVMValueRef switchInst = LLVM.BuildSwitch(builder, selectorVal, dummy, (uint) numRealCases);
 
             LLVMBasicBlockRef? defaultBlock = null;
 
@@ -365,11 +435,13 @@ namespace mj.compiler.codegen
                 LLVM.BuildBr(builder, destBlock);
                 return true;
             }
+
             LLVMOpcode prevInstOpcode = lastInst.GetInstructionOpcode();
             if (prevInstOpcode != LLVMOpcode.LLVMBr && prevInstOpcode != LLVMOpcode.LLVMRet) {
                 LLVM.BuildBr(builder, destBlock);
                 return true;
             }
+
             return false;
         }
 
@@ -392,10 +464,12 @@ namespace mj.compiler.codegen
                 LLVM.BuildRetVoid(builder);
             } else {
                 LLVMValueRef value = scan(returnStatement.value);
-                value = promote((PrimitiveType)returnStatement.value.type, (PrimitiveType)method.symbol.type.ReturnType,
+                value = promote((PrimitiveType) returnStatement.value.type,
+                    (PrimitiveType) method.symbol.type.ReturnType,
                     value);
                 LLVM.BuildRet(builder, value);
             }
+
             return nullValue;
         }
 
@@ -409,9 +483,10 @@ namespace mj.compiler.codegen
         {
             if (varDef.init != null) {
                 LLVMValueRef initVal = scan(varDef.init);
-                initVal = promote((PrimitiveType)varDef.init.type, (PrimitiveType)varDef.symbol.type, initVal);
+                initVal = promote((PrimitiveType) varDef.init.type, (PrimitiveType) varDef.symbol.type, initVal);
                 LLVM.BuildStore(builder, initVal, varDef.symbol.llvmPointer);
             }
+
             return nullValue;
         }
 
@@ -448,7 +523,8 @@ namespace mj.compiler.codegen
             for (var i = 0; i < mi.args.Count; i++) {
                 Expression arg = mi.args[i];
                 LLVMValueRef argVal = scan(arg);
-                args[i] = promote((PrimitiveType)arg.type, (PrimitiveType)mi.methodSym.type.ParameterTypes[i], argVal);
+                args[i] = promote((PrimitiveType) arg.type, (PrimitiveType) mi.methodSym.type.ParameterTypes[i],
+                    argVal);
             }
 
             string name = mi.type.IsVoid ? "" : mi.methodSym.name;
@@ -462,6 +538,7 @@ namespace mj.compiler.codegen
                 // parameters are direct values
                 return ident.symbol.llvmPointer;
             }
+
             // local variables are "allocated"
             return LLVM.BuildLoad(builder, ident.symbol.llvmPointer, "load." + ident.name);
         }
@@ -470,17 +547,18 @@ namespace mj.compiler.codegen
         {
             switch (literal.typeTag) {
                 case TypeTag.INT:
-                    return LLVM.ConstInt(LLVMTypeRef.Int32Type(), (ulong)(int)literal.value, new LLVMBool(1));
+                    return LLVM.ConstInt(LLVMTypeRef.Int32Type(), (ulong) (int) literal.value, new LLVMBool(1));
                 case TypeTag.LONG:
-                    return LLVM.ConstInt(LLVMTypeRef.Int32Type(), (ulong)(long)literal.value, new LLVMBool(1));
+                    return LLVM.ConstInt(LLVMTypeRef.Int32Type(), (ulong) (long) literal.value, new LLVMBool(1));
                 case TypeTag.FLOAT:
-                    return LLVM.ConstReal(LLVMTypeRef.FloatType(), (float)literal.value);
+                    return LLVM.ConstReal(LLVMTypeRef.FloatType(), (float) literal.value);
                 case TypeTag.DOUBLE:
-                    return LLVM.ConstReal(LLVMTypeRef.DoubleType(), (double)literal.value);
+                    return LLVM.ConstReal(LLVMTypeRef.DoubleType(), (double) literal.value);
                 case TypeTag.BOOLEAN:
-                    return LLVM.ConstInt(LLVMTypeRef.Int1Type(), (ulong)((bool)literal.value ? 1 : 0), new LLVMBool(0));
+                    return LLVM.ConstInt(LLVMTypeRef.Int1Type(), (ulong) ((bool) literal.value ? 1 : 0),
+                        new LLVMBool(0));
                 case TypeTag.STRING:
-                    LLVMValueRef val = LLVM.BuildGlobalStringPtr(builder, (string)literal.value, "strLit");
+                    LLVMValueRef val = LLVM.BuildGlobalStringPtr(builder, (string) literal.value, "strLit");
                     return val;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -490,7 +568,7 @@ namespace mj.compiler.codegen
         public override LLVMValueRef visitAssign(AssignNode expr)
         {
             LLVMValueRef assignValue = scan(expr.right);
-            Identifier ident = (Identifier)expr.left;
+            Identifier ident = (Identifier) expr.left;
 
             doAssign(ident, assignValue);
 
@@ -501,7 +579,7 @@ namespace mj.compiler.codegen
         {
             LLVMValueRef resValue = doBinary(expr.left, expr.right, expr.operatorSym);
 
-            doAssign((Identifier)expr.left, resValue);
+            doAssign((Identifier) expr.left, resValue);
 
             return resValue;
         }
@@ -529,7 +607,7 @@ namespace mj.compiler.codegen
             if (expr.opcode.isIncDec()) {
                 LLVMValueRef one = const1(expr.operatorSym.type.ReturnType.Tag);
                 LLVMValueRef resVal = LLVM.BuildBinOp(builder, expr.operatorSym.opcode, operandVal, one, "incDec");
-                LLVM.BuildStore(builder, resVal, ((Identifier)expr.operand).symbol.llvmPointer);
+                LLVM.BuildStore(builder, resVal, ((Identifier) expr.operand).symbol.llvmPointer);
                 return expr.opcode.isPre() ? resVal : operandVal;
             }
 
@@ -564,9 +642,9 @@ namespace mj.compiler.codegen
 
             if (op.type.ReturnType.IsNumeric) {
                 leftVal =
-                    promote((PrimitiveType)left.type, (PrimitiveType)op.type.ParameterTypes[0], leftVal);
+                    promote((PrimitiveType) left.type, (PrimitiveType) op.type.ParameterTypes[0], leftVal);
                 rightVal =
-                    promote((PrimitiveType)right.type, (PrimitiveType)op.type.ParameterTypes[1], rightVal);
+                    promote((PrimitiveType) right.type, (PrimitiveType) op.type.ParameterTypes[1], rightVal);
             }
 
             return makeBinary(op, leftVal, rightVal);
@@ -576,11 +654,13 @@ namespace mj.compiler.codegen
         {
             LLVMOpcode llvmOpcode = binary.opcode;
             if (llvmOpcode == LLVMOpcode.LLVMICmp) {
-                return LLVM.BuildICmp(builder, (LLVMIntPredicate)binary.llvmPredicate, leftVal, rightVal, "icmp");
+                return LLVM.BuildICmp(builder, (LLVMIntPredicate) binary.llvmPredicate, leftVal, rightVal, "icmp");
             }
+
             if (llvmOpcode == LLVMOpcode.LLVMICmp) {
-                return LLVM.BuildFCmp(builder, (LLVMRealPredicate)binary.llvmPredicate, leftVal, rightVal, "fcmp");
+                return LLVM.BuildFCmp(builder, (LLVMRealPredicate) binary.llvmPredicate, leftVal, rightVal, "fcmp");
             }
+
             return LLVM.BuildBinOp(builder, llvmOpcode, leftVal, rightVal, "tmp");
         }
 

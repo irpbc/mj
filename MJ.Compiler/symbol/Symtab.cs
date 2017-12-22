@@ -89,6 +89,7 @@ namespace mj.compiler.symbol
             scope.enter(builtin("puts", intType, stringType));
             scope.enter(builtin("putchar", intType, intType));
             scope.enter(builtin("hello", voidType));
+            scope.enter(builtin("printf_int", intType, stringType, intType));
         }
 
         private Symbol builtin(string name, Type resType)
@@ -99,6 +100,11 @@ namespace mj.compiler.symbol
         private Symbol builtin(string name, Type resType, Type arg)
         {
             return builtin(name, resType, CollectionUtils.singletonList(arg));
+        }
+
+        private Symbol builtin(string name, Type resType, Type arg1, Type arg2)
+        {
+            return builtin(name, resType, new[] { arg1, arg2 });
         }
 
         private Symbol builtin(string name, Type resType, IList<Type> args)

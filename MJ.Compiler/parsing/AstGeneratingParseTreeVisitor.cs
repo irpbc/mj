@@ -778,9 +778,9 @@ namespace mj.compiler.parsing
 
         public override Tree VisitUnaryExpressionNotPlusMinus(UnaryExpressionNotPlusMinusContext context)
         {
-            PostfixExpressionContext lower = context.down;
+            PostIncDecExpressionContext lower = context.down;
             if (lower != null) {
-                return VisitPostfixExpression(lower);
+                return VisitPostIncDecExpression(lower);
             }
 
             Tag op = context.@operator.Type == TILDE ? Tag.COMPL : Tag.NOT;
@@ -789,7 +789,7 @@ namespace mj.compiler.parsing
                 arg.endCol, op, arg);
         }
 
-        public override Tree VisitPostfixExpression(PostfixExpressionContext context)
+        public override Tree VisitPostIncDecExpression(PostIncDecExpressionContext context)
         {
             Expression current;
             NameExpressionContext name = context.nameExpression();
@@ -801,36 +801,16 @@ namespace mj.compiler.parsing
 
             for (int i = 0, count = context._postfixes.Count; i < count; i++) {
                 IToken postfix = context._postfixes[i];
-                Tag op;
-                switch (postfix.Type) {
-                    case INC:
-                        op = Tag.POST_INC;
-                        break;
-                    case DEC:
-                        op = Tag.POST_DEC;
-                        break;
-                    default:
-                        throw new InvalidOperationException();
-                }
+                Tag op = postfix.Type == INC ? Tag.POST_INC : Tag.POST_DEC;
 
-                int postfixLine = postfix.Line;
                 int len = postfix.StopIndex - postfix.StartIndex + 1;
                 int endColumn = postfix.Column + len;
 
                 current = new UnaryExpressionNode(current.beginLine, current.beginCol,
-                    postfixLine, endColumn, op, current);
+                    postfix.Line, endColumn, op, current);
             }
 
             return current;
-        }
-
-        public override Tree VisitPostIncDecExpression(PostIncDecExpressionContext context)
-        {
-            Tag op = context.@operator.Type == INC ? Tag.POST_INC : Tag.POST_DEC;
-
-            Expression arg = (Expression)VisitPostfixExpression(context.arg);
-            return new UnaryExpressionNode(arg.beginLine, arg.beginCol, arg.endLine,
-                arg.endCol, op, arg);
         }
 
         public override Tree VisitExpression(ExpressionContext context)

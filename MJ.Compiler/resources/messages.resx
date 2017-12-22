@@ -24,7 +24,7 @@
     <data name="duplicateVar"><value>Local variable {0} is already defined in this scope</value></data>
     <data name="varParamNameConflict"><value>Local variable {0} has same name as a parameter</value></data>
     <data name="mainMethodNotDefined"><value>The main method is not defined</value></data>
-    <data name="mainMethodSig"><value>Main method must accept no parameters and return int</value></data>
+    <data name="mainMethodSig"><value>Main method must accept int and long and return int</value></data>
     <data name="ifConditonType"><value>Condition expression in an "if" statement must return boolean</value></data>
     <data name="forConditonType"><value>Condition expression in a "for" statement must return boolean</value></data>
     <data name="whileConditonType"><value>Condition expression in a "while" statement must return boolean</value></data>

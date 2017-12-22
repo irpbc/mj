@@ -308,18 +308,14 @@ preIncDecExpression
 	;
 
 unaryExpressionNotPlusMinus
-	:	down=postfixExpression
+	:	down=postIncDecExpression
 	|	operator='~' arg=unaryExpression
 	|	operator='!' arg=unaryExpression
 	;
 
-postfixExpression
+postIncDecExpression
 	:	( down=primary | nameExpression )
 		( postfixes+='++' | postfixes+='--' )*
-	;
-
-postIncDecExpression
-	:	arg=postfixExpression operator=('++' | '--' )
 	;
 
 ABSTRACT : 'abstract';

@@ -2,6 +2,8 @@
 using System.IO;
 
 using Antlr4.Runtime;
+using Antlr4.Runtime.Atn;
+using Antlr4.Runtime.Misc;
 
 using mj.compiler.main;
 using mj.compiler.tree;
@@ -13,7 +15,7 @@ namespace mj.compiler.parsing
     {
         private static readonly Context.Key<ParserRunner> CONTEX_KEY = new Context.Key<ParserRunner>();
 
-        public static ParserRunner instance(Context context) => 
+        public static ParserRunner instance(Context context) =>
             context.tryGet(CONTEX_KEY, out var instance) ? instance : new ParserRunner(context);
 
         private CommandLineOptions options;
@@ -35,15 +37,28 @@ namespace mj.compiler.parsing
 
                 parser.ErrorHandler = new DefaultErrorStrategy();
                 parser.AddErrorListener(new DiagnosticErrorListener());
+                parser.AddErrorListener(ThrowingErrorListener.INSTANCE);
 
                 MJParser.CompilationUnitContext compilationUnit = parser.compilationUnit();
-                
+
                 if (parser.NumberOfSyntaxErrors > 0) {
                     Console.WriteLine("SYNTAX ERRORS");
+                    return null;
                 }
-                
-                return (CompilationUnit)compilationUnit.Accept(new AstGeneratingParseTreeVisitor(log));
+
+                return (CompilationUnit) compilationUnit.Accept(new AstGeneratingParseTreeVisitor(log));
             }
+        }
+    }
+
+    public class ThrowingErrorListener : BaseErrorListener
+    {
+        public static readonly ThrowingErrorListener INSTANCE = new ThrowingErrorListener();
+
+        public override void SyntaxError(IRecognizer recognizer, IToken offendingSymbol, int line,
+            int charPositionInLine, string msg, RecognitionException e)
+        {
+            throw new ParseCanceledException("line " + line + ":" + charPositionInLine + " " + msg);
         }
     }
 }

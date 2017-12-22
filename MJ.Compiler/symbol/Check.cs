@@ -48,17 +48,22 @@ namespace mj.compiler.symbol
 
         public bool checkMainMethod(DiagnosticPosition pos, MethodSymbol main)
         {
-            if (main.type.ReturnType != symtab.intType || main.type.ParameterTypes.Count > 0) {
+            // Mimic C main function sig: int main(int,char**)
+            // with long substituting pointer (implying 64bit arch)
+            if (main.type.ReturnType != symtab.intType || 
+                main.type.ParameterTypes.Count != 2 || 
+                main.type.ParameterTypes[0] != symtab.intType || 
+                main.type.ParameterTypes[1] != symtab.longType) {
                 log.error(pos, messages.mainMethodSig);
                 return false;
             }
-            return false;
+            return true;
         }
 
         public bool checkUniqueLocalVar(DiagnosticPosition pos, VarSymbol varSymbol, WriteableScope scope)
         {
             if (scope.getSymbolsByName(varSymbol.name, s => s.kind.hasAny(Kind.VAR)).Any()) {
-                log.error(pos, messages.duplicateVar);
+                log.error(pos, messages.duplicateVar, varSymbol.name);
                 return false;
             }
             return true;

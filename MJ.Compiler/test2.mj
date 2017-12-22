@@ -1,10 +1,13 @@
 
-int something(string s) {
-    return puts(s);
-}
 
-int main() {
+int main(int argc, long arvPtr) {
     hello();
-    something("Hehe");
-    return 42;
+   
+    for (int i = 1; i <= 5; i++) {
+        for (int j = 1; j <= 5; j++) {
+            printf_int("i * j = %d\t", i * j);
+            printf_int("i + j = %d\n", i + j);
+        }
+    }
+    return 0;
 }

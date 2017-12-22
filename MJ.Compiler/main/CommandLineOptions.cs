@@ -34,7 +34,7 @@ namespace mj.compiler.main
                 {"pretty-print-tree", s => PrettyPrintTree = true},
                 {"h|help", s => ShowHelp = true},
                 {"<>", "Input files", s => InputFiles.Add(s), true},
-                {"o|output", "Output file path", s => OutPath = s},
+                {"o|output=", "Output file path", s => OutPath = s},
                 {"dump-ir", "Dump LLVM IR", s => DumpIR = true}
             };
         }
