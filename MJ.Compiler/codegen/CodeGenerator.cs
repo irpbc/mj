@@ -28,6 +28,8 @@ namespace mj.compiler.codegen
         private readonly CommandLineOptions options;
         private readonly Symtab symtab;
 
+        private readonly TargetOS targetOS;
+
         public CodeGenerator(Context ctx)
         {
             ctx.put(CONTEXT_KEY, this);
@@ -36,6 +38,8 @@ namespace mj.compiler.codegen
             typeResolver = new LLVMTypeResolver();
             options = CommandLineOptions.instance(ctx);
             symtab = Symtab.instance(ctx);
+
+            targetOS = getTargetOS();
         }
 
         private LLVMContextRef context;
@@ -92,7 +96,8 @@ namespace mj.compiler.codegen
         }
 
         private void dumpIR()
-        { // LLVM.DumpModule() is unreliable on Windows. It sometimes prints giberrish.
+        {
+            // LLVM.DumpModule() is unreliable on Windows. It sometimes prints binary garbage.
             IntPtr stringPtr = LLVM.PrintModuleToString(module);
             string str = Marshal.PtrToStringUTF8(stringPtr);
             Console.WriteLine(str);
@@ -111,17 +116,8 @@ namespace mj.compiler.codegen
                 Console.WriteLine("Cvrc");
                 return;
             }
-            
-            string triple; 
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
-                triple = "x86_64-unknown-win32";
-            } else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
-                triple = "x86_64-unknown-osx"; // ???
-            } else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
-                triple = "x86_64-unknown-linux"; // ???
-            } else {
-                throw new ArgumentOutOfRangeException("OSPlatform unknown");
-            }
+
+            string triple = getTargetTriple();
 
             LLVMTargetMachineRef targetMachine = LLVM.CreateTargetMachine(target, triple, "generic", "",
                 LLVMCodeGenOptLevel.LLVMCodeGenLevelDefault, LLVMRelocMode.LLVMRelocDefault,
@@ -129,26 +125,46 @@ namespace mj.compiler.codegen
 
             LLVM.TargetMachineEmitToMemoryBuffer(targetMachine, module, LLVMCodeGenFileType.LLVMObjectFile,
                 out var targetDescription, out var memoryBuffer);
-            
+
             Console.WriteLine(targetDescription);
 
             size_t bufferSize = LLVM.GetBufferSize(memoryBuffer);
             IntPtr bufferStart = LLVM.GetBufferStart(memoryBuffer);
 
             unsafe {
-                Stream s = new UnmanagedMemoryStream((byte*) bufferStart.ToPointer(), bufferSize);
+                Stream s = new UnmanagedMemoryStream((byte*)bufferStart.ToPointer(), bufferSize);
                 FileInfo file = new FileInfo(options.OutPath);
                 if (file.Exists) {
                     file.Delete();
                 }
-                
+
                 using (FileStream fs = file.Open(FileMode.Create, FileAccess.Write))
                 using (DisposableBuffer buffer = new DisposableBuffer(memoryBuffer)) {
                     s.CopyTo(fs);
                 }
             }
         }
-        
+
+        private string getTargetTriple()
+        {
+            string triple;
+            switch (targetOS) {
+                case TargetOS.Windows:
+                    triple = "x86_64-unknown-win32";
+                    break;
+                case TargetOS.OSX:
+                    triple = "x86_64-apple-darwin";
+                    break;
+                case TargetOS.Linux:
+                    triple = "x86_64-unknown-linux"; // ???
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException("OSPlatform unknown");
+            }
+            return triple;
+        }
+
+        // C++ RTTI style object to wrap the unmanaged resource
         private struct DisposableBuffer : IDisposable
         {
             private readonly LLVMMemoryBufferRef buffer;
@@ -174,7 +190,7 @@ namespace mj.compiler.codegen
             }
 
             LLVMValueRef mainFunction = LLVM.GetNamedFunction(module, "main");
-            var execute = (MainFunction) Marshal.GetDelegateForFunctionPointer(
+            var execute = (MainFunction)Marshal.GetDelegateForFunctionPointer(
                 LLVM.GetPointerToGlobal(engine, mainFunction), typeof(MainFunction));
 
             int result = execute();
@@ -201,7 +217,7 @@ namespace mj.compiler.codegen
             foreach (MethodDef mt in compilationUnit.methods) {
                 LLVMTypeRef llvmType = typeResolver.resolve(mt.symbol.type);
                 LLVMValueRef func = LLVM.AddFunction(module, mt.name, llvmType);
-                func.SetFunctionCallConv((uint) LLVMCallConv.LLVMCCallConv);
+                func.SetFunctionCallConv((uint)LLVMCallConv.LLVMCCallConv);
 
                 mt.symbol.llvmPointer = func;
             }
@@ -346,7 +362,7 @@ namespace mj.compiler.codegen
             scan(forLoop.init);
             LLVMBasicBlockRef forBlock = LLVM.AppendBasicBlock(function, "for");
             safeJumpTo(forBlock);
-            
+
             LLVMBasicBlockRef afterFor = LLVM.AppendBasicBlock(function, "afterfor");
 
             forLoop.ContinueBlock = forBlock;
@@ -382,7 +398,7 @@ namespace mj.compiler.codegen
             int numRealCases = @switch.cases.Count(@case => @case.expression != null);
 
             LLVMBasicBlockRef dummy = LLVM.AppendBasicBlock(function, "dummy");
-            LLVMValueRef switchInst = LLVM.BuildSwitch(builder, selectorVal, dummy, (uint) numRealCases);
+            LLVMValueRef switchInst = LLVM.BuildSwitch(builder, selectorVal, dummy, (uint)numRealCases);
 
             LLVMBasicBlockRef? defaultBlock = null;
 
@@ -464,8 +480,8 @@ namespace mj.compiler.codegen
                 LLVM.BuildRetVoid(builder);
             } else {
                 LLVMValueRef value = scan(returnStatement.value);
-                value = promote((PrimitiveType) returnStatement.value.type,
-                    (PrimitiveType) method.symbol.type.ReturnType,
+                value = promote((PrimitiveType)returnStatement.value.type,
+                    (PrimitiveType)method.symbol.type.ReturnType,
                     value);
                 LLVM.BuildRet(builder, value);
             }
@@ -483,7 +499,7 @@ namespace mj.compiler.codegen
         {
             if (varDef.init != null) {
                 LLVMValueRef initVal = scan(varDef.init);
-                initVal = promote((PrimitiveType) varDef.init.type, (PrimitiveType) varDef.symbol.type, initVal);
+                initVal = promote((PrimitiveType)varDef.init.type, (PrimitiveType)varDef.symbol.type, initVal);
                 LLVM.BuildStore(builder, initVal, varDef.symbol.llvmPointer);
             }
 
@@ -523,7 +539,7 @@ namespace mj.compiler.codegen
             for (var i = 0; i < mi.args.Count; i++) {
                 Expression arg = mi.args[i];
                 LLVMValueRef argVal = scan(arg);
-                args[i] = promote((PrimitiveType) arg.type, (PrimitiveType) mi.methodSym.type.ParameterTypes[i],
+                args[i] = promote((PrimitiveType)arg.type, (PrimitiveType)mi.methodSym.type.ParameterTypes[i],
                     argVal);
             }
 
@@ -547,18 +563,18 @@ namespace mj.compiler.codegen
         {
             switch (literal.typeTag) {
                 case TypeTag.INT:
-                    return LLVM.ConstInt(LLVMTypeRef.Int32Type(), (ulong) (int) literal.value, new LLVMBool(1));
+                    return LLVM.ConstInt(LLVMTypeRef.Int32Type(), (ulong)(int)literal.value, new LLVMBool(1));
                 case TypeTag.LONG:
-                    return LLVM.ConstInt(LLVMTypeRef.Int32Type(), (ulong) (long) literal.value, new LLVMBool(1));
+                    return LLVM.ConstInt(LLVMTypeRef.Int32Type(), (ulong)(long)literal.value, new LLVMBool(1));
                 case TypeTag.FLOAT:
-                    return LLVM.ConstReal(LLVMTypeRef.FloatType(), (float) literal.value);
+                    return LLVM.ConstReal(LLVMTypeRef.FloatType(), (float)literal.value);
                 case TypeTag.DOUBLE:
-                    return LLVM.ConstReal(LLVMTypeRef.DoubleType(), (double) literal.value);
+                    return LLVM.ConstReal(LLVMTypeRef.DoubleType(), (double)literal.value);
                 case TypeTag.BOOLEAN:
-                    return LLVM.ConstInt(LLVMTypeRef.Int1Type(), (ulong) ((bool) literal.value ? 1 : 0),
+                    return LLVM.ConstInt(LLVMTypeRef.Int1Type(), (ulong)((bool)literal.value ? 1 : 0),
                         new LLVMBool(0));
                 case TypeTag.STRING:
-                    LLVMValueRef val = LLVM.BuildGlobalStringPtr(builder, (string) literal.value, "strLit");
+                    LLVMValueRef val = LLVM.BuildGlobalStringPtr(builder, (string)literal.value, "strLit");
                     return val;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -568,7 +584,7 @@ namespace mj.compiler.codegen
         public override LLVMValueRef visitAssign(AssignNode expr)
         {
             LLVMValueRef assignValue = scan(expr.right);
-            Identifier ident = (Identifier) expr.left;
+            Identifier ident = (Identifier)expr.left;
 
             doAssign(ident, assignValue);
 
@@ -579,7 +595,7 @@ namespace mj.compiler.codegen
         {
             LLVMValueRef resValue = doBinary(expr.left, expr.right, expr.operatorSym);
 
-            doAssign((Identifier) expr.left, resValue);
+            doAssign((Identifier)expr.left, resValue);
 
             return resValue;
         }
@@ -607,7 +623,7 @@ namespace mj.compiler.codegen
             if (expr.opcode.isIncDec()) {
                 LLVMValueRef one = const1(expr.operatorSym.type.ReturnType.Tag);
                 LLVMValueRef resVal = LLVM.BuildBinOp(builder, expr.operatorSym.opcode, operandVal, one, "incDec");
-                LLVM.BuildStore(builder, resVal, ((Identifier) expr.operand).symbol.llvmPointer);
+                LLVM.BuildStore(builder, resVal, ((Identifier)expr.operand).symbol.llvmPointer);
                 return expr.opcode.isPre() ? resVal : operandVal;
             }
 
@@ -642,9 +658,9 @@ namespace mj.compiler.codegen
 
             if (op.type.ReturnType.IsNumeric) {
                 leftVal =
-                    promote((PrimitiveType) left.type, (PrimitiveType) op.type.ParameterTypes[0], leftVal);
+                    promote((PrimitiveType)left.type, (PrimitiveType)op.type.ParameterTypes[0], leftVal);
                 rightVal =
-                    promote((PrimitiveType) right.type, (PrimitiveType) op.type.ParameterTypes[1], rightVal);
+                    promote((PrimitiveType)right.type, (PrimitiveType)op.type.ParameterTypes[1], rightVal);
             }
 
             return makeBinary(op, leftVal, rightVal);
@@ -654,11 +670,11 @@ namespace mj.compiler.codegen
         {
             LLVMOpcode llvmOpcode = binary.opcode;
             if (llvmOpcode == LLVMOpcode.LLVMICmp) {
-                return LLVM.BuildICmp(builder, (LLVMIntPredicate) binary.llvmPredicate, leftVal, rightVal, "icmp");
+                return LLVM.BuildICmp(builder, (LLVMIntPredicate)binary.llvmPredicate, leftVal, rightVal, "icmp");
             }
 
             if (llvmOpcode == LLVMOpcode.LLVMICmp) {
-                return LLVM.BuildFCmp(builder, (LLVMRealPredicate) binary.llvmPredicate, leftVal, rightVal, "fcmp");
+                return LLVM.BuildFCmp(builder, (LLVMRealPredicate)binary.llvmPredicate, leftVal, rightVal, "fcmp");
             }
 
             return LLVM.BuildBinOp(builder, llvmOpcode, leftVal, rightVal, "tmp");
@@ -698,6 +714,27 @@ namespace mj.compiler.codegen
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+        }
+
+        private TargetOS getTargetOS()
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                return TargetOS.Windows;
+            }
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+                return TargetOS.OSX;
+            }
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
+                return TargetOS.Linux;
+            }
+            throw new ArgumentOutOfRangeException("OSPlatform unknown");
+        }
+
+        private enum TargetOS
+        {
+            Windows,
+            OSX,
+            Linux
         }
     }
 }
