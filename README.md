@@ -21,6 +21,11 @@ The language has some built-in functions written in C as a
 * `int puts(string str)` - prints a string to the console
 * `int printf(string format, ...)` - a binding for standard C `printf` function
 (with varargs).
+* `scan_*()` functions (specialized bindings to `scanf`):
+    * `int scan_int()` - read an `int` from console
+    * `long scan_long()` - read a `long` from console
+    * `float scan_float()` - read a `float` from console
+    * `double scan_double()` - read a `double` from console
 
 
 It **does not** support (for now):

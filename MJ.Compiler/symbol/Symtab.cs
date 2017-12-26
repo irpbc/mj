@@ -90,6 +90,10 @@ namespace mj.compiler.symbol
             scope.enter(builtin("putchar", intType, intType));
             scope.enter(builtin("hello", voidType));
             scope.enter(builtinVararg("printf", intType, stringType));
+            scope.enter(builtin("scan_int", intType));
+            scope.enter(builtin("scan_long", longType));
+            scope.enter(builtin("scan_float", floatType));
+            scope.enter(builtin("scan_double", doubleType));
         }
 
         private Symbol builtin(string name, Type resType)
