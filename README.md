@@ -19,8 +19,8 @@ The language has some built-in functions written in C as a
 
 * `void hello()` - prints "Hello World"
 * `int puts(string str)` - prints a string to the console
-* `int printf_int(string format, int param)` - a binding for standard C `printf` function
-with a fixed `int` parameter.
+* `int printf(string format, ...)` - a binding for standard C `printf` function
+(with varargs).
 
 
 It **does not** support (for now):
