@@ -229,7 +229,7 @@ namespace mj.compiler.symbol
 
             // check argument count
             IList<VarSymbol> paramSyms = msym.parameters;
-            if (argTypes.Count != paramSyms.Count) {
+            if (msym.isVararg ? argTypes.Count < paramSyms.Count : argTypes.Count != paramSyms.Count) {
                 log.error(invocation.Pos, messages.wrongNumberOfArgs, name, paramSyms.Count, argTypes.Count);
             }
 

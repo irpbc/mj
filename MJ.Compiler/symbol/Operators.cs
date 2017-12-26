@@ -221,7 +221,6 @@ namespace mj.compiler.symbol
                 binary(GE, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOGE),
                 binary(GE, TypeTag.DOUBLE, TypeTag.DOUBLE, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOGE),
             });
-            //@formatter:off
 
             setName(SHL, "<<");
             binaryOperators.Add(SHL, new[] {
@@ -278,18 +277,6 @@ namespace mj.compiler.symbol
                 binary(MOD, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.FLOAT, LLVMFRem),
                 binary(MOD, TypeTag.DOUBLE, TypeTag.DOUBLE, TypeTag.DOUBLE, LLVMFRem),
             });
-
-            //            setName(BITOR_ASG, "|=");
-            //            setName(BITXOR_ASG, "^=");
-            //            setName(BITAND_ASG, "&=");
-            //
-            //            setName(SHL_ASG, "<<=");
-            //            setName(SHR_ASG, ">>=");
-            //            setName(PLUS_ASG, "+=");
-            //            setName(MINUS_ASG, "-=");
-            //            setName(MUL_ASG, "*=");
-            //            setName(DIV_ASG, "/=");
-            //            setName(MOD_ASG, "%=");
         }
 
         private OperatorSymbol unary(Tag tag, TypeTag argType, TypeTag result, LLVMOpcode opcode = default(LLVMOpcode))

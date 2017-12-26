@@ -34,7 +34,7 @@ namespace mj.compiler.codegen
             for (var i = 0; i < paramTypes.Length; i++) {
                 paramTypes[i] = methodType.ParameterTypes[i].accept(this);
             }
-            return LLVMTypeRef.FunctionType(retType, paramTypes, false);
+            return LLVMTypeRef.FunctionType(retType, paramTypes, methodType.isVarArg);
         }
     }
 }

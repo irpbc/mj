@@ -122,7 +122,7 @@ namespace mj.compiler.symbol
 
         /// The constant value of this type, converted to String
         public override String StringValue => ConstValue?.ToString();
- 
+
         public override string ToString()
         {
             return tag.asString();
@@ -136,12 +136,14 @@ namespace mj.compiler.symbol
     {
         public IList<Type> argTypes;
         public Type resType;
+        public bool isVarArg;
 
-        public MethodType(IList<Type> argTypes, Type resType)
+        public MethodType(IList<Type> argTypes, Type resType, bool isVarArg = false)
             : base(null)
         {
             this.argTypes = argTypes;
             this.resType = resType;
+            this.isVarArg = isVarArg;
         }
 
         public override TypeTag Tag => TypeTag.METHOD;

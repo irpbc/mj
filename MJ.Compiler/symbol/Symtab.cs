@@ -89,12 +89,17 @@ namespace mj.compiler.symbol
             scope.enter(builtin("puts", intType, stringType));
             scope.enter(builtin("putchar", intType, intType));
             scope.enter(builtin("hello", voidType));
-            scope.enter(builtin("printf_int", intType, stringType, intType));
+            scope.enter(builtinVararg("printf", intType, stringType));
         }
 
         private Symbol builtin(string name, Type resType)
         {
             return builtin(name, resType, CollectionUtils.emptyList<Type>());
+        }
+        
+        private Symbol builtinVararg(string name, Type resType, Type arg)
+        {
+            return builtin(name, resType, CollectionUtils.singletonList(arg), true);
         }
 
         private Symbol builtin(string name, Type resType, Type arg)
@@ -107,10 +112,11 @@ namespace mj.compiler.symbol
             return builtin(name, resType, new[] { arg1, arg2 });
         }
 
-        private Symbol builtin(string name, Type resType, IList<Type> args)
+        private Symbol.MethodSymbol builtin(string name, Type resType, IList<Type> args, bool isVarArg = false)
         {
             Symbol.MethodSymbol ms = new Symbol.MethodSymbol(name, topLevelSymbol,
-                new MethodType(args, resType));
+                new MethodType(args, resType, isVarArg));
+            ms.isVararg = isVarArg;
 
             ms.parameters = new List<Symbol.VarSymbol>(args.Count);
             foreach (Type type in args) {

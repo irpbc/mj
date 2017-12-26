@@ -535,12 +535,22 @@ namespace mj.compiler.codegen
 
         public override LLVMValueRef visitMethodInvoke(MethodInvocation mi)
         {
-            LLVMValueRef[] args = new LLVMValueRef[mi.args.Count];
-            for (var i = 0; i < mi.args.Count; i++) {
+            int fixedCount = mi.methodSym.type.ParameterTypes.Count;
+            int callCount = mi.args.Count;
+            
+            LLVMValueRef[] args = new LLVMValueRef[callCount];
+            int i = 0;
+            for (; i < fixedCount; i++) {
                 Expression arg = mi.args[i];
                 LLVMValueRef argVal = scan(arg);
                 args[i] = promote((PrimitiveType)arg.type, (PrimitiveType)mi.methodSym.type.ParameterTypes[i],
                     argVal);
+            }
+
+            // add varargs without promotion
+            for (; i < callCount; i++) {
+                Expression arg = mi.args[i];
+                args[i] = scan(arg);
             }
 
             string name = mi.type.IsVoid ? "" : mi.methodSym.name;
