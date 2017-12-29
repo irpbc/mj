@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Linq;
-using System.Security;
 
 using mj.compiler.utils;
 
@@ -10,6 +8,8 @@ using Newtonsoft.Json;
 
 namespace mj.compiler.symbol
 {
+    using Filter = Func<Symbol, bool>;
+
     public abstract class Scope
     {
         [JsonIgnore]
@@ -20,9 +20,7 @@ namespace mj.compiler.symbol
             this.owner = owner;
         }
 
-        public delegate bool Filter<in T>(T t);
-
-        public static readonly Filter<Object> NO_FILTER = o => true;
+        public static readonly Filter NO_FILTER = o => true;
 
         /// Returns all Symbols in this Scope. Symbols from outward Scopes are included
         /// iff lookupKind == RECURSIVE.
@@ -33,7 +31,7 @@ namespace mj.compiler.symbol
 
         /// Returns Symbols that match the given filter. Symbols from outward Scopes are included
         /// iff lookupKind == RECURSIVE.
-        public abstract IEnumerable<Symbol> getSymbols(Filter<Symbol> sf, LookupKind lookupKind = LookupKind.RECURSIVE);
+        public abstract IEnumerable<Symbol> getSymbols(Filter sf, LookupKind lookupKind = LookupKind.RECURSIVE);
 
         /// Returns Symbols with the given name. Symbols from outward Scopes are included
         /// iff lookupKind == RECURSIVE.
@@ -44,7 +42,7 @@ namespace mj.compiler.symbol
 
         /// Returns Symbols with the given name that match the given filter.
         /// Symbols from outward Scopes are included iff lookupKind == RECURSIVE.
-        public abstract IEnumerable<Symbol> getSymbolsByName(String name, Filter<Symbol> sf,
+        public abstract IEnumerable<Symbol> getSymbolsByName(String name, Filter sf,
                                                              LookupKind lookupKind = LookupKind.RECURSIVE);
 
         /// Return the first Symbol from this or outward scopes with the given name.
@@ -56,14 +54,14 @@ namespace mj.compiler.symbol
 
         /// Return the first Symbol from this or outward scopes with the given name that matches the
         /// given filter. Returns null if none.
-        public Symbol findFirst(String name, Filter<Symbol> sf)
+        public Symbol findFirst(String name, Filter sf)
         {
             return getSymbolsByName(name, sf).FirstOrDefault();
         }
 
         /// Returns true iff there are is at least one Symbol in this scope matching the given filter.
         /// Does not inspect outward scopes.
-        public bool anyMatch(Filter<Symbol> filter)
+        public bool anyMatch(Filter filter)
         {
             return getSymbols(filter, LookupKind.NON_RECURSIVE).Any();
         }
@@ -127,7 +125,7 @@ namespace mj.compiler.symbol
                 this.outer = outer;
             }
 
-            private readonly Dictionary<String, Symbol> dict = new Dictionary<String, Symbol>();
+            private readonly MultiValueDictionary<String, Symbol> dict = new MultiValueDictionary<String, Symbol>();
 
             public override void enter(Symbol s) => dict.Add(s.name, s);
 
@@ -143,21 +141,21 @@ namespace mj.compiler.symbol
             public override WriteableScope subScope(Symbol newOwner) => new ScopeImpl(newOwner, this);
             public override WriteableScope leave() => outer;
 
-            public override IEnumerable<Symbol> getSymbols(Filter<Symbol> sf,
-                                                           LookupKind lookupKind = LookupKind.RECURSIVE)
+            public override IEnumerable<Symbol> getSymbols(Filter sf, LookupKind lookupKind = LookupKind.RECURSIVE)
             {
-                IEnumerable<Symbol> enumerable = dict.Values.Where(new Func<Symbol, bool>(sf));
+                IEnumerable<Symbol> enumerable = dict.Values.SelectMany(v => v).Where(sf);
                 if (lookupKind is LookupKind.NON_RECURSIVE || outer is null) {
                     return enumerable;
                 }
                 return enumerable.Concat(outer.getSymbols(sf));
             }
 
-            public override IEnumerable<Symbol> getSymbolsByName(String name, Filter<Symbol> sf,
+            public override IEnumerable<Symbol> getSymbolsByName(String name, Filter sf,
                                                                  LookupKind lookupKind = LookupKind.RECURSIVE)
             {
-                IEnumerable<Symbol> localResult = dict.TryGetValue(name, out var s) && sf(s)
-                    ? CollectionUtils.singletonList(s)
+                IEnumerable<Symbol> localResult;
+                localResult = dict.TryGetValue(name, out var s) 
+                    ? s.Where(sf)
                     : CollectionUtils.emptyList<Symbol>();
 
                 return lookupKind == LookupKind.RECURSIVE && outer != null

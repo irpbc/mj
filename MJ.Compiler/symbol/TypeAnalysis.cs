@@ -68,13 +68,13 @@ namespace mj.compiler.symbol
 
         public override Type visitCompilationUnit(CompilationUnit compilationUnit, Environment env)
         {
-            analyze(compilationUnit.methods, env);
-
+            analyze(compilationUnit.declarations, env);
             return null;
         }
 
         public override Type visitMethodDef(MethodDef method, Environment env)
         {
+            analyze(method.annotations, env);
             analyze(method.body.statements, new Environment {
                 enclMethod = method.symbol,
                 scope = method.symbol.scope,
@@ -82,6 +82,23 @@ namespace mj.compiler.symbol
             });
             // probaly unused
             return method.symbol.type;
+        }
+
+        public override Type visitAnnotation(Annotation annotation, Environment env)
+        {
+            Symbol aspectSym = env.scope.findFirst(annotation.name, s => s.kind == Kind.ASPECT);
+            if (aspectSym == null) {
+                log.error(annotation.Pos, messages.undefinedVariable, annotation.name);
+                return null;
+            }
+            annotation.symbol = (AspectSymbol)aspectSym;
+            return aspectSym.type;
+        }
+
+        public override Type visitAspectDef(AspectDef aspect, Environment env)
+        {          
+            analyze(aspect.after, env);
+            return null;
         }
 
         public override Type visitBlock(Block block, Environment env)

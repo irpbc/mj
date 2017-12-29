@@ -29,11 +29,21 @@ nameExpression
 	;
 
 compilationUnit
-	:   methods+=methodDeclaration+	EOF
+	:   declarations+=declaration+ EOF
 	;
+	
+declaration
+    :   methodDeclaration
+    |   aspectDef
+    ;
+
+annotation
+    :   '@' name=Identifier
+    ;
 
 methodDeclaration returns [ bool isPrivate ]
-	:	'private'? { $methodDeclaration::isPrivate=true; } 
+	:	annotations+=annotation*
+	    'private'? { $methodDeclaration::isPrivate=true; } 
 	    result 
 	    name=Identifier '(' ( params+=formalParameter (',' params+=formalParameter)* )? ')'
 	    methodBody
@@ -47,6 +57,12 @@ result
 formalParameter
 	:	type name=Identifier
 	;
+
+aspectDef
+    : 'aspect' name=Identifier '{' 
+          ( afterStart='after' after=block )?
+      '}'
+    ;
 
 methodBody
 	:	block

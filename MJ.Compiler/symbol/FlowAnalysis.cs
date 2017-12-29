@@ -58,7 +58,7 @@ namespace mj.compiler.symbol
 
         public override Exit visitCompilationUnit(CompilationUnit compilationUnit, Environment env)
         {
-            scan(compilationUnit.methods, env);
+            scan(compilationUnit.declarations, env);
             return 0;
         }
 
@@ -66,11 +66,19 @@ namespace mj.compiler.symbol
         {
             Environment methodEnv = new Environment();
             Exit exit = this.analyze(method.body, methodEnv);
-            if (exit.HasFlag(Exit.NORMALLY) &&
-                !method.symbol.type.ReturnType.IsVoid) {
-                log.error(method.Pos, messages.missingReturnStatement);
+            if (exit.HasFlag(Exit.NORMALLY)) {
+                method.exitsNormally = true;
+                if (!method.symbol.type.ReturnType.IsVoid) {
+                    log.error(method.Pos, messages.missingReturnStatement);
+                }
             }
 
+            return 0;
+        }
+
+        public override Exit visitAspectDef(AspectDef aspect, Environment env)
+        {
+            scan(aspect.after, env);
             return 0;
         }
 

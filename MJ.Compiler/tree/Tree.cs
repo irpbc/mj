@@ -48,13 +48,14 @@ namespace mj.compiler.tree
     public sealed class CompilationUnit : Tree
     {
         public SourceFile sourceFile;
-        public IList<MethodDef> methods;
+        public IList<Tree> declarations;
         public Scope.WriteableScope topLevelScope;
 
-        public CompilationUnit(int beginLine, int beginCol, int endLine, int endCol, IList<MethodDef> methods)
+        public CompilationUnit(int beginLine, int beginCol, int endLine, int endCol, 
+                               IList<Tree> declarations)
             : base(beginLine, beginCol, endLine, endCol)
         {
-            this.methods = methods;
+            this.declarations = declarations;
         }
 
         public override Tag Tag => Tag.COMPILATION_UNIT;
@@ -229,17 +230,20 @@ namespace mj.compiler.tree
         public String name;
         public TypeTree returnType;
         public IList<VariableDeclaration> parameters;
+        public IList<Annotation> annotations;
         public bool isPrivate;
         public Block body;
         public Symbol.MethodSymbol symbol;
+        public bool exitsNormally;
 
         public MethodDef(int beginLine, int beginCol, int endLine, int endCol, string name, TypeTree returnType,
-                         IList<VariableDeclaration> parameters, Block body, bool isPrivate)
+                         IList<VariableDeclaration> parameters, IList<Annotation> annotations, Block body, bool isPrivate)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
             this.returnType = returnType;
             this.parameters = parameters;
+            this.annotations = annotations;
             this.body = body;
             this.isPrivate = isPrivate;
         }
@@ -249,6 +253,44 @@ namespace mj.compiler.tree
         public override void accept(AstVisitor v) => v.visitMethodDef(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitMethodDef(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitMethodDef(this, arg);
+    }
+
+    public class AspectDef : Tree
+    {
+        public String name;
+        public MethodDef after;
+        public Symbol.AspectSymbol symbol;
+
+        public AspectDef(int beginLine, int beginCol, int endLine, int endCol, String name, MethodDef after) 
+            : base(beginLine, beginCol, endLine, endCol)
+        {
+            this.name = name;
+            this.after = after;
+        }
+
+        public override Tag Tag => Tag.ASPECT_DEF;
+
+        public override void accept(AstVisitor v) => v.visitAspectDef(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitAspectDef(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitAspectDef(this, arg);
+    }
+
+    public class Annotation : Tree
+    {
+        public String name;
+        public Symbol.AspectSymbol symbol;
+
+        public Annotation(string name, int beginLine, int beginCol, int endLine, int endCol)
+            : base(beginLine, beginCol, endLine, endCol)
+        {
+            this.name = name;
+        }
+
+        public override Tag Tag => Tag.ANNOTATION;
+
+        public override void accept(AstVisitor v) => v.visitAnnotation(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitAnnotation(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitAnnotation(this, arg);
     }
 
     public abstract class TypeTree : Tree
@@ -328,13 +370,14 @@ namespace mj.compiler.tree
             get => default(LLVMBasicBlockRef);
             set { }
         }
-        
-        public virtual void setBreak() {}
+
+        public virtual void setBreak() { }
     }
 
     public sealed class ReturnStatement : StatementNode
     {
         public Expression value;
+        public IList<Expression> afterAspects;
 
         public ReturnStatement(int beginLine, int beginCol, int endLine, int endCol, Expression value)
             : base(beginLine, beginCol, endLine, endCol)
@@ -504,6 +547,7 @@ namespace mj.compiler.tree
         }
 
         public override LLVMBasicBlockRef BreakBlock { get; set; }
+
         public override void setBreak()
         {
             this.didBreak = true;
@@ -568,6 +612,8 @@ namespace mj.compiler.tree
         BLOCK,
         INVOKE,
         METHOD_DEF,
+        ASPECT_DEF,
+        ANNOTATION,
         VAR_DEF,
         COMPILATION_UNIT,
         EXEC,

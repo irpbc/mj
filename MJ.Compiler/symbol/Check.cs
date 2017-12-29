@@ -1,9 +1,8 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 
 using mj.compiler.main;
-using mj.compiler.utils;
 using mj.compiler.resources;
+using mj.compiler.utils;
 
 using static mj.compiler.symbol.Scope;
 using static mj.compiler.symbol.Symbol;
@@ -29,6 +28,15 @@ namespace mj.compiler.symbol
         }
 
         public bool checkUnique(DiagnosticPosition pos, MethodSymbol sym, Scope scope)
+        {
+            bool contains = scope.getSymbolsByName(sym.name, LookupKind.NON_RECURSIVE).Any();
+            if (contains) {
+                log.error(pos, messages.duplicateMethodName, sym.name);
+            }
+            return !contains;
+        }
+        
+        public bool checkUnique(DiagnosticPosition pos, AspectSymbol sym, Scope scope)
         {
             bool contains = scope.getSymbolsByName(sym.name, LookupKind.NON_RECURSIVE).Any();
             if (contains) {

@@ -37,6 +37,7 @@
     <data name="caseExpressionType"><value>Case expression has to be a constant of same type as switch expression</value></data>
     <data name="duplicateCaseLabels"><value>Duplicate case labels</value></data>
     <data name="undefinedVariable"><value>Variable "{0}" is undefined at this point</value></data>
+    <data name="undefinedAspect"><value>Aspect "{0}" is undefined at this point</value></data>
     <data name="returnVoidMethod"><value>You can't return a value from a void method</value></data>
     <data name="returnNonVoidMethod"><value>You must return a value from a non-void method</value></data>
     <data name="returnTypeMismatch"><value>Return type mismatch</value></data>

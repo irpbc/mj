@@ -49,7 +49,7 @@ namespace mj.compiler.parsing
                     break;
                 case BOOLEAN:
                     type = TypeTag.BOOLEAN;
-                    break; 
+                    break;
                 case STRING:
                     type = TypeTag.STRING;
                     break;
@@ -73,21 +73,35 @@ namespace mj.compiler.parsing
 
         public override Tree VisitCompilationUnit(CompilationUnitContext context)
         {
-            IList<MethodDeclarationContext> methodDeclarationContexts = context._methods;
-            MethodDef[] methodDefs = new MethodDef[methodDeclarationContexts.Count];
+            IList<DeclarationContext> declarationContexts = context._declarations;
 
-            for (var i = 0; i < methodDeclarationContexts.Count; i++) {
-                methodDefs[i] = (MethodDef)VisitMethodDeclaration(methodDeclarationContexts[i]);
-            }
+            if (declarationContexts.Count > 0) {
+                Tree[] decls = new Tree[declarationContexts.Count];
+                for (int i = 0; i < declarationContexts.Count; i++) {
+                    decls[i] = VisitDeclaration(declarationContexts[i]);
+                }
 
-            if (methodDefs.Length > 0) {
-                int beginLine = methodDefs[0].beginLine;
-                int beginCol = methodDefs[0].beginCol;
-                int endLine = methodDefs[methodDefs.Length - 1].endLine;
-                int endCol = methodDefs[methodDefs.Length - 1].endCol;
-                return new CompilationUnit(beginLine, beginCol, endLine, endCol, methodDefs);
+                int beginLine = decls[0].beginLine;
+                int beginCol = decls[0].beginCol;
+                int endLine = decls[decls.Length - 1].endLine;
+                int endCol = decls[decls.Length - 1].endCol;
+
+                return new CompilationUnit(beginLine, beginCol, endLine, endCol, decls);
             }
-            return new CompilationUnit(0, 0, 0, 0, methodDefs);
+            return new CompilationUnit(0, 0, 0, 0, CollectionUtils.emptyList<Tree>());
+        }
+
+        public override Tree VisitDeclaration(DeclarationContext context)
+        {
+            MethodDeclarationContext mt = context.methodDeclaration();
+            if (mt != null) {
+                return VisitMethodDeclaration(mt);
+            }
+            AspectDefContext asp = context.aspectDef();
+            if (asp != null) {
+                return VisitAspectDef(asp);
+            }
+            throw new ArgumentOutOfRangeException();
         }
 
         public override Tree VisitMethodDeclaration(MethodDeclarationContext context)
@@ -95,6 +109,7 @@ namespace mj.compiler.parsing
             String name = context.name.Text;
             ResultContext resultContext = context.result();
             IList<FormalParameterContext> parameterContexts = context._params;
+            IList<AnnotationContext> annotationContexts = context._annotations;
             bool isPrivate = context.isPrivate;
 
             TypeContext resType = resultContext.type();
@@ -114,10 +129,15 @@ namespace mj.compiler.parsing
                 parameters[i] = (VariableDeclaration)VisitFormalParameter(parameterContexts[i]);
             }
 
+            Annotation[] annotations = new Annotation[annotationContexts.Count];
+            for (int i = 0; i < annotationContexts.Count; i++) {
+                annotations[i] = (Annotation)VisitAnnotation(annotationContexts[i]);
+            }
+
             Block block = (Block)VisitBlock(context.methodBody().block());
 
             return new MethodDef(type.beginLine, type.beginCol, block.endLine, block.endCol, name, type, parameters,
-                block, isPrivate);
+                annotations, block, isPrivate);
         }
 
         public override Tree VisitResult(ResultContext context) => throw new InvalidOperationException();
@@ -132,6 +152,44 @@ namespace mj.compiler.parsing
             int stopCol = stopToken.Column + (stopToken.StopIndex - stopToken.StartIndex);
 
             return new VariableDeclaration(type.beginLine, type.beginCol, stopLine, stopCol, name, type, null);
+        }
+
+        public override Tree VisitAnnotation(AnnotationContext context)
+        {
+            IToken stopToken = context.Stop;
+            int stopLine = stopToken.Line;
+            int stopCol = stopToken.Column + (stopToken.StopIndex - stopToken.StartIndex);
+
+            return new Annotation(context.name.Text, context.Start.Line, context.Start.Column, stopLine, stopCol);
+        }
+
+        public override Tree VisitAspectDef(AspectDefContext context)
+        {
+            Block afterBlock = (Block)VisitBlock(context.after);
+
+            MethodDef afterMethod = makeAfterMethod(context, afterBlock);
+
+            return new AspectDef(context.Start.Line, context.Start.Column,
+                context.Stop.Line, context.Stop.Column, context.name.Text, afterMethod);
+        }
+
+        private MethodDef makeAfterMethod(AspectDefContext context, Block afterBlock)
+        {
+            int startLine = context.afterStart.Line;
+            int startColumn = context.afterStart.Column;
+            int endLine = afterBlock.EndPos.line;
+            int endCol = afterBlock.EndPos.column;
+
+            VariableDeclaration methodName = new VariableDeclaration(startLine, startColumn, startLine, startColumn,
+                "methodName",
+                new PrimitiveTypeNode(startLine, startColumn, startLine, startColumn, TypeTag.STRING), null);
+
+            IList<VariableDeclaration> @params = CollectionUtils.singletonList(methodName);
+
+            MethodDef methodDef = new MethodDef(startLine, startColumn, endLine, endCol, context.name.Text + "_after",
+                new PrimitiveTypeNode(0,0,0,0, TypeTag.VOID), @params, CollectionUtils.emptyList<Annotation>(), afterBlock, false);
+
+            return methodDef;
         }
 
         public override Tree VisitMethodBody(MethodBodyContext context) => throw new InvalidOperationException();
@@ -938,7 +996,7 @@ namespace mj.compiler.parsing
 
         private static int hexDigit(char hexChar)
         {
-            hexChar = Char.ToUpper(hexChar);  // may not be necessary
+            hexChar = Char.ToUpper(hexChar); // may not be necessary
 
             return hexChar < 'A' ? (hexChar - '0') : 10 + (hexChar - 'A');
         }

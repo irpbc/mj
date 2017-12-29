@@ -15,6 +15,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{A41DE455-3
 ProjectSection(SolutionItems) = preProject
 	Docs\Technical.md = Docs\Technical.md
 	Docs\Manual.md = Docs\Manual.md
+	Docs\Notes.md = Docs\Notes.md
 EndProjectSection
 EndProject
 Global

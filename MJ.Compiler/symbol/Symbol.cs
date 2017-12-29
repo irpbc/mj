@@ -58,6 +58,18 @@ namespace mj.compiler.symbol
 
             public override string ToString() => name + ": " + type;
         }
+        
+        public class AspectSymbol : Symbol
+        {
+            public MethodSymbol afterMethod;
+            
+            public AspectSymbol(string name, Symbol owner) : base(Kind.ASPECT, name, owner, null)
+            {
+                this.name = name;
+            }
+
+            public override string ToString() => "aspect " + name;
+        }
 
         public class VarSymbol : Symbol
         {
@@ -112,7 +124,8 @@ namespace mj.compiler.symbol
         {
             TOP = 1,
             MTH = TOP << 1,
-            PARAM = MTH << 1,
+            ASPECT = MTH << 1,
+            PARAM = ASPECT << 1,
             LOCAL = PARAM << 1,
             PRIMITIVE = LOCAL << 1,
             OP = PRIMITIVE << 1,

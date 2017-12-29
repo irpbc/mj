@@ -62,6 +62,7 @@ namespace mj.compiler.codegen
             LLVMPassManagerRef passManager = LLVM.CreatePassManager();
             LLVM.AddPromoteMemoryToRegisterPass(passManager);
             LLVM.AddCFGSimplificationPass(passManager);
+            LLVM.AddLateCFGSimplificationPass(passManager);
 
             context = LLVM.GetGlobalContext();
             module = LLVM.ModuleCreateWithNameInContext("TheProgram", context);
@@ -71,7 +72,7 @@ namespace mj.compiler.codegen
 
             variableAllocator = new VariableAllocator(builder, typeResolver);
 
-            scan(trees);
+            build(trees);
 
             if (options.DumpIR) {
                 dumpIR();
@@ -212,41 +213,71 @@ namespace mj.compiler.codegen
             }
         }
 
+        private void build(IList<CompilationUnit> compilationUnits)
+        {
+            foreach (CompilationUnit cu in compilationUnits) {
+                createFunctions(cu);
+            }
+            scan(compilationUnits);
+        }
+
         public override LLVMValueRef visitCompilationUnit(CompilationUnit compilationUnit)
         {
-            foreach (MethodDef mt in compilationUnit.methods) {
-                LLVMTypeRef llvmType = typeResolver.resolve(mt.symbol.type);
-                LLVMValueRef func = LLVM.AddFunction(module, mt.name, llvmType);
-                func.SetFunctionCallConv((uint)LLVMCallConv.LLVMCCallConv);
+            scan(compilationUnit.declarations);
+            return nullValue;
+        }
 
-                mt.symbol.llvmPointer = func;
-            }
-
-            foreach (MethodDef mt in compilationUnit.methods) {
-                function = mt.symbol.llvmPointer;
-
-                LLVMBasicBlockRef entryBlock = function.AppendBasicBlock("entry");
-                LLVM.PositionBuilderAtEnd(builder, entryBlock);
-
-                variableAllocator.scan(mt.body);
-
-                LLVMValueRef[] llvmParams = function.GetParams();
-                for (var i = 0; i < llvmParams.Length; i++) {
-                    mt.symbol.parameters[i].llvmPointer = llvmParams[i];
+        private void createFunctions(CompilationUnit compilationUnit)
+        {
+            foreach (Tree decl in compilationUnit.declarations) {
+                if (decl is MethodDef mt) {
+                    createFunction(mt);
+                } else if (decl is AspectDef asp) {
+                    createFunction(asp.after);
                 }
+            }
+        }
 
-                method = mt;
-                scan(mt.body.statements);
+        private void createFunction(MethodDef mt)
+        {
+            LLVMTypeRef llvmType = typeResolver.resolve(mt.symbol.type);
+            LLVMValueRef func = LLVM.AddFunction(module, mt.name, llvmType);
+            func.SetFunctionCallConv((uint)LLVMCallConv.LLVMCCallConv);
 
-                endFunction();
+            mt.symbol.llvmPointer = func;
+        }
+
+        public override LLVMValueRef visitMethodDef(MethodDef mt)
+        {
+            function = mt.symbol.llvmPointer;
+
+            LLVMBasicBlockRef entryBlock = function.AppendBasicBlock("entry");
+            LLVM.PositionBuilderAtEnd(builder, entryBlock);
+
+            variableAllocator.scan(mt.body);
+
+            LLVMValueRef[] llvmParams = function.GetParams();
+            for (var i = 0; i < llvmParams.Length; i++) {
+                mt.symbol.parameters[i].llvmPointer = llvmParams[i];
             }
 
+            method = mt;
+            scan(mt.body.statements);
+
+            endFunction();
+            return nullValue;
+        }
+
+        public override LLVMValueRef visitAspectDef(AspectDef aspect)
+        {
+            scan(aspect.after);
             return nullValue;
         }
 
         private void endFunction()
         {
             LLVMBasicBlockRef lastBlock = LLVM.GetInsertBlock(builder);
+
             LLVMValueRef lastInst = lastBlock.GetLastInstruction();
             // if last block is empty
             if (lastInst.Pointer == IntPtr.Zero) {
@@ -280,32 +311,36 @@ namespace mj.compiler.codegen
 
             // make "then" block
             LLVMBasicBlockRef thenBlock = function.AppendBasicBlock("then");
-            LLVMBasicBlockRef afterIf = context.AppendBasicBlockInContext(function, "afterIf");
 
-            bool didJump = false;
+            LLVMBasicBlockRef afterIf = context.AppendBasicBlockInContext(function, "afterIf");
 
             if (ifStat.elsePart == null) {
                 LLVM.BuildCondBr(builder, conditionVal, thenBlock, afterIf);
                 LLVM.PositionBuilderAtEnd(builder, thenBlock);
                 scan(ifStat.thenPart);
-                didJump = safeJumpTo(afterIf);
+                safeJumpTo(afterIf);
+                afterIf.MoveBasicBlockAfter(function.GetLastBasicBlock());
+                LLVM.PositionBuilderAtEnd(builder, afterIf);
             } else {
                 LLVMBasicBlockRef elseBlock = context.AppendBasicBlockInContext(function, "else");
                 LLVM.BuildCondBr(builder, conditionVal, thenBlock, elseBlock);
                 LLVM.PositionBuilderAtEnd(builder, thenBlock);
                 scan(ifStat.thenPart);
+
+                bool didJump = false;
                 didJump |= safeJumpTo(afterIf);
+
                 elseBlock.MoveBasicBlockAfter(function.GetLastBasicBlock());
                 LLVM.PositionBuilderAtEnd(builder, elseBlock);
                 scan(ifStat.elsePart);
                 didJump |= safeJumpTo(afterIf);
-            }
 
-            if (didJump) {
-                afterIf.MoveBasicBlockAfter(function.GetLastBasicBlock());
-                LLVM.PositionBuilderAtEnd(builder, afterIf);
-            } else {
-                afterIf.DeleteBasicBlock();
+                if (didJump) {
+                    afterIf.MoveBasicBlockAfter(function.GetLastBasicBlock());
+                    LLVM.PositionBuilderAtEnd(builder, afterIf);
+                } else {
+                    afterIf.DeleteBasicBlock();
+                }
             }
 
             return nullValue;
@@ -483,6 +518,9 @@ namespace mj.compiler.codegen
                 value = promote((PrimitiveType)returnStatement.value.type,
                     (PrimitiveType)method.symbol.type.ReturnType,
                     value);
+                if (returnStatement.afterAspects != null) {
+                    scan(returnStatement.afterAspects);
+                }
                 LLVM.BuildRet(builder, value);
             }
 
@@ -537,7 +575,7 @@ namespace mj.compiler.codegen
         {
             int fixedCount = mi.methodSym.type.ParameterTypes.Count;
             int callCount = mi.args.Count;
-            
+
             LLVMValueRef[] args = new LLVMValueRef[callCount];
             int i = 0;
             for (; i < fixedCount; i++) {

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
+using mj.compiler.aspect;
 using mj.compiler.codegen;
 using mj.compiler.parsing;
 using mj.compiler.symbol;
@@ -16,7 +17,7 @@ namespace mj.compiler.main
     {
         private static readonly Context.Key<Compiler> CONTEX_KEY = new Context.Key<Compiler>();
 
-        public static Compiler instance(Context context) => 
+        public static Compiler instance(Context context) =>
             context.tryGet(CONTEX_KEY, out var instance) ? instance : new Compiler(context);
 
         private readonly CommandLineOptions options;
@@ -24,6 +25,7 @@ namespace mj.compiler.main
         private readonly DeclarationAnalysis declarationAnalysis;
         private readonly TypeAnalysis typeAnalysis;
         private readonly FlowAnalysis flowAnalysis;
+        private readonly AspectWeaver aspectWeaver;
         private readonly CodeGenerator codeGenerator;
 
         private readonly Log log;
@@ -36,6 +38,7 @@ namespace mj.compiler.main
             declarationAnalysis = DeclarationAnalysis.instance(context);
             typeAnalysis = TypeAnalysis.instance(context);
             flowAnalysis = FlowAnalysis.instance(context);
+            aspectWeaver = AspectWeaver.instance(context);
             codeGenerator = CodeGenerator.instance(context);
             log = Log.instance(context);
         }
@@ -44,7 +47,7 @@ namespace mj.compiler.main
         {
             List<SourceFile> files = options.InputFiles.Select(s => new SourceFile(s)).ToList();
 
-            generateCode(flow(types(decls(parse(files)))));
+            generateCode(aspects(flow(types(decls(parse(files))))));
         }
 
         private IList<CompilationUnit> parse(IList<SourceFile> files)
@@ -56,10 +59,11 @@ namespace mj.compiler.main
                 compilationUnit.sourceFile = sourceFile;
                 results[i] = compilationUnit;
             }
-            return results;
+            return stopIfError(results);
         }
 
-        private IList<CompilationUnit> decls(IList<CompilationUnit> trees) => stopIfError(declarationAnalysis.main(trees));
+        private IList<CompilationUnit> decls(IList<CompilationUnit> trees) =>
+            stopIfError(declarationAnalysis.main(trees));
 
         private IList<CompilationUnit> types(IList<CompilationUnit> trees)
         {
@@ -72,6 +76,8 @@ namespace mj.compiler.main
         }
 
         private IList<CompilationUnit> flow(IList<CompilationUnit> trees) => stopIfError(flowAnalysis.main(trees));
+
+        private IList<CompilationUnit> aspects(IList<CompilationUnit> trees) => stopIfError(aspectWeaver.main(trees));
 
         private void generateCode(IList<CompilationUnit> trees)
         {

@@ -80,7 +80,7 @@ namespace mj.compiler.symbol
         public override object visitCompilationUnit(CompilationUnit compilationUnit, WriteableScope s)
         {
             // analyze methods -> go to visitMethodDef
-            analyze(compilationUnit.methods, s);
+            analyze(compilationUnit.declarations, s);
             return null;
         }
 
@@ -88,6 +88,21 @@ namespace mj.compiler.symbol
         {
             Symbol owner = symtab.topLevelSymbol;
 
+            MethodSymbol msym = makeMethodSymbol(method, enclScope, owner);
+
+            if (method.name == "main") {
+                mainMethodFound = true;
+                check.checkMainMethod(method.Pos, msym);
+            }
+            
+            if (check.checkUnique(method.Pos, msym, enclScope)) {
+                enclScope.enter(msym);
+            }
+            return null;
+        }
+
+        private MethodSymbol makeMethodSymbol(MethodDef method, WriteableScope enclScope, Symbol owner)
+        {
             MethodSymbol msym = new MethodSymbol(method.name, owner, null);
             method.symbol = msym;
 
@@ -98,15 +113,20 @@ namespace mj.compiler.symbol
             msym.parameters = new List<VarSymbol>(method.parameters.Count);
             msym.type = signature(method.returnType, method.parameters, methodScope);
             msym.type.definer = msym;
+            return msym;
+        }
 
-            if (method.name == "main") {
-                mainMethodFound = true;
-                check.checkMainMethod(method.Pos, msym);
+        public override object visitAspectDef(AspectDef aspect, WriteableScope enclScope)
+        {
+            Symbol owner = symtab.topLevelSymbol;
+            
+            AspectSymbol asym = new AspectSymbol(aspect.name, owner);
+
+            if (check.checkUnique(aspect.Pos, asym, enclScope)) {
+                enclScope.enter(asym);
+                asym.afterMethod = makeMethodSymbol(aspect.after, enclScope.subScope(), asym);
             }
             
-            if (check.checkUnique(method.Pos, msym, enclScope)) {
-                enclScope.enter(msym);
-            }
             return null;
         }
 

@@ -7,6 +7,8 @@ namespace mj.compiler.tree
     {
         public virtual T visitCompilationUnit(CompilationUnit compilationUnit) => visit(compilationUnit);
         public virtual T visitMethodDef(MethodDef method) => visit(method);
+        public virtual T visitAspectDef(AspectDef aspect) => visit(aspect);
+        public virtual T visitAnnotation(Annotation annotation) => visit(annotation);
         public virtual T visitVarDef(VariableDeclaration varDef) => visit(varDef);
         public virtual T visitBinary(BinaryExpressionNode expr) => visit(expr);
         public virtual T visitUnary(UnaryExpressionNode expr) => visit(expr);
@@ -52,6 +54,8 @@ namespace mj.compiler.tree
     {
         public virtual T visitCompilationUnit(CompilationUnit compilationUnit, A arg) => visit(compilationUnit, arg);
         public virtual T visitMethodDef(MethodDef method, A arg) => visit(method, arg);
+        public virtual T visitAspectDef(AspectDef aspect, A arg) => visit(aspect, arg);
+        public virtual T visitAnnotation(Annotation annotation, A arg) => visit(annotation, arg);
         public virtual T visitVarDef(VariableDeclaration varDef, A arg) => visit(varDef, arg);
         public virtual T visitBlock(Block block, A arg) => visit(block, arg);
         public virtual T visitBinary(BinaryExpressionNode expr, A arg) => visit(expr, arg);
@@ -97,6 +101,8 @@ namespace mj.compiler.tree
     {
         public virtual void visitCompilationUnit(CompilationUnit compilationUnit) => visit(compilationUnit);
         public virtual void visitMethodDef(MethodDef method) => visit(method);
+        public virtual void visitAspectDef(AspectDef aspect) => visit(aspect);
+        public virtual void visitAnnotation(Annotation annotation) => visit(annotation);
         public virtual void visitVarDef(VariableDeclaration varDef) => visit(varDef);
         public virtual void visitBinary(BinaryExpressionNode expr) => visit(expr);
         public virtual void visitUnary(UnaryExpressionNode expr) => visit(expr);
