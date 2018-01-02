@@ -108,6 +108,8 @@ namespace mj.compiler.symbol
             {
                 llvmPredicate = predicate;
             }
+
+            public bool IsComparison => type.ReturnType.IsBoolean && type.ParameterTypes[0].IsNumeric;
         }
 
         public sealed class ErrorSymbol : TypeSymbol

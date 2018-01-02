@@ -50,6 +50,9 @@ namespace mj.compiler.symbol
 
         public IList<CompilationUnit> main(IList<CompilationUnit> trees)
         {
+            if (trees.Count == 0) {
+                return CollectionUtils.emptyList<CompilationUnit>();
+            }
             WriteableScope topScope = symtab.topLevelSymbol.topScope;
 
             foreach (CompilationUnit tree in trees) {

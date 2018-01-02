@@ -550,6 +550,7 @@ namespace mj.compiler.codegen
 
             LLVMBasicBlockRef thenBlock = LLVM.AppendBasicBlock(function, "then");
             LLVMBasicBlockRef elseBlock = LLVM.AppendBasicBlock(function, "else");
+            LLVMBasicBlockRef afterIf = LLVM.AppendBasicBlock(function, "afterIf");
 
             LLVM.BuildCondBr(builder, conditionVal, thenBlock, elseBlock);
 
@@ -557,13 +558,16 @@ namespace mj.compiler.codegen
             Expression trueExpr = conditional.ifTrue;
             LLVMValueRef trueVal = scan(trueExpr);
             trueVal = promote(trueExpr.type, conditional.type, trueVal);
+            safeJumpTo(afterIf);
 
+            elseBlock.MoveBasicBlockAfter(function.GetLastBasicBlock());
             LLVM.PositionBuilderAtEnd(builder, elseBlock);
             Expression falseExpr = conditional.ifFalse;
             LLVMValueRef falseVal = scan(falseExpr);
             falseVal = promote(falseExpr.type, conditional.type, falseVal);
+            safeJumpTo(afterIf);
 
-            LLVMBasicBlockRef afterIf = LLVM.AppendBasicBlock(function, "afterIf");
+            afterIf.MoveBasicBlockAfter(function.GetLastBasicBlock());
             LLVM.PositionBuilderAtEnd(builder, afterIf);
 
             LLVMValueRef phi = LLVM.BuildPhi(builder, conditional.type.accept(typeResolver), "cond");
@@ -704,7 +708,7 @@ namespace mj.compiler.codegen
             LLVMValueRef leftVal = scan(left);
             LLVMValueRef rightVal = scan(right);
 
-            if (op.type.ReturnType.IsNumeric) {
+            if (op.type.ReturnType.IsNumeric || op.IsComparison) {
                 leftVal =
                     promote((PrimitiveType)left.type, (PrimitiveType)op.type.ParameterTypes[0], leftVal);
                 rightVal =
@@ -721,7 +725,7 @@ namespace mj.compiler.codegen
                 return LLVM.BuildICmp(builder, (LLVMIntPredicate)binary.llvmPredicate, leftVal, rightVal, "icmp");
             }
 
-            if (llvmOpcode == LLVMOpcode.LLVMICmp) {
+            if (llvmOpcode == LLVMOpcode.LLVMFCmp) {
                 return LLVM.BuildFCmp(builder, (LLVMRealPredicate)binary.llvmPredicate, leftVal, rightVal, "fcmp");
             }
 

@@ -46,6 +46,7 @@ namespace mj.compiler.parsing
                     return null;
                 }
 
+                log.useSource(sourceFile);
                 return (CompilationUnit) compilationUnit.Accept(new AstGeneratingParseTreeVisitor(log));
             }
         }

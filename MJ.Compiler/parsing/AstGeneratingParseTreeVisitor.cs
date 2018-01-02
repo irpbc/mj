@@ -187,7 +187,8 @@ namespace mj.compiler.parsing
             IList<VariableDeclaration> @params = CollectionUtils.singletonList(methodName);
 
             MethodDef methodDef = new MethodDef(startLine, startColumn, endLine, endCol, context.name.Text + "_after",
-                new PrimitiveTypeNode(0,0,0,0, TypeTag.VOID), @params, CollectionUtils.emptyList<Annotation>(), afterBlock, false);
+                new PrimitiveTypeNode(0, 0, 0, 0, TypeTag.VOID), @params, CollectionUtils.emptyList<Annotation>(),
+                afterBlock, false);
 
             return methodDef;
         }
@@ -912,20 +913,44 @@ namespace mj.compiler.parsing
                         type = TypeTag.LONG;
                         value = longLit;
                     } else {
-                        throw new ArgumentOutOfRangeException("Integer literal too big");
+                        log.error(
+                            new DiagnosticPosition(context.Start.Line, context.Start.Column),
+                            messages.intLiteratTooBig, context.GetText()
+                        );
+                        type = TypeTag.ERROR;
+                        value = 0;
                     }
                     break;
                 case FLOAT:
                     symbol = context.FloatingPointLiteral().Symbol;
                     text = symbol.Text;
-                    if (Single.TryParse(text, out var floatLit)) {
+                    if (text.EndsWith("f") || text.EndsWith("F")) {
+                        text = text.Substring(0, text.Length - 1);
+                        type = TypeTag.FLOAT;
+                        if (Single.TryParse(text, out var floatLit)) {
+                            value = floatLit;
+                        } else {
+                            value = 0;
+                            logFloatTooBig(context);
+                        }
+                    } else if (text.EndsWith("d") || text.EndsWith("D")) {
+                        type = TypeTag.DOUBLE;
+                        if (Double.TryParse(text, out var doubleLit)) {
+                            value = doubleLit;
+                        } else {
+                            value = 0;
+                            logFloatTooBig(context);
+                        }
+                    } else if (Single.TryParse(text, out var floatLit)) {
                         type = TypeTag.FLOAT;
                         value = floatLit;
                     } else if (Double.TryParse(text, out var doubleLit)) {
                         type = TypeTag.DOUBLE;
                         value = doubleLit;
                     } else {
-                        throw new ArgumentOutOfRangeException("Floating point literal too big");
+                        type = TypeTag.ERROR;
+                        value = 0;
+                        logFloatTooBig(context);
                     }
                     break;
                 case BOOLEAN:
@@ -949,6 +974,14 @@ namespace mj.compiler.parsing
             int endColumn = startColumn + text.Length;
 
             return new LiteralExpression(line, startColumn, line, endColumn, type, value);
+        }
+
+        private void logFloatTooBig(LiteralContext litContext)
+        {
+            log.error(
+                new DiagnosticPosition(litContext.Start.Line, litContext.Start.Column),
+                messages.floatLiteratTooBig, litContext.GetText()
+            );
         }
 
         private String parseStringLiteral(String text)

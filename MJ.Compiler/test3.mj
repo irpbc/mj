@@ -1,0 +1,6 @@
+
+
+int main(int argc, long arvPtr) {
+    float someNum = 97f;
+    return someNum > 100 ? 0 : 1;
+}

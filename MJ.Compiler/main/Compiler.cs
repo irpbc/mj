@@ -45,7 +45,11 @@ namespace mj.compiler.main
 
         public void compile()
         {
-            List<SourceFile> files = options.InputFiles.Select(s => new SourceFile(s)).ToList();
+            IList<string> inputs = options.InputFiles;
+            if (inputs.Count == 0) {
+                return;
+            }
+            List<SourceFile> files = inputs.Select(s => new SourceFile(s)).ToList();
 
             generateCode(aspects(flow(types(decls(parse(files))))));
         }
