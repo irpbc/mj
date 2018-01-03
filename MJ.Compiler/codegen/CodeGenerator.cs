@@ -51,7 +51,7 @@ namespace mj.compiler.codegen
         private static readonly LLVMValueRef nullValue = default(LLVMValueRef);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate int MainFunction();
+        private delegate int MainFunction(int argc, long argvPtr);
 
         public void main(IList<CompilationUnit> trees)
         {
@@ -91,7 +91,11 @@ namespace mj.compiler.codegen
                 dumpIR();
             }
 
-            makeObjectFile();
+            if (options.Execute) {
+                mcJit();
+            } else {
+                makeObjectFile();
+            }
 
             LLVM.DisposePassManager(passManager);
         }
@@ -175,6 +179,7 @@ namespace mj.compiler.codegen
 
         private void mcJit()
         {
+            loadRtLib();
             LLVMBool success = new LLVMBool(0);
             LLVM.LinkInMCJIT();
 
@@ -184,22 +189,46 @@ namespace mj.compiler.codegen
             LLVM.InitializeX86AsmParser();
             LLVM.InitializeX86AsmPrinter();
 
-            LLVMMCJITCompilerOptions jitOptions = new LLVMMCJITCompilerOptions {NoFramePointerElim = 1, OptLevel = 0};
+            LLVMMCJITCompilerOptions jitOptions = new LLVMMCJITCompilerOptions {
+                NoFramePointerElim = 1,
+                OptLevel = 0
+            };
+
             LLVM.InitializeMCJITCompilerOptions(jitOptions);
             if (LLVM.CreateMCJITCompilerForModule(out var engine, module, jitOptions, out var error) != success) {
                 Console.WriteLine($"Error: {error}");
+                return;
             }
 
             LLVMValueRef mainFunction = LLVM.GetNamedFunction(module, "main");
             var execute = (MainFunction)Marshal.GetDelegateForFunctionPointer(
                 LLVM.GetPointerToGlobal(engine, mainFunction), typeof(MainFunction));
 
-            int result = execute();
+            int result = execute(0, 0);
 
             Console.WriteLine($"Program excuted with result: {result}");
 
             LLVM.DisposeBuilder(builder);
             LLVM.DisposeExecutionEngine(engine);
+        }
+
+        private void loadRtLib()
+        {
+            String libPath;
+            switch (targetOS) {
+                case TargetOS.Windows:
+                    libPath = "./mj_rt.dll";
+                    break;
+                case TargetOS.OSX:
+                    libPath = "./libmj_rt.dylib";
+                    break;
+                case TargetOS.Linux:
+                    libPath = "./libmj_rt.so";
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+            LLVM.LoadLibraryPermanently(libPath);
         }
 
         public void declareBuiltins()

@@ -1,6 +1,7 @@
 
 
 int main(int argc, long arvPtr) {
+    printf("Eve ga");
     float someNum = 97f;
-    return someNum > 100 ? 0 : 1;
+    return someNum > 100 ? 0 : 42;
 }

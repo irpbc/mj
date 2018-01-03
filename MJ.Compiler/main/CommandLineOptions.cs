@@ -21,6 +21,7 @@ namespace mj.compiler.main
         public bool ShowHelp { get; private set; }
         public IList<String> InputFiles { get; } = new List<String>();
         public String OutPath { get; private set; }
+        public bool Execute { get; private set; }
 
         private readonly OptionSet optionSet;
 
@@ -35,7 +36,8 @@ namespace mj.compiler.main
                 {"h|help", s => ShowHelp = true},
                 {"<>", "Input files", s => InputFiles.Add(s), true},
                 {"o|output=", "Output file path", s => OutPath = s},
-                {"dump-ir", "Dump LLVM IR", s => DumpIR = true}
+                {"dump-ir", "Dump LLVM IR", s => DumpIR = true},
+                {"exec", "Execute inside the compiler", s => Execute = true}
             };
         }
 
