@@ -588,6 +588,7 @@ namespace mj.compiler.codegen
             LLVMValueRef trueVal = scan(trueExpr);
             trueVal = promote(trueExpr.type, conditional.type, trueVal);
             safeJumpTo(afterIf);
+            thenBlock = LLVM.GetInsertBlock(builder);
 
             elseBlock.MoveBasicBlockAfter(function.GetLastBasicBlock());
             LLVM.PositionBuilderAtEnd(builder, elseBlock);
@@ -595,6 +596,7 @@ namespace mj.compiler.codegen
             LLVMValueRef falseVal = scan(falseExpr);
             falseVal = promote(falseExpr.type, conditional.type, falseVal);
             safeJumpTo(afterIf);
+            elseBlock = LLVM.GetInsertBlock(builder);
 
             afterIf.MoveBasicBlockAfter(function.GetLastBasicBlock());
             LLVM.PositionBuilderAtEnd(builder, afterIf);
@@ -729,6 +731,9 @@ namespace mj.compiler.codegen
 
         public override LLVMValueRef visitBinary(BinaryExpressionNode expr)
         {
+            if (expr.opcode == Tag.AND || expr.opcode == Tag.OR) {
+                return buildShortCircutLogical(expr.opcode == Tag.OR, expr.left, expr.right);
+            }
             return doBinary(expr.left, expr.right, expr.operatorSym);
         }
 
@@ -738,10 +743,8 @@ namespace mj.compiler.codegen
             LLVMValueRef rightVal = scan(right);
 
             if (op.type.ReturnType.IsNumeric || op.IsComparison) {
-                leftVal =
-                    promote((PrimitiveType)left.type, (PrimitiveType)op.type.ParameterTypes[0], leftVal);
-                rightVal =
-                    promote((PrimitiveType)right.type, (PrimitiveType)op.type.ParameterTypes[1], rightVal);
+                leftVal = promote((PrimitiveType)left.type, (PrimitiveType)op.type.ParameterTypes[0], leftVal);
+                rightVal = promote((PrimitiveType)right.type, (PrimitiveType)op.type.ParameterTypes[1], rightVal);
             }
 
             return makeBinary(op, leftVal, rightVal);
@@ -759,6 +762,37 @@ namespace mj.compiler.codegen
             }
 
             return LLVM.BuildBinOp(builder, llvmOpcode, leftVal, rightVal, "tmp");
+        }
+
+        public LLVMValueRef buildShortCircutLogical(bool isOR, Expression left, Expression right)
+        {
+            LLVMValueRef leftVal = scan(left);
+            LLVMBasicBlockRef prevBlock = LLVM.GetInsertBlock(builder);
+
+            LLVMBasicBlockRef rightBlock = LLVM.AppendBasicBlock(function, "right");
+            LLVMBasicBlockRef afterIf = LLVM.AppendBasicBlock(function, "afterSC");
+
+            if (isOR) {
+                LLVM.BuildCondBr(builder, leftVal, afterIf, rightBlock);
+            } else {
+                LLVM.BuildCondBr(builder, leftVal, rightBlock, afterIf);
+            }
+
+            rightBlock.MoveBasicBlockAfter(function.GetLastBasicBlock());
+            LLVM.PositionBuilderAtEnd(builder, rightBlock);
+            LLVMValueRef rightVal = scan(right);
+            safeJumpTo(afterIf);
+            rightBlock = LLVM.GetInsertBlock(builder);
+
+            afterIf.MoveBasicBlockAfter(function.GetLastBasicBlock());
+            LLVM.PositionBuilderAtEnd(builder, afterIf);
+
+            LLVMValueRef phi = LLVM.BuildPhi(builder, LLVMTypeRef.Int1Type(), "res");
+            
+            LLVMValueRef phiLeftVal = LLVM.ConstInt(LLVMTypeRef.Int1Type(), (ulong)(isOR ? 1 : 0), new LLVMBool(0));
+
+            phi.AddIncoming(new[] {phiLeftVal, rightVal}, new[] {prevBlock, rightBlock}, 2);
+            return phi;
         }
 
         public LLVMValueRef promote(Type actualType, Type requestedType, LLVMValueRef value)

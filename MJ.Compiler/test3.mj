@@ -1,7 +1,36 @@
 
 
 int main(int argc, long arvPtr) {
-    printf("Eve ga");
+    printf("Eve ga\n");
+    
+    int res = testConditional();
+    
+    printf("Test short circut AND with true\n");
+    testShortCircutAND(true);
+    printf("Test short circut AND with false\n");
+    testShortCircutAND(false);
+    printf("Test short circut OR with true\n");
+    testShortCircutOR(true);
+    printf("Test short circut OR with false\n");
+    testShortCircutOR(false);
+    
+    return res;
+}
+
+int testConditional() {
     float someNum = 97f;
     return someNum > 100 ? 0 : 42;
+}
+
+boolean testShortCircutAND(boolean leftValue) {
+    return leftValue && printText("Left side was true\n");
+}
+
+boolean testShortCircutOR(boolean leftValue) {
+    return leftValue || printText("Left side was false\n");
+}
+
+boolean printText(string text) {
+    printf(text);
+    return true;
 }
