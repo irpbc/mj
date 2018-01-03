@@ -58,7 +58,7 @@ namespace mj.compiler.symbol
             foreach (CompilationUnit tree in trees) {
                 SourceFile prevSource = log.useSource(tree.sourceFile);
                 try {
-                    analyze(tree, topScope);
+                    scan(tree, topScope);
                 } finally {
                     log.useSource(prevSource);
                 }
@@ -71,22 +71,54 @@ namespace mj.compiler.symbol
             return trees;
         }
 
-        private void analyze(IEnumerable<Tree> trees, WriteableScope s)
-        {
-            foreach (Tree tree in trees) {
-                analyze(tree, s);
-            }
-        }
-
-        private void analyze(Tree tree, WriteableScope s) => tree.accept(this, s);
-
         public override object visitCompilationUnit(CompilationUnit compilationUnit, WriteableScope s)
         {
-            // analyze methods -> go to visitMethodDef
-            analyze(compilationUnit.declarations, s);
+            // First enter classes becase they define new types
+            for (var i = 0; i < compilationUnit.declarations.Count; i++) {
+                Tree decl = compilationUnit.declarations[i];
+                if (decl.Tag == Tag.CLASS_DEF) {
+                    scan(decl, s);
+                }
+            }
+            // Then enter other declarations
+            for (var i = 0; i < compilationUnit.declarations.Count; i++) {
+                Tree decl = compilationUnit.declarations[i];
+                if (decl.Tag != Tag.CLASS_DEF) {
+                    scan(decl, s);
+                }
+            }
             return null;
         }
 
+        public override object visitClassDef(ClassDef classDef, WriteableScope enclScope)
+        {
+            Symbol owner = symtab.topLevelSymbol;
+            ClassSymbol csym = makeClassSymbol(classDef, enclScope, owner);
+
+            if (check.checkUnique(classDef.Pos, csym, enclScope)) {
+                enclScope.enter(csym);
+            }
+            return null;
+        }
+
+        private ClassSymbol makeClassSymbol(ClassDef klass, WriteableScope enclScope, Symbol owner)
+        {
+            ClassSymbol csym = new ClassSymbol(klass.name, owner, null);
+            klass.symbol = csym;
+
+            // create scope for class members
+            csym.membersScope = WriteableScope.create(csym);
+
+            csym.type = new ClassType(klass.name, csym);
+            
+            return csym;
+        }
+
+        public void completeClassDef(ClassDef klass)
+        {
+            
+        }
+        
         public override object visitMethodDef(MethodDef method, WriteableScope enclScope)
         {
             Symbol owner = symtab.topLevelSymbol;
@@ -136,7 +168,7 @@ namespace mj.compiler.symbol
         private MethodType signature(TypeTree retTypeTree, IList<VariableDeclaration> paramTrees, WriteableScope scope)
         {
             // enter params into method scope
-            analyze(paramTrees, scope);
+            scan(paramTrees, scope);
 
             // get return type
             Type retType = typings.resolveType(retTypeTree);

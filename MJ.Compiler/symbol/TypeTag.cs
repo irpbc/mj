@@ -19,8 +19,9 @@ namespace mj.compiler.symbol
         STRING,
         VOID,
         METHOD,
+        CLASS,
         NONE,
-        ERROR
+        ERROR,
     }
 
     public static class TypeTagExtensions
@@ -46,6 +47,7 @@ namespace mj.compiler.symbol
                 case TypeTag.STRING: return "string";
                 case TypeTag.VOID: return "void";
                 case TypeTag.METHOD: return "<method>";
+                case TypeTag.CLASS: return "<class>";
                 case TypeTag.NONE: return "<none>";
                 case TypeTag.ERROR: return "<error>";
                 default:

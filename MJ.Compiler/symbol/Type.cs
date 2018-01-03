@@ -26,6 +26,7 @@ namespace mj.compiler.symbol
         [JsonConverter(typeof(StringEnumConverter))]
         public abstract TypeTag Tag { get; }
 
+        public virtual bool IsPrimitive => false;
         public virtual bool IsNumeric => false;
         public virtual bool IsIntegral => false;
         public virtual bool IsBoolean => false;
@@ -75,6 +76,7 @@ namespace mj.compiler.symbol
             this.tag = tag;
         }
 
+        public override bool IsPrimitive => true;
         public override bool IsNumeric => tag.isNumeric();
         public override bool IsBoolean => tag == TypeTag.BOOLEAN;
 
@@ -118,15 +120,30 @@ namespace mj.compiler.symbol
 
             public override bool IsTrue => tag == TypeTag.BOOLEAN && (bool)ConstValue == true;
             public override bool IsFalse => tag == TypeTag.BOOLEAN && (bool)ConstValue == false;
+
+            public override string ToString() => tag.asString() + " : " + ConstValue;
         }
 
         /// The constant value of this type, converted to String
         public override String StringValue => ConstValue?.ToString();
 
-        public override string ToString()
+        public override string ToString() => tag.asString();
+    }
+
+    public class ClassType : Type
+    {
+        public String name;
+
+        public ClassType(String name, Symbol definer) : base(definer)
         {
-            return tag.asString();
+            this.name = name;
         }
+
+        public override TypeTag Tag => TypeTag.CLASS;
+
+        public override string ToString() => "Class " + name;
+
+        public override T accept<T>(TypeVisitor<T> v) => v.visitClass(this);
     }
 
     /// <summary>
@@ -166,7 +183,7 @@ namespace mj.compiler.symbol
 
         public override string ToString() => "";
 
-        public override T accept<T>(TypeVisitor<T> v) => throw new NotImplementedException();
+        public override T accept<T>(TypeVisitor<T> v) => throw new InvalidOperationException();
     }
 
     public sealed class ErrorType : Type
@@ -181,12 +198,13 @@ namespace mj.compiler.symbol
 
         public override string ToString() => "<error>";
 
-        public override T accept<T>(TypeVisitor<T> v) => throw new NotImplementedException();
+        public override T accept<T>(TypeVisitor<T> v) => throw new InvalidOperationException();
     }
 
     public class TypeVisitor<T>
     {
         public virtual T visitPrimitiveType(PrimitiveType prim) => visit(prim);
+        public virtual T visitClass(ClassType classType) => visit(classType);
         public virtual T visitMethodType(MethodType methodType) => visit(methodType);
 
         public virtual T visit(Type type) => throw new InvalidOperationException();

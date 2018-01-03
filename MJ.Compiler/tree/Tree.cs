@@ -51,7 +51,7 @@ namespace mj.compiler.tree
         public IList<Tree> declarations;
         public Scope.WriteableScope topLevelScope;
 
-        public CompilationUnit(int beginLine, int beginCol, int endLine, int endCol, 
+        public CompilationUnit(int beginLine, int beginCol, int endLine, int endCol,
                                IList<Tree> declarations)
             : base(beginLine, beginCol, endLine, endCol)
         {
@@ -63,6 +63,26 @@ namespace mj.compiler.tree
         public override void accept(AstVisitor v) => v.visitCompilationUnit(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitCompilationUnit(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitCompilationUnit(this, arg);
+    }
+
+    public sealed class ClassDef : Tree
+    {
+        public String name;
+        public IList<Tree> members;
+        public Symbol.ClassSymbol symbol;
+
+        public ClassDef(int beginLine, int beginCol, int endLine, int endCol, string name, IList<Tree> members) 
+            : base(beginLine, beginCol, endLine, endCol)
+        {
+            this.name = name;
+            this.members = members;
+        }
+
+        public override Tag Tag => Tag.CLASS_DEF;
+        
+        public override void accept(AstVisitor v) => v.visitClassDef(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitClassDef(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitClassDef(this, arg);
     }
 
     public abstract class Expression : Tree
@@ -121,6 +141,26 @@ namespace mj.compiler.tree
         public override void accept(AstVisitor v) => v.visitUnary(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitUnary(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitUnary(this, arg);
+    }
+
+    public sealed class Select : Expression
+    {
+        public Expression selected;
+        public String name;
+        public Symbol.VarSymbol symbol;
+
+        public Select(int beginLine, int beginCol, int endLine, int endCol, Expression selected, string name) 
+            : base(beginLine, beginCol, endLine, endCol)
+        {
+            this.selected = selected;
+            this.name = name;
+        }
+
+        public override Tag Tag => Tag.SELECT;
+
+        public override void accept(AstVisitor v) => v.visitSelect(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitSelect(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitSelect(this, arg);
     }
 
     public sealed class AssignNode : Expression
@@ -237,7 +277,8 @@ namespace mj.compiler.tree
         public bool exitsNormally;
 
         public MethodDef(int beginLine, int beginCol, int endLine, int endCol, string name, TypeTree returnType,
-                         IList<VariableDeclaration> parameters, IList<Annotation> annotations, Block body, bool isPrivate)
+                         IList<VariableDeclaration> parameters, IList<Annotation> annotations, Block body,
+                         bool isPrivate)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
@@ -261,7 +302,7 @@ namespace mj.compiler.tree
         public MethodDef after;
         public Symbol.AspectSymbol symbol;
 
-        public AspectDef(int beginLine, int beginCol, int endLine, int endCol, String name, MethodDef after) 
+        public AspectDef(int beginLine, int beginCol, int endLine, int endCol, String name, MethodDef after)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
@@ -315,6 +356,24 @@ namespace mj.compiler.tree
         public override void accept(AstVisitor v) => v.visitPrimitiveType(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitPrimitiveType(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitPrimitiveType(this, arg);
+    }
+
+    public sealed class DeclaredType : TypeTree
+    {
+        public String name;
+        public Symbol.ClassSymbol symbol;
+
+        public DeclaredType(int beginLine, int beginCol, int endLine, int endCol, String name) 
+            : base(beginLine, beginCol, endLine, endCol)
+        {
+            this.name = name;
+        }
+
+        public override Tag Tag => Tag.DECLARED_TYPE;
+
+        public override void accept(AstVisitor v) => v.visitDeclaredType(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitDeclaredType(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitDeclaredType(this, arg);
     }
 
     public sealed class Identifier : Expression
@@ -616,6 +675,7 @@ namespace mj.compiler.tree
         ANNOTATION,
         VAR_DEF,
         COMPILATION_UNIT,
+        CLASS_DEF,
         EXEC,
         SWITCH,
         CASE,
@@ -624,7 +684,9 @@ namespace mj.compiler.tree
         COND_EXPR,
         LITERAL,
         PRIM_TYPE,
+        DECLARED_TYPE,
         IDENT,
+        SELECT,
         RETURN,
 
         // Assign expression

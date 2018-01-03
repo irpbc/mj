@@ -47,6 +47,17 @@ namespace mj.compiler.symbol
             public override string ToString() => "<top level>";
         }
 
+        public class ClassSymbol : TypeSymbol
+        {
+            public Scope.WriteableScope membersScope;
+            public LLVMTypeRef llvmPointer;
+
+            public ClassSymbol(string name, Symbol owner, Type type) 
+                : base(Kind.CLASS, name, owner, type) { }
+
+            public override string ToString() => "Class " + name;
+        }
+
         public class MethodSymbol : Symbol
         {
             public IList<VarSymbol> parameters;
@@ -125,23 +136,17 @@ namespace mj.compiler.symbol
         public enum Kind
         {
             TOP = 1,
-            MTH = TOP << 1,
+            CLASS = TOP << 1,
+            MTH = CLASS << 1,
             ASPECT = MTH << 1,
             PARAM = ASPECT << 1,
             LOCAL = PARAM << 1,
-            PRIMITIVE = LOCAL << 1,
+            FIELD = LOCAL << 1,
+            PRIMITIVE = FIELD << 1,
             OP = PRIMITIVE << 1,
             ERROR = OP << 1,
 
-            VAR = PARAM | LOCAL,
-        }
-    }
-
-    public static class SymbolKindExtensions
-    {
-        public static bool hasAny(this Symbol.Kind kind, Symbol.Kind test)
-        {
-            return (kind & test) != 0;
+            VAR = PARAM | LOCAL | FIELD,
         }
     }
 }

@@ -28,7 +28,9 @@ namespace mj.compiler.symbol
 
         public readonly Type errorType;
         public readonly Symbol errorSymbol;
+        
         public readonly Symbol.VarSymbol errorVarSymbol;
+        public readonly Symbol.TypeSymbol errorTypeSymbol;
 
         public readonly Symbol.TypeSymbol noSymbol;
 
@@ -40,6 +42,13 @@ namespace mj.compiler.symbol
             public NoSymbol(Symbol owner, Type type) : base(Kind.MTH, "", owner, type) { }
 
             public override string ToString() => "<no symbol>";
+        }
+        
+        private sealed class ErrorTypeSymbol : Symbol.TypeSymbol
+        {
+            public ErrorTypeSymbol(Symbol owner, Type type) : base(Kind.ERROR, "<error>", owner, type) { }
+
+            public override string ToString() => "<error>";
         }
 
         private Symtab(Context context)
@@ -60,6 +69,8 @@ namespace mj.compiler.symbol
             errorSymbol = new Symbol.ErrorSymbol(topLevelSymbol, null);
             errorType = new ErrorType(errorSymbol);
             errorSymbol.type = errorType;
+            
+            errorTypeSymbol = new ErrorTypeSymbol(topLevelSymbol, errorType);
 
             errorVarSymbol = new Symbol.VarSymbol(Symbol.Kind.ERROR, "<error>", errorType, null);
 

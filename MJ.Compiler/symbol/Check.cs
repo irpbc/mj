@@ -70,11 +70,20 @@ namespace mj.compiler.symbol
 
         public bool checkUniqueLocalVar(DiagnosticPosition pos, VarSymbol varSymbol, WriteableScope scope)
         {
-            if (scope.getSymbolsByName(varSymbol.name, s => s.kind.hasAny(Kind.VAR)).Any()) {
+            if (scope.getSymbolsByName(varSymbol.name, s => (s.kind & Kind.VAR) != 0).Any()) {
                 log.error(pos, messages.duplicateVar, varSymbol.name);
                 return false;
             }
             return true;
+        }
+
+        public bool checkUnique(DiagnosticPosition pos, ClassSymbol csym, WriteableScope scope)
+        {
+            bool contains = scope.getSymbolsByName(csym.name, LookupKind.NON_RECURSIVE).Any();
+            if (contains) {
+                log.error(pos, messages.duplicateClassName, csym.name);
+            }
+            return !contains;
         }
     }
 }
