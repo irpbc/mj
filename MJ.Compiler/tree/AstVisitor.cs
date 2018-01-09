@@ -18,6 +18,7 @@ namespace mj.compiler.tree
         public virtual T visitLiteral(LiteralExpression literal) => visit(literal);
         public virtual T visitIdent(Identifier ident) => visit(ident);
         public virtual T visitSelect(Select select) => visit(select);
+        public virtual T visitNewClass(NewClass newClass) => visit(newClass);
         public virtual T visitMethodInvoke(MethodInvocation methodInvocation) => visit(methodInvocation);
         public virtual T visitReturn(ReturnStatement returnStatement) => visit(returnStatement);
         public virtual T visitBlock(Block block) => visit(block);
@@ -69,6 +70,7 @@ namespace mj.compiler.tree
         public virtual T visitLiteral(LiteralExpression literal, A arg) => visit(literal, arg);
         public virtual T visitIdent(Identifier ident, A arg) => visit(ident, arg);
         public virtual T visitSelect(Select select, A arg) => visit(select, arg);
+        public virtual T visitNewClass(NewClass newClass, A arg) => visit(newClass, arg);
         public virtual T visitMethodInvoke(MethodInvocation methodInvocation, A arg) => visit(methodInvocation, arg);
         public virtual T visitConditional(ConditionalExpression conditional, A arg) => visit(conditional, arg);
         public virtual T visitReturn(ReturnStatement returnStatement, A arg) => visit(returnStatement, arg);
@@ -118,6 +120,7 @@ namespace mj.compiler.tree
         public virtual void visitLiteral(LiteralExpression literal) => visit(literal);
         public virtual void visitIdent(Identifier ident) => visit(ident);
         public virtual void visitSelect(Select select) => visit(select);
+        public virtual void visitNewClass(NewClass newClass) => visit(newClass);
         public virtual void visitMethodInvoke(MethodInvocation methodInvocation) => visit(methodInvocation);
         public virtual void visitReturn(ReturnStatement returnStatement) => visit(returnStatement);
         public virtual void visitBlock(Block block) => visit(block);

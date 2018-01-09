@@ -62,6 +62,8 @@ namespace mj.compiler.symbol
             return 0;
         }
 
+        public override Exit visitClassDef(ClassDef classDef, Environment arg) => 0;
+
         public override Exit visitMethodDef(MethodDef method, Environment env)
         {
             Environment methodEnv = new Environment();
@@ -119,7 +121,7 @@ namespace mj.compiler.symbol
         public override Exit visitIf(If ifStat, Environment env)
         {
             analyzeExpr(ifStat.condition, env);
-            
+
             if (ifStat.condition.type.IsTrue) {
                 return analyze(ifStat.thenPart, env);
             }
@@ -132,9 +134,9 @@ namespace mj.compiler.symbol
             if (ifStat.condition.type.IsFalse) {
                 return analyze(ifStat.elsePart, env);
             }
-            
+
             var (whenTrue, whenFalse) = env.split();
-            Exit exit = analyze(ifStat.thenPart, whenTrue) | 
+            Exit exit = analyze(ifStat.thenPart, whenTrue) |
                         analyze(ifStat.elsePart, whenFalse);
             whenTrue.merge(whenFalse);
             return exit;
@@ -250,11 +252,19 @@ namespace mj.compiler.symbol
         public override Exit visitAssign(AssignNode expr, Environment env)
         {
             analyzeExpr(expr.right, env);
-
-            var ident = (Identifier)expr.left;
-            env.assigned((VarSymbol)ident.symbol);
+            VarSymbol varSym = getSymbol(expr.left);
+            env.assigned(varSym);
 
             return 0;
+        }
+
+        private VarSymbol getSymbol(Expression expr)
+        {
+            switch (expr) {
+                case Select s: return s.symbol;
+                case Identifier id: return id.symbol;
+            }
+            throw new InvalidOperationException();
         }
 
         public override Exit visitVarDef(VariableDeclaration varDef, Environment env)
@@ -289,7 +299,7 @@ namespace mj.compiler.symbol
 
         public override Exit visitIdent(Identifier ident, Environment env)
         {
-            var varSym = (VarSymbol)ident.symbol;
+            VarSymbol varSym = ident.symbol;
             if (varSym.kind != Kind.PARAM && !env.isAssigned(varSym)) {
                 log.error(ident.Pos, messages.unassignedVariable, ident.name);
             }
@@ -319,6 +329,8 @@ namespace mj.compiler.symbol
         }
 
         public override Exit visitLiteral(LiteralExpression literal, Environment arg) => 0;
+        public override Exit visitSelect(Select select, Environment arg) => 0;
+        public override Exit visitNewClass(NewClass newClass, Environment arg) => 0;
 
         public override Exit visitReturn(ReturnStatement returnStatement, Environment env)
         {

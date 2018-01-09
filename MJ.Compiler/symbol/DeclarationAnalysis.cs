@@ -67,13 +67,13 @@ namespace mj.compiler.symbol
             if (!mainMethodFound) {
                 log.globalError(messages.mainMethodNotDefined);
             }
-            
+
             return trees;
         }
 
         public override object visitCompilationUnit(CompilationUnit compilationUnit, WriteableScope s)
         {
-            // First enter classes becase they define new types
+            // First enter classes because they define new types
             for (var i = 0; i < compilationUnit.declarations.Count; i++) {
                 Tree decl = compilationUnit.declarations[i];
                 if (decl.Tag == Tag.CLASS_DEF) {
@@ -92,8 +92,7 @@ namespace mj.compiler.symbol
 
         public override object visitClassDef(ClassDef classDef, WriteableScope enclScope)
         {
-            Symbol owner = symtab.topLevelSymbol;
-            ClassSymbol csym = makeClassSymbol(classDef, enclScope, owner);
+            ClassSymbol csym = makeClassSymbol(classDef, enclScope.owner);
 
             if (check.checkUnique(classDef.Pos, csym, enclScope)) {
                 enclScope.enter(csym);
@@ -101,44 +100,34 @@ namespace mj.compiler.symbol
             return null;
         }
 
-        private ClassSymbol makeClassSymbol(ClassDef klass, WriteableScope enclScope, Symbol owner)
+        private ClassSymbol makeClassSymbol(ClassDef classDef, Symbol owner)
         {
-            ClassSymbol csym = new ClassSymbol(klass.name, owner, null);
-            klass.symbol = csym;
+            ClassSymbol csym = new ClassSymbol(classDef.name, owner, null);
+            csym.type = new ClassType(classDef.name, csym);
 
-            // create scope for class members
-            csym.membersScope = WriteableScope.create(csym);
+            classDef.symbol = csym;
 
-            csym.type = new ClassType(klass.name, csym);
-            
             return csym;
         }
 
-        public void completeClassDef(ClassDef klass)
-        {
-            
-        }
-        
         public override object visitMethodDef(MethodDef method, WriteableScope enclScope)
         {
-            Symbol owner = symtab.topLevelSymbol;
-
-            MethodSymbol msym = makeMethodSymbol(method, enclScope, owner);
+            MethodSymbol msym = makeMethodSymbol(method, enclScope);
 
             if (method.name == "main") {
                 mainMethodFound = true;
                 check.checkMainMethod(method.Pos, msym);
             }
-            
+
             if (check.checkUnique(method.Pos, msym, enclScope)) {
                 enclScope.enter(msym);
             }
             return null;
         }
 
-        private MethodSymbol makeMethodSymbol(MethodDef method, WriteableScope enclScope, Symbol owner)
+        private MethodSymbol makeMethodSymbol(MethodDef method, WriteableScope enclScope)
         {
-            MethodSymbol msym = new MethodSymbol(method.name, owner, null);
+            MethodSymbol msym = new MethodSymbol(method.name, enclScope.owner, null);
             method.symbol = msym;
 
             // create scope for method parameters and local variables
@@ -154,14 +143,14 @@ namespace mj.compiler.symbol
         public override object visitAspectDef(AspectDef aspect, WriteableScope enclScope)
         {
             Symbol owner = symtab.topLevelSymbol;
-            
+
             AspectSymbol asym = new AspectSymbol(aspect.name, owner);
 
             if (check.checkUnique(aspect.Pos, asym, enclScope)) {
                 enclScope.enter(asym);
-                asym.afterMethod = makeMethodSymbol(aspect.after, enclScope.subScope(), asym);
+                asym.afterMethod = makeMethodSymbol(aspect.after, enclScope.subScope());
             }
-            
+
             return null;
         }
 

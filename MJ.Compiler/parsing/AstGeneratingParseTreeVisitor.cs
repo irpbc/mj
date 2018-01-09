@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 
 using Antlr4.Runtime;
-using Antlr4.Runtime.Atn;
 using Antlr4.Runtime.Tree;
 
 using mj.compiler.main;
@@ -34,6 +32,10 @@ namespace mj.compiler.parsing
         {
             TypeTag type;
             IToken token = context.primitive;
+            if (token == null) {
+                return new DeclaredType(context.Start.Line, context.Start.Column, context.Stop.Line,
+                    context.Stop.Column, context.className.Text);
+            }
             switch (token.Type) {
                 case INT:
                     type = TypeTag.INT;
@@ -63,12 +65,20 @@ namespace mj.compiler.parsing
 
         public override Tree VisitNameExpression(NameExpressionContext context)
         {
-            IToken symbol = context.Identifier().Symbol;
-            String identifier = symbol.Text;
+            IToken part = context._parts[0];
 
-            int stopColumn = symbol.Column + symbol.StopIndex - symbol.StopIndex;
+            String identifier = part.Text;
+            int stopColumn = part.Column + part.StopIndex - part.StopIndex;
+            Expression current = new Identifier(part.Line, part.Column, part.Line, stopColumn, identifier);
 
-            return new Identifier(symbol.Line, symbol.Column, symbol.Line, stopColumn, identifier);
+            for (int i = 1; i < context._parts.Count; i++) {
+                part = context._parts[i];
+                identifier = part.Text;
+                stopColumn = part.Column + part.StopIndex - part.StopIndex;
+                current = new Select(part.Line, part.Column, part.Line, stopColumn, current, identifier);
+            }
+
+            return current;
         }
 
         public override Tree VisitCompilationUnit(CompilationUnitContext context)
@@ -97,11 +107,37 @@ namespace mj.compiler.parsing
             if (mt != null) {
                 return VisitMethodDeclaration(mt);
             }
+            ClassDefContext cd = context.classDef();
+            if (cd != null) {
+                return VisitClassDef(cd);
+            }
             AspectDefContext asp = context.aspectDef();
             if (asp != null) {
                 return VisitAspectDef(asp);
             }
             throw new ArgumentOutOfRangeException();
+        }
+
+        public override Tree VisitClassDef(ClassDefContext context)
+        {
+            String name = context.name.Text;
+
+            Tree[] members = new Tree[context._fields.Count];
+            for (var i = 0; i < context._fields.Count; i++) {
+                members[i] = (VariableDeclaration)VisitFieldDef(context._fields[i]);
+            }
+
+            return new ClassDef(context.Start.Line, context.Start.Column, context.Stop.Line,
+                context.Stop.Column, name, members);
+        }
+
+        public override Tree VisitFieldDef(FieldDefContext context)
+        {
+            String name = context.name.Text;
+            TypeTree type = (TypeTree)VisitType(context.type());
+
+            return new VariableDeclaration(context.Start.Line, context.Start.Column, context.Stop.Line,
+                context.Stop.Column, name, type, null);
         }
 
         public override Tree VisitMethodDeclaration(MethodDeclarationContext context)
@@ -342,6 +378,10 @@ namespace mj.compiler.parsing
             MethodInvocationContext methodInvocation = context.methodInvocation();
             if (methodInvocation != null) {
                 return VisitMethodInvocation(methodInvocation);
+            }
+            NewClassContext newClass = context.newClass();
+            if (newClass != null) {
+                return VisitNewClass(newClass);
             }
             return null;
         }
@@ -616,7 +656,7 @@ namespace mj.compiler.parsing
 
         public override Tree VisitAssignment(AssignmentContext context)
         {
-            Identifier target = (Identifier)VisitNameExpression(context.leftHandSide().nameExpression());
+            Expression target = (Expression)VisitLeftHandSide(context.leftHandSide());
             Expression expression = (Expression)VisitExpression(context.expression());
 
             Tag op;
@@ -661,7 +701,20 @@ namespace mj.compiler.parsing
             return new CompoundAssignNode(op, target, expression);
         }
 
-        public override Tree VisitLeftHandSide(LeftHandSideContext context) => throw new InvalidOperationException();
+        public override Tree VisitLeftHandSide(LeftHandSideContext context)
+        {
+            NameExpressionContext nameExpressionContext = context.nameExpression();
+            if (nameExpressionContext != null) {
+                return VisitNameExpression(nameExpressionContext);
+            }
+            return VisitFieldAccess(context.fieldAccess());
+        }
+
+        public override Tree VisitFieldAccess(FieldAccessContext context)
+        {
+            return new Select(context.dot.Line, context.dot.Column, context.Stop.Line, context.Stop.Column,
+                (Expression)VisitPrimary(context.primary()), context.Identifier().GetText());
+        }
 
         public override Tree VisitAssignmentOperator(AssignmentOperatorContext context) =>
             throw new InvalidOperationException();
@@ -882,17 +935,42 @@ namespace mj.compiler.parsing
 
         public override Tree VisitPrimary(PrimaryContext context)
         {
-            var expressionContext = context.parenthesized;
-            if (expressionContext != null) {
-                return VisitExpression(expressionContext);
-            }
+            Expression expr = primaryStart(context);
 
-            var methodInvocationContext = context.methodInvocation();
+            FieldAccess_aftPrimaryContext[] afters = context.fieldAccess_aftPrimary();
+
+            Expression result = expr;
+            foreach (FieldAccess_aftPrimaryContext after in afters) {
+                result = new Select(after.Start.Column, after.Start.Line, after.Stop.Line,
+                    after.Stop.Column, result, after.fieldName.Text);
+            }
+            return result;
+        }
+
+        private Expression primaryStart(PrimaryContext primary)
+        {
+            var methodInvocationContext = primary.methodInvocation();
             if (methodInvocationContext != null) {
-                return VisitMethodInvocation(methodInvocationContext);
+                return (Expression)VisitMethodInvocation(methodInvocationContext);
             }
+            var newClassContext = primary.newClass();
+            if (newClassContext != null) {
+                return (Expression)VisitNewClass(newClassContext);
+            }
+            var expressionContext = primary.parenthesized;
+            if (expressionContext != null) {
+                return (Expression)VisitExpression(expressionContext);
+            }
+            return (Expression)VisitLiteral(primary.literal());
+        }
 
-            return VisitLiteral(context.literal());
+        public override Tree VisitFieldAccess_aftPrimary(FieldAccess_aftPrimaryContext context)
+            => throw new InvalidOperationException();
+
+        public override Tree VisitNewClass(NewClassContext context)
+        {
+            return new NewClass(context.Start.Line, context.Start.Column, context.Stop.Line,
+                context.Stop.Column, context.className.Text);
         }
 
         public override Tree VisitLiteral(LiteralContext context)

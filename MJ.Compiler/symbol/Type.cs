@@ -143,7 +143,7 @@ namespace mj.compiler.symbol
 
         public override string ToString() => "Class " + name;
 
-        public override T accept<T>(TypeVisitor<T> v) => v.visitClass(this);
+        public override T accept<T>(TypeVisitor<T> v) => v.visitClassType(this);
     }
 
     /// <summary>
@@ -204,7 +204,7 @@ namespace mj.compiler.symbol
     public class TypeVisitor<T>
     {
         public virtual T visitPrimitiveType(PrimitiveType prim) => visit(prim);
-        public virtual T visitClass(ClassType classType) => visit(classType);
+        public virtual T visitClassType(ClassType classType) => visit(classType);
         public virtual T visitMethodType(MethodType methodType) => visit(methodType);
 
         public virtual T visit(Type type) => throw new InvalidOperationException();

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 using LLVMSharp;
 
+using mj.compiler.tree;
 using mj.compiler.utils;
 
 using Newtonsoft.Json;
@@ -85,6 +86,7 @@ namespace mj.compiler.symbol
         public class VarSymbol : Symbol
         {
             public LLVMValueRef llvmPointer;
+            public int fieldIndex;
 
             public VarSymbol(Kind kind, string name, Type type, Symbol owner) : base(kind, name, owner, type) { }
 

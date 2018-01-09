@@ -158,9 +158,29 @@ namespace mj.compiler.tree
 
         public override Tag Tag => Tag.SELECT;
 
+        public override bool IsLValue => true;
+
         public override void accept(AstVisitor v) => v.visitSelect(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitSelect(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitSelect(this, arg);
+    }
+
+    public sealed class NewClass : Expression
+    {
+        public String className;
+        public Symbol.ClassSymbol symbol;
+
+        public NewClass(int beginLine, int beginCol, int endLine, int endCol, String className) 
+            : base(beginLine, beginCol, endLine, endCol)
+        {
+            this.className = className;
+        }
+
+        public override Tag Tag => Tag.NEW_CLASS;
+        
+        public override void accept(AstVisitor v) => v.visitNewClass(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitNewClass(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitNewClass(this, arg);
     }
 
     public sealed class AssignNode : Expression
@@ -687,6 +707,7 @@ namespace mj.compiler.tree
         DECLARED_TYPE,
         IDENT,
         SELECT,
+        NEW_CLASS,
         RETURN,
 
         // Assign expression

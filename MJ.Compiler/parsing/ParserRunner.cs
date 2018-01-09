@@ -37,29 +37,35 @@ namespace mj.compiler.parsing
 
                 parser.ErrorHandler = new DefaultErrorStrategy();
                 parser.AddErrorListener(new DiagnosticErrorListener());
-                parser.AddErrorListener(ThrowingErrorListener.INSTANCE);
-
-                MJParser.CompilationUnitContext compilationUnit = parser.compilationUnit();
-
-                if (parser.NumberOfSyntaxErrors > 0) {
-                    Console.WriteLine("SYNTAX ERRORS");
-                    return null;
-                }
+                parser.AddErrorListener(new LoggingErrorListener(log));
 
                 log.useSource(sourceFile);
-                return (CompilationUnit) compilationUnit.Accept(new AstGeneratingParseTreeVisitor(log));
+
+                MJParser.CompilationUnitContext compilationUnitContext = parser.compilationUnit();
+                if (parser.NumberOfSyntaxErrors > 0) {
+                    return null;
+                }
+                CompilationUnit compilationUnit = (CompilationUnit)compilationUnitContext
+                    .Accept(new AstGeneratingParseTreeVisitor(log));
+                compilationUnit.sourceFile = sourceFile;
+                return compilationUnit;
             }
         }
     }
 
-    public class ThrowingErrorListener : BaseErrorListener
+    public class LoggingErrorListener : BaseErrorListener
     {
-        public static readonly ThrowingErrorListener INSTANCE = new ThrowingErrorListener();
+        private readonly Log log;
+
+        public LoggingErrorListener(Log log)
+        {
+            this.log = log;
+        }
 
         public override void SyntaxError(IRecognizer recognizer, IToken offendingSymbol, int line,
-            int charPositionInLine, string msg, RecognitionException e)
+                                         int charPositionInLine, string msg, RecognitionException e)
         {
-            throw new ParseCanceledException("line " + line + ":" + charPositionInLine + " " + msg);
+            log.error(new DiagnosticPosition(line, charPositionInLine), msg);
         }
     }
 }

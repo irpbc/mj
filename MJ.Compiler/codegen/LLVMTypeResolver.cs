@@ -36,5 +36,10 @@ namespace mj.compiler.codegen
             }
             return LLVMTypeRef.FunctionType(retType, paramTypes, methodType.isVarArg);
         }
+
+        public override LLVMTypeRef visitClassType(ClassType classType)
+        {
+            return LLVM.PointerType(((Symbol.ClassSymbol)classType.definer).llvmPointer, 0);
+        }
     }
 }

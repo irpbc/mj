@@ -23,7 +23,6 @@
     <data name="floatLiteratTooBig"><value>Floating point literal {0} is too big</value></data>
     <data name="duplicateMethodName"><value>Method {0} is already defiend</value></data>
     <data name="duplicateClassName"><value>Class {0} is already defined</value></data>
-    <data name="duplicateMethodName"><value>Method {0} is already defined</value></data>
     <data name="duplicateParamName"><value>Parameter {0} is already defined in method {1}</value></data>
     <data name="duplicateVar"><value>Local variable {0} is already defined in this scope</value></data>
     <data name="varParamNameConflict"><value>Local variable {0} has same name as a parameter</value></data>
@@ -61,5 +60,7 @@
     <data name="multipleDefaults"><value>Multiple default cases in switch</value></data>
     <data name="selectOnPrimitive"><value>Attempted field access on primitive type</value></data>
     <data name="unknownField"><value>Field "{0}" is not defined in class "{1}"</value></data>
+    <data name="duplicateField"><value>Field "{0}" is already defined in class "{1}"</value></data>
+    <data name="undefinedClass"><value>Class "{0}" is not defined</value></data>
     
 </root>

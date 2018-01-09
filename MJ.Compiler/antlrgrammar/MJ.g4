@@ -22,10 +22,11 @@ type
     |	primitive='double'
     |	primitive='boolean'
     |	primitive='string'
+    |   className=Identifier
 	;
 
 nameExpression
-	:	Identifier
+	:	parts+=Identifier ( '.' parts+=Identifier )*
 	;
 
 compilationUnit
@@ -33,12 +34,21 @@ compilationUnit
 	;
 	
 declaration
-    :   methodDeclaration
+    :   classDef
+    |   methodDeclaration
     |   aspectDef
     ;
 
 annotation
     :   '@' name=Identifier
+    ;
+    
+classDef
+    : 'class' name=Identifier '{' (fields+=fieldDef)+ '}'
+    ;
+
+fieldDef
+    : type name=Identifier ';'
     ;
 
 methodDeclaration returns [ bool isPrivate ]
@@ -123,6 +133,7 @@ statementExpression
 	|	preIncDecExpression
 	|	postIncDecExpression
 	|	methodInvocation
+	|   newClass
 	;
 
 ifThenStatement
@@ -203,14 +214,23 @@ returnStatement
 	:	'return' value=expression? ';'
 	;
 
-
 primary
-	:	literal
-	|	'(' parenthesized=expression ')'
-	|	methodInvocation
+	:   (   literal 
+	    |   '(' parenthesized=expression ')' 
+	    |	methodInvocation
+	    |   newClass
+	    )
+	    (   fieldAccess_aftPrimary
+	    )*
 	;
 
+newClass
+    :   'new' className=Identifier '(' ')'
+    ;
 
+fieldAccess_aftPrimary
+    :   '.' fieldName=Identifier
+    ;
 
 methodInvocation
 	:	neme=Identifier '(' argumentList? ')'
@@ -220,7 +240,6 @@ methodInvocation
 argumentList
 	:	args+=expression (',' args+=expression)*
 	;
-
 
 expression
 	:	conditionalExpression
@@ -232,7 +251,12 @@ assignment
 	;
 
 leftHandSide
-	:	nameExpression
+	:   nameExpression
+	|   fieldAccess	
+	;
+
+fieldAccess
+	:	primary dot='.' Identifier
 	;
 
 assignmentOperator

@@ -45,7 +45,6 @@ namespace mj.compiler.symbol
                     scan(tree, env);
                 } finally {
                     log.useSource(prevSource);
-                    
                 }
             }
             return compilationUnits;
@@ -60,22 +59,38 @@ namespace mj.compiler.symbol
 
         public override Type visitCompilationUnit(CompilationUnit compilationUnit, Environment env)
         {
-            scan(compilationUnit.declarations, env);
+            for (var i = 0; i < compilationUnit.declarations.Count; i++) {
+                Tree tree = compilationUnit.declarations[i];
+                if (tree.Tag == Tag.CLASS_DEF) {
+                    scan(tree, env);
+                }
+            }
+            for (var i = 0; i < compilationUnit.declarations.Count; i++) {
+                Tree tree = compilationUnit.declarations[i];
+                if (tree.Tag != Tag.CLASS_DEF) {
+                    scan(tree, env);
+                }
+            }
             return null;
         }
 
         public override Type visitClassDef(ClassDef classDef, Environment env)
         {
-            WriteableScope membersScope = classDef.symbol.membersScope;
+            // create scope for class members
+            WriteableScope membersScope = WriteableScope.create(classDef.symbol);
+            classDef.symbol.membersScope = membersScope;
+            int fieldIndex = 0;
             for (var i = 0; i < classDef.members.Count; i++) {
                 Tree member = classDef.members[i];
                 if (member is VariableDeclaration vd) {
                     VarSymbol field = (VarSymbol)membersScope.findFirst(vd.name, s => s.kind == Kind.FIELD);
                     if (field != null) {
-                        
+                        log.error(vd.Pos, messages.duplicateVar, vd.name, classDef.name);
                     } else {
                         VarSymbol var = new VarSymbol(Kind.FIELD, vd.name, scan(vd.type, env), classDef.symbol);
+                        var.fieldIndex = fieldIndex++;
                         membersScope.enter(var);
+                        vd.symbol = var;
                     }
                 }
             }
@@ -106,7 +121,7 @@ namespace mj.compiler.symbol
         }
 
         public override Type visitAspectDef(AspectDef aspect, Environment env)
-        {          
+        {
             scan(aspect.after, env);
             return null;
         }
@@ -303,14 +318,14 @@ namespace mj.compiler.symbol
             return symtab.typeForTag(literal.typeTag).constType(literal.value);
         }
 
-        public override Type visitSelect(Select select, Environment arg)
+        public override Type visitSelect(Select select, Environment env)
         {
-            Type leftType = scanExpr(select.selected, arg);
+            Type leftType = scanExpr(select.selected, env);
             if (leftType.IsError) {
                 select.symbol = symtab.errorVarSymbol;
                 return symtab.errorType;
             }
-            
+
             if (leftType.IsPrimitive) {
                 log.error(select.Pos, messages.selectOnPrimitive);
                 select.symbol = symtab.errorVarSymbol;
@@ -328,6 +343,20 @@ namespace mj.compiler.symbol
             select.symbol = field;
             select.type = field.type;
             return field.type;
+        }
+
+        public override Type visitNewClass(NewClass newClass, Environment env)
+        {
+            String name = newClass.className;
+            ClassSymbol csym = (ClassSymbol)env.scope.findFirst(name, s => (s.kind & Kind.CLASS) != 0);
+
+            if (csym == null) {
+                log.error(newClass.Pos, messages.undefinedClass, newClass.className);
+                return symtab.errorType;
+            }
+
+            newClass.symbol = csym;
+            return csym.type;
         }
 
         public override Type visitIdent(Identifier ident, Environment env)

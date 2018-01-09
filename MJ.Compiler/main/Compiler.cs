@@ -60,7 +60,6 @@ namespace mj.compiler.main
             for (var i = 0; i < files.Count; i++) {
                 SourceFile sourceFile = files[i];
                 CompilationUnit compilationUnit = parser.parse(sourceFile);
-                compilationUnit.sourceFile = sourceFile;
                 results[i] = compilationUnit;
             }
             return stopIfError(results);

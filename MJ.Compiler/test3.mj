@@ -1,7 +1,20 @@
 
+class A {
+    int intField;
+}
+
+class B {
+    A aField;
+}
 
 int main(int argc, long arvPtr) {
+    A a = new A();
+    B b = new B();
+    a.intField = 42;
+    b.aField = a;
+    
     printf("Eve ga\n");
+    printf("Imamo: %d\n", b.aField.intField);
     
     int res = testConditional();
     
@@ -18,6 +31,7 @@ int main(int argc, long arvPtr) {
 }
 
 int testConditional() {
+    //printf("Eve ga\n");
     float someNum = 97f;
     return someNum > 100 ? 0 : 42;
 }
