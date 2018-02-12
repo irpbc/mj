@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 
 using Antlr4.Runtime;
-using Antlr4.Runtime.Atn;
 using Antlr4.Runtime.Tree;
 
 using mj.compiler.main;
@@ -237,149 +235,81 @@ namespace mj.compiler.parsing
 
         public override Tree VisitStatement(StatementContext context)
         {
-            StatementWithoutTrailingSubstatementContext swtss = context
-                .statementWithoutTrailingSubstatement();
-            if (swtss != null) {
-                return VisitStatementWithoutTrailingSubstatement(swtss);
+            IToken token = context.token;
+            if (token != null) {
+                switch (token.Type) {
+                    case LBRACE: return makeBlock(context);
+                    case IF: return makeIf(context);
+                    case FOR: return makeFor(context);
+                    case WHILE: return makeWhile(context);
+                    case DO: return makeDo(context);
+                    case SWITCH: return makeSwitch(context);
+                    case RETURN: return makeReturn(context);
+                    case BREAK: return makeBreak(context);
+                    case CONTINUE: return makeContinue(context);
+                }
+            } else {
+                return makeExpressionStatement(context);
             }
-            IfThenStatementContext its = context.ifThenStatement();
-            if (its != null) {
-                return VisitIfThenStatement(its);
-            }
-            IfThenElseStatementContext ites = context.ifThenElseStatement();
-            if (ites != null) {
-                return VisitIfThenElseStatement(ites);
-            }
-            WhileStatementContext ws = context.whileStatement();
-            if (ws != null) {
-                return VisitWhileStatement(ws);
-            }
-            ForStatementContext fs = context.forStatement();
-            if (fs != null) {
-                return VisitForStatement(fs);
-            }
+
             return null;
         }
 
-        public override Tree VisitStatementNoShortIf(StatementNoShortIfContext context)
+        private Block makeBlock(StatementContext stat)
         {
-            StatementWithoutTrailingSubstatementContext swtss = context
-                .statementWithoutTrailingSubstatement();
-            if (swtss != null) {
-                return VisitStatementWithoutTrailingSubstatement(swtss);
-            }
-            IfThenElseStatementNoShortIfContext ites = context.ifThenElseStatementNoShortIf();
-            if (ites != null) {
-                return VisitIfThenElseStatementNoShortIf(ites);
-            }
-            WhileStatementNoShortIfContext ws = context.whileStatementNoShortIf();
-            if (ws != null) {
-                return VisitWhileStatementNoShortIf(ws);
-            }
-            ForStatementNoShortIfContext fs = context.forStatementNoShortIf();
-            if (fs != null) {
-                return VisitForStatementNoShortIf(fs);
-            }
-            return null;
+            IList<StatementNode> statements = convertBlockStatementList(stat.blockStatementList());
+
+            return new Block(stat.Start.Line, stat.Start.Column,
+                stat.stop.Line, stat.stop.Column, statements);
         }
 
-        public override Tree VisitStatementWithoutTrailingSubstatement(
-            StatementWithoutTrailingSubstatementContext context)
+        private If makeIf(StatementContext stat)
         {
-            BlockContext block = context.block();
-            if (block != null) {
-                return VisitBlock(block);
-            }
-            ExpressionStatementContext expressionStatement = context.expressionStatement();
-            if (expressionStatement != null) {
-                return VisitExpressionStatement(expressionStatement);
-            }
-            SwitchStatementContext switchStatement = context.switchStatement();
-            if (switchStatement != null) {
-                return VisitSwitchStatement(switchStatement);
-            }
-            DoStatementContext doStatement = context.doStatement();
-            if (doStatement != null) {
-                return VisitDoStatement(doStatement);
-            }
-            BreakStatementContext breakStatement = context.breakStatement();
-            if (breakStatement != null) {
-                return VisitBreakStatement(breakStatement);
-            }
-            ContinueStatementContext continueStatement = context.continueStatement();
-            if (continueStatement != null) {
-                return VisitContinueStatement(continueStatement);
-            }
-            ReturnStatementContext returnStatement = context.returnStatement();
-            if (returnStatement != null) {
-                return VisitReturnStatement(returnStatement);
-            }
-            return null;
-        }
+            Expression condition = (Expression)VisitExpression(stat.expression());
+            StatementNode ifTrue = (StatementNode)VisitStatement(stat.ifTrue);
+            StatementNode ifFalse = stat.ifFalse == null
+                ? null
+                : (StatementNode)VisitStatement(stat.ifFalse);
 
-        public override Tree VisitExpressionStatement(ExpressionStatementContext context)
-        {
-            Expression expression = (Expression)VisitStatementExpression(context.statementExpression());
-
-            return new ExpressionStatement(expression.beginLine, expression.beginCol,
-                context.Stop.Line, context.Stop.Column, expression);
-        }
-
-        public override Tree VisitStatementExpression(StatementExpressionContext context)
-        {
-            AssignmentContext assignment = context.assignment();
-            if (assignment != null) {
-                return VisitAssignment(assignment);
-            }
-            PreIncDecExpressionContext preIncDecExpression = context.preIncDecExpression();
-            if (preIncDecExpression != null) {
-                return VisitPreIncDecExpression(preIncDecExpression);
-            }
-            PostIncDecExpressionContext postIncDecExpression = context.postIncDecExpression();
-            if (postIncDecExpression != null) {
-                return VisitPostIncDecExpression(postIncDecExpression);
-            }
-            MethodInvocationContext methodInvocation = context.methodInvocation();
-            if (methodInvocation != null) {
-                return VisitMethodInvocation(methodInvocation);
-            }
-            return null;
-        }
-
-        public override Tree VisitIfThenStatement(IfThenStatementContext context)
-        {
-            Expression condition = (Expression)VisitExpression(context.condition);
-            StatementNode ifTrue = (StatementNode)VisitStatement(context.ifTrue);
-
-            return new If(context.Start.Line, context.Start.Column,
-                ifTrue.endLine, ifTrue.endCol, condition, ifTrue, elsePart: null);
-        }
-
-        public override Tree VisitIfThenElseStatement(IfThenElseStatementContext context)
-        {
-            Expression condition = (Expression)VisitExpression(context.condition);
-            StatementNode ifTrue = (StatementNode)VisitStatementNoShortIf(context.ifTrue);
-            StatementNode ifFalse = (StatementNode)VisitStatement(context.ifFalse);
-
-            return new If(context.Start.Line, context.Start.Column,
+            return new If(stat.Start.Line, stat.Start.Column,
                 ifTrue.endLine, ifTrue.endCol, condition, ifTrue, ifFalse);
         }
 
-        public override Tree VisitIfThenElseStatementNoShortIf(IfThenElseStatementNoShortIfContext context)
+        private ForLoop makeFor(StatementContext stat)
         {
-            Expression condition = (Expression)VisitExpression(context.condition);
-            StatementNode ifTrue = (StatementNode)VisitStatementNoShortIf(context.ifTrue);
-            StatementNode ifFalse = (StatementNode)VisitStatementNoShortIf(context.ifFalse);
+            IList<StatementNode> init = getForInit(stat.forInit());
+            Expression condition = stat.condition == null
+                ? null
+                : (Expression)VisitExpression(stat.condition);
+            IList<Expression> update = getForUpdate(stat.update);
+            StatementNode body = (StatementNode)VisitStatement(stat.body);
 
-            return new If(context.Start.Line, context.Start.Column,
-                ifTrue.endLine, ifTrue.endCol, condition, ifTrue, ifFalse);
+            return new ForLoop(stat.Start.Line, stat.Start.Column, init, condition, update, body);
         }
 
-        public override Tree VisitSwitchStatement(SwitchStatementContext context)
+        private WhileStatement makeWhile(StatementContext stat)
         {
-            Expression selector = (Expression)VisitExpression(context.expression());
-            CaseGroupContext[] caseGroups = context.caseGroup();
-            IList<SwitchLabelContext> bottomLabels = context._bottomLabels;
+            Expression condition = (Expression)VisitExpression(stat.condition);
+            StatementNode body = (StatementNode)VisitStatement(stat.body);
+
+            return new WhileStatement(stat.Start.Line, stat.Start.Column,
+                body.endLine, body.endCol, condition, body);
+        }
+
+        private DoStatement makeDo(StatementContext stat)
+        {
+            Expression condition = (Expression)VisitExpression(stat.condition);
+            StatementNode body = (StatementNode)VisitStatement(stat.body);
+
+            return new DoStatement(stat.Start.Line, stat.Start.Column,
+                body.endLine, body.endCol, condition, body);
+        }
+
+        private Switch makeSwitch(StatementContext stat)
+        {
+            Expression selector = (Expression)VisitExpression(stat.expression());
+            CaseGroupContext[] caseGroups = stat.caseGroup();
+            IList<SwitchLabelContext> bottomLabels = stat._bottomLabels;
 
             int count = caseGroups.Select(x => x.labels._labels.Count).Sum();
 
@@ -416,8 +346,35 @@ namespace mj.compiler.parsing
                     CollectionUtils.emptyList<StatementNode>());
             }
 
-            return new Switch(context.start.Line, context.start.Column, context.stop.Line,
-                context.stop.Column, selector, cases, hasDefault);
+            return new Switch(stat.start.Line, stat.start.Column, stat.stop.Line,
+                stat.stop.Column, selector, cases, hasDefault);
+        }
+
+        private ReturnStatement makeReturn(StatementContext stat)
+        {
+            ExpressionContext valueContext = stat.expression();
+            Expression value = valueContext == null ? null : (Expression)VisitExpression(valueContext);
+
+            return new ReturnStatement(stat.Start.Line, stat.Start.Column,
+                stat.Stop.Line, stat.Stop.Column, value);
+        }
+
+        private Break makeBreak(StatementContext stat)
+        {
+            return new Break(stat.Start.Line, stat.Start.Column, stat.Stop.Line, stat.Stop.Column);
+        }
+
+        private Continue makeContinue(StatementContext stat)
+        {
+            return new Continue(stat.Start.Line, stat.Start.Column, stat.Stop.Line, stat.Stop.Column);
+        }
+
+        private ExpressionStatement makeExpressionStatement(StatementContext stat)
+        {
+            Expression expression = (Expression)VisitExpression(stat.statementExpression);
+
+            return new ExpressionStatement(expression.beginLine, expression.beginCol,
+                stat.Stop.Line, stat.Stop.Column, expression);
         }
 
         private void checkDefault(SwitchLabelContext label, Expression caseExpression, ref bool hasDefault)
@@ -467,57 +424,18 @@ namespace mj.compiler.parsing
         public override Tree VisitConstantExpression(ConstantExpressionContext context) =>
             throw new InvalidOperationException();
 
-        public override Tree VisitWhileStatement(WhileStatementContext context)
-        {
-            Expression condition = (Expression)VisitExpression(context.condition);
-            StatementNode body = (StatementNode)VisitStatement(context.statement());
-
-            return new WhileStatement(context.Start.Line, context.Start.Column,
-                body.endLine, body.endCol, condition, body);
-        }
-
-        public override Tree VisitWhileStatementNoShortIf(WhileStatementNoShortIfContext context)
-        {
-            Expression condition = (Expression)VisitExpression(context.condition);
-            StatementNode body = (StatementNode)VisitStatementNoShortIf(context.statementNoShortIf());
-
-            return new WhileStatement(context.Start.Line, context.Start.Column,
-                body.endLine, body.endCol, condition, body);
-        }
-
-        public override Tree VisitDoStatement(DoStatementContext context)
-        {
-            Expression condition = (Expression)VisitExpression(context.condition);
-            StatementNode body = (StatementNode)VisitStatement(context.statement());
-
-            return new DoStatement(context.Start.Line, context.Start.Column,
-                body.endLine, body.endCol, condition, body);
-        }
-
-        public override Tree VisitForStatement(ForStatementContext context)
-        {
-            IList<StatementNode> init = GetForInit(context.forInit());
-            Expression condition = context.condition == null
-                ? null
-                : (Expression)VisitExpression(context.condition);
-            IList<Expression> update = GetForUpdate(context.update);
-            StatementNode body = (StatementNode)VisitStatement(context.statement());
-
-            return new ForLoop(context.Start.Line, context.Start.Column, init, condition, update, body);
-        }
-
-        private IList<StatementNode> GetForInit(ForInitContext forInit)
+        private IList<StatementNode> getForInit(ForInitContext forInit)
         {
             if (forInit == null) {
                 return CollectionUtils.emptyList<StatementNode>();
             }
 
-            StatementExpressionListContext statementExpressionList = forInit.statementExpressionList();
+            ExpressionListContext statementExpressionList = forInit.expressionList();
             if (statementExpressionList != null) {
-                IList<StatementExpressionContext> statementExpressionContexts = statementExpressionList._statements;
+                IList<ExpressionContext> statementExpressionContexts = statementExpressionList._statements;
                 StatementNode[] statements = new StatementNode[statementExpressionContexts.Count];
                 for (var i = 0; i < statementExpressionContexts.Count; i++) {
-                    Expression expr = (Expression)VisitStatementExpression(statementExpressionContexts[i]);
+                    Expression expr = (Expression)VisitExpression(statementExpressionContexts[i]);
                     statements[i] = new ExpressionStatement(expr.beginLine, expr.beginCol,
                         expr.endLine, expr.endCol, expr);
                 }
@@ -530,66 +448,20 @@ namespace mj.compiler.parsing
             return null;
         }
 
-        private IList<Expression> GetForUpdate(ForUpdateContext forUpdate)
+        private IList<Expression> getForUpdate(ExpressionListContext forUpdate)
         {
             if (forUpdate == null) {
                 return CollectionUtils.emptyList<Expression>();
             }
-            StatementExpressionListContext statementExpressionList = forUpdate.statementExpressionList();
-            IList<StatementExpressionContext> statementExpressionContexts = statementExpressionList._statements;
-            Expression[] expressions = new Expression[statementExpressionContexts.Count];
-            for (var i = 0; i < statementExpressionContexts.Count; i++) {
-                expressions[i] = (Expression)VisitStatementExpression(statementExpressionContexts[i]);
+            IList<ExpressionContext> expressionContexts = forUpdate._statements;
+            Expression[] expressions = new Expression[expressionContexts.Count];
+            for (var i = 0; i < expressionContexts.Count; i++) {
+                expressions[i] = (Expression)VisitExpression(expressionContexts[i]);
             }
             return expressions;
         }
 
-        public override Tree VisitForStatementNoShortIf(ForStatementNoShortIfContext context)
-        {
-            IList<StatementNode> init = GetForInit(context.forInit());
-            Expression condition = context.condition == null
-                ? null
-                : (Expression)VisitExpression(context.condition);
-            IList<Expression> update = GetForUpdate(context.update);
-            StatementNode body = (StatementNode)VisitStatementNoShortIf(context.statementNoShortIf());
-
-            return new ForLoop(context.Start.Line, context.Start.Column, init, condition, update, body);
-        }
-
         public override Tree VisitForInit(ForInitContext context) => throw new InvalidOperationException();
-        public override Tree VisitForUpdate(ForUpdateContext context) => throw new InvalidOperationException();
-
-        public override Tree VisitStatementExpressionList(StatementExpressionListContext context) =>
-            throw new InvalidOperationException();
-
-        public override Tree VisitBreakStatement(BreakStatementContext context)
-        {
-            return new Break(context.Start.Line, context.Start.Column, context.Stop.Line,
-                context.Stop.Column);
-        }
-
-        public override Tree VisitContinueStatement(ContinueStatementContext context)
-        {
-            return new Continue(context.Start.Line, context.Start.Column, context.Stop.Line,
-                context.Stop.Column);
-        }
-
-        public override Tree VisitReturnStatement(ReturnStatementContext context)
-        {
-            ExpressionContext valueContext = context.value;
-            Expression value;
-
-            if (valueContext != null) {
-                value = (Expression)VisitExpression(valueContext);
-            } else {
-                value = null;
-            }
-
-            int endLine = context.Stop.Line;
-            int endCol = context.Stop.Column;
-
-            return new ReturnStatement(context.Start.Line, context.Start.Column, endLine, endCol, value);
-        }
 
         public override Tree VisitMethodInvocation(MethodInvocationContext context)
         {
@@ -614,270 +486,39 @@ namespace mj.compiler.parsing
 
         public override Tree VisitArgumentList(ArgumentListContext context) => throw new InvalidOperationException();
 
-        public override Tree VisitAssignment(AssignmentContext context)
+        public ConditionalExpression makeConditional(ExpressionContext context)
         {
-            Identifier target = (Identifier)VisitNameExpression(context.leftHandSide().nameExpression());
-            Expression expression = (Expression)VisitExpression(context.expression());
-
-            Tag op;
-
-            switch (context.assignmentOperator().op.Type) {
-                case ASSIGN:
-                    return new AssignNode(target, expression);
-                case ADD_ASSIGN:
-                    op = Tag.PLUS_ASG;
-                    break;
-                case SUB_ASSIGN:
-                    op = Tag.MINUS_ASG;
-                    break;
-                case MUL_ASSIGN:
-                    op = Tag.MUL_ASG;
-                    break;
-                case DIV_ASSIGN:
-                    op = Tag.DIV_ASG;
-                    break;
-                case AND_ASSIGN:
-                    op = Tag.BITAND_ASG;
-                    break;
-                case OR_ASSIGN:
-                    op = Tag.BITOR_ASG;
-                    break;
-                case XOR_ASSIGN:
-                    op = Tag.BITXOR_ASG;
-                    break;
-                case MOD_ASSIGN:
-                    op = Tag.MOD_ASG;
-                    break;
-                case LSHIFT_ASSIGN:
-                    op = Tag.SHL_ASG;
-                    break;
-                case RSHIFT_ASSIGN:
-                    op = Tag.SHR_ASG;
-                    break;
-                default:
-                    throw new InvalidOperationException();
-            }
-
-            return new CompoundAssignNode(op, target, expression);
-        }
-
-        public override Tree VisitLeftHandSide(LeftHandSideContext context) => throw new InvalidOperationException();
-
-        public override Tree VisitAssignmentOperator(AssignmentOperatorContext context) =>
-            throw new InvalidOperationException();
-
-        public override Tree VisitConditionalExpression(ConditionalExpressionContext context)
-        {
-            ConditionalOrExpressionContext lower = context.down;
-            if (lower != null) {
-                return VisitConditionalOrExpression(lower);
-            }
-
-            Expression condition = (Expression)VisitConditionalOrExpression(context.condition);
+            Expression condition = (Expression)VisitExpression(context.condition);
             Expression ifTrue = (Expression)VisitExpression(context.ifTrue);
-            Expression ifFalse = (Expression)VisitConditionalExpression(context.ifFalse);
-
+            Expression ifFalse = (Expression)VisitExpression(context.ifFalse);
             return new ConditionalExpression(condition, ifTrue, ifFalse);
-        }
-
-        public override Tree VisitConditionalOrExpression(ConditionalOrExpressionContext context)
-        {
-            ConditionalAndExpressionContext lower = context.down;
-            if (lower != null) {
-                return VisitConditionalAndExpression(lower);
-            }
-
-            Expression left = (Expression)VisitConditionalOrExpression(context.left);
-            Expression right = (Expression)VisitConditionalAndExpression(context.right);
-
-            return new BinaryExpressionNode(Tag.OR, left, right);
-        }
-
-        public override Tree VisitConditionalAndExpression(ConditionalAndExpressionContext context)
-        {
-            InclusiveOrExpressionContext lower = context.down;
-            if (lower != null) {
-                return VisitInclusiveOrExpression(lower);
-            }
-
-            Expression left = (Expression)VisitConditionalAndExpression(context.left);
-            Expression right = (Expression)VisitInclusiveOrExpression(context.right);
-
-            return new BinaryExpressionNode(Tag.AND, left, right);
-        }
-
-        public override Tree VisitInclusiveOrExpression(InclusiveOrExpressionContext context)
-        {
-            ExclusiveOrExpressionContext lower = context.down;
-            if (lower != null) {
-                return VisitExclusiveOrExpression(lower);
-            }
-
-            Expression left = (Expression)VisitInclusiveOrExpression(context.left);
-            Expression right = (Expression)VisitExclusiveOrExpression(context.right);
-
-            return new BinaryExpressionNode(Tag.BITOR, left, right);
-        }
-
-        public override Tree VisitExclusiveOrExpression(ExclusiveOrExpressionContext context)
-        {
-            AndExpressionContext lower = context.down;
-            if (lower != null) {
-                return VisitAndExpression(lower);
-            }
-
-            Expression left = (Expression)VisitExclusiveOrExpression(context.left);
-            Expression right = (Expression)VisitAndExpression(context.right);
-
-            return new BinaryExpressionNode(Tag.BITXOR, left, right);
-        }
-
-        public override Tree VisitAndExpression(AndExpressionContext context)
-        {
-            EqualityExpressionContext lower = context.down;
-            if (lower != null) {
-                return VisitEqualityExpression(lower);
-            }
-
-            Expression left = (Expression)VisitAndExpression(context.left);
-            Expression right = (Expression)VisitEqualityExpression(context.right);
-
-            return new BinaryExpressionNode(Tag.BITAND, left, right);
-        }
-
-        public override Tree VisitEqualityExpression(EqualityExpressionContext context)
-        {
-            RelationalExpressionContext lower = context.down;
-            if (lower != null) {
-                return VisitRelationalExpression(lower);
-            }
-
-            Expression left = (Expression)VisitEqualityExpression(context.left);
-            Expression right = (Expression)VisitRelationalExpression(context.right);
-
-            Tag op;
-            switch (context.@operator.Type) {
-                case EQUAL:
-                    op = Tag.EQ;
-                    break;
-                case NOTEQUAL:
-                    op = Tag.NEQ;
-                    break;
-                default:
-                    throw new InvalidOperationException();
-            }
-
-            return new BinaryExpressionNode(op, left, right);
-        }
-
-        public override Tree VisitRelationalExpression(RelationalExpressionContext context)
-        {
-            ShiftExpressionContext lower = context.down;
-            if (lower != null) {
-                return VisitShiftExpression(lower);
-            }
-
-            Expression left = (Expression)VisitRelationalExpression(context.left);
-            Expression right = (Expression)VisitShiftExpression(context.right);
-
-            Tag op;
-            switch (context.@operator.Type) {
-                case LT:
-                    op = Tag.LT;
-                    break;
-                case GT:
-                    op = Tag.GT;
-                    break;
-                case LE:
-                    op = Tag.LE;
-                    break;
-                case GE:
-                    op = Tag.GE;
-                    break;
-                default:
-                    throw new InvalidOperationException();
-            }
-
-            return new BinaryExpressionNode(op, left, right);
-        }
-
-        public override Tree VisitShiftExpression(ShiftExpressionContext context)
-        {
-            AdditiveExpressionContext lower = context.down;
-            if (lower != null) {
-                return VisitAdditiveExpression(lower);
-            }
-
-            Expression left = (Expression)VisitShiftExpression(context.left);
-            Expression right = (Expression)VisitAdditiveExpression(context.right);
-
-            Tag op;
-            switch (context.@operator) {
-                case LSHIFT:
-                    op = Tag.SHL;
-                    break;
-                case RSHIFT:
-                    op = Tag.SHR;
-                    break;
-                default:
-                    throw new InvalidOperationException();
-            }
-
-            return new BinaryExpressionNode(op, left, right);
-        }
-
-        public override Tree VisitPreIncDecExpression(PreIncDecExpressionContext context)
-        {
-            Tag op = context.@operator.Type == INC ? Tag.PRE_INC : Tag.PRE_DEC;
-
-            Expression arg = (Expression)VisitUnaryExpression(context.arg);
-            return new UnaryExpressionNode(context.start.Line, context.start.Column, arg.endLine,
-                arg.endCol, op, arg);
-        }
-
-        public override Tree VisitUnaryExpressionNotPlusMinus(UnaryExpressionNotPlusMinusContext context)
-        {
-            PostIncDecExpressionContext lower = context.down;
-            if (lower != null) {
-                return VisitPostIncDecExpression(lower);
-            }
-
-            Tag op = context.@operator.Type == TILDE ? Tag.COMPL : Tag.NOT;
-            Expression arg = (Expression)VisitUnaryExpression(context.arg);
-            return new UnaryExpressionNode(context.start.Line, context.start.Column, arg.endLine,
-                arg.endCol, op, arg);
-        }
-
-        public override Tree VisitPostIncDecExpression(PostIncDecExpressionContext context)
-        {
-            Expression current;
-            NameExpressionContext name = context.nameExpression();
-            if (name != null) {
-                current = (Expression)VisitNameExpression(name);
-            } else {
-                current = (Expression)VisitPrimary(context.down);
-            }
-
-            for (int i = 0, count = context._postfixes.Count; i < count; i++) {
-                IToken postfix = context._postfixes[i];
-                Tag op = postfix.Type == INC ? Tag.POST_INC : Tag.POST_DEC;
-
-                int len = postfix.StopIndex - postfix.StartIndex + 1;
-                int endColumn = postfix.Column + len;
-
-                current = new UnaryExpressionNode(current.beginLine, current.beginCol,
-                    postfix.Line, endColumn, op, current);
-            }
-
-            return current;
         }
 
         public override Tree VisitExpression(ExpressionContext context)
         {
-            var conditional = context.conditionalExpression();
-            return conditional != null
-                ? VisitConditionalExpression(conditional)
-                : VisitAssignment(context.assignment());
+            PrimaryContext primary = context.primary();
+            if (primary != null) {
+                return (Expression)VisitPrimary(primary);
+            }
+            MethodInvocationContext invocation = context.methodInvocation();
+            if (invocation != null) {
+                return (Expression)VisitMethodInvocation(invocation);
+            }
+            IToken postfix = context.postfix;
+            if (postfix != null) {
+                return makeUnary(context, postfix.Type);
+            }
+            IToken prefix = context.prefix;
+            if (prefix != null) {
+                return makeUnary(context, prefix.Type);
+            }
+            IToken binOp = context.bop;
+            if (binOp != null) {
+                return context.isAssignment
+                    ? makeAssignment(context)
+                    : makeBinary(context);
+            }
+            return makeConditional(context);
         }
 
         public override Tree VisitPrimary(PrimaryContext context)
@@ -886,13 +527,21 @@ namespace mj.compiler.parsing
             if (expressionContext != null) {
                 return VisitExpression(expressionContext);
             }
-
-            var methodInvocationContext = context.methodInvocation();
-            if (methodInvocationContext != null) {
-                return VisitMethodInvocation(methodInvocationContext);
+            LiteralContext literal = context.literal();
+            if (literal != null) {
+                return VisitLiteral(literal);
             }
+            return makeIdentifier(context);
+        }
 
-            return VisitLiteral(context.literal());
+        private static Tree makeIdentifier(PrimaryContext context)
+        {
+            IToken symbol = context.Identifier().Symbol;
+            String identifier = symbol.Text;
+
+            int stopColumn = symbol.Column + symbol.StopIndex - symbol.StopIndex;
+
+            return new Identifier(symbol.Line, symbol.Column, symbol.Line, stopColumn, identifier);
         }
 
         public override Tree VisitLiteral(LiteralContext context)
@@ -1034,44 +683,41 @@ namespace mj.compiler.parsing
             return hexChar < 'A' ? (hexChar - '0') : 10 + (hexChar - 'A');
         }
 
-        public override Tree VisitAdditiveExpression(AdditiveExpressionContext context)
+        private UnaryExpressionNode makeUnary(ExpressionContext context, int opCode)
         {
-            MultiplicativeExpressionContext lower = context.down;
-            if (lower != null) {
-                return VisitMultiplicativeExpression(lower);
+            Tag op;
+            switch (opCode) {
+                case INC:
+                    op = context.prefix != null ? Tag.PRE_INC : Tag.POST_INC;
+                    break;
+                case DEC:
+                    op = context.prefix != null ? Tag.PRE_DEC : Tag.POST_DEC;
+                    break;
+                case SUB:
+                    op = Tag.NEG;
+                    break;
+                default: throw new InvalidOperationException();
             }
 
-            Expression left = (Expression)VisitAdditiveExpression(context.left);
-            Expression right = (Expression)VisitMultiplicativeExpression(context.right);
+            Expression arg = (Expression)VisitExpression(context.arg);
+
+            return new UnaryExpressionNode(context.Start.Line, context.Start.Column, arg.endLine,
+                arg.endCol, op, arg);
+        }
+
+        private BinaryExpressionNode makeBinary(ExpressionContext context)
+        {
+            Expression left = (Expression)VisitExpression(context.left);
+            Expression right = (Expression)VisitExpression(context.right);
 
             Tag op;
-
-            switch (context.@operator.Type) {
+            switch (context.bop.Type) {
                 case ADD:
                     op = Tag.PLUS;
                     break;
                 case SUB:
                     op = Tag.MINUS;
                     break;
-                default: throw new InvalidOperationException();
-            }
-
-            return new BinaryExpressionNode(op, left, right);
-        }
-
-        public override Tree VisitMultiplicativeExpression(MultiplicativeExpressionContext context)
-        {
-            UnaryExpressionContext lower = context.down;
-            if (lower != null) {
-                return VisitUnaryExpression(lower);
-            }
-
-            Expression left = (Expression)VisitMultiplicativeExpression(context.left);
-            Expression right = (Expression)VisitUnaryExpression(context.right);
-
-            Tag op;
-
-            switch (context.@operator.Type) {
                 case MUL:
                     op = Tag.MUL;
                     break;
@@ -1081,38 +727,93 @@ namespace mj.compiler.parsing
                 case MOD:
                     op = Tag.MOD;
                     break;
+                case LSHIFT:
+                    op = Tag.SHL;
+                    break;
+                case RSHIFT:
+                    op = Tag.SHR;
+                    break;
+                case LT:
+                    op = Tag.LT;
+                    break;
+                case LE:
+                    op = Tag.LE;
+                    break;
+                case GT:
+                    op = Tag.GT;
+                    break;
+                case GE:
+                    op = Tag.GE;
+                    break;
+                case EQUAL:
+                    op = Tag.EQ;
+                    break;
+                case NOTEQUAL:
+                    op = Tag.NEQ;
+                    break;
+                case AND:
+                    op = Tag.AND;
+                    break;
+                case OR:
+                    op = Tag.OR;
+                    break;
+                case BITAND:
+                    op = Tag.BITAND;
+                    break;
+                case BITOR:
+                    op = Tag.BITOR;
+                    break;
+                case CARET:
+                    op = Tag.BITXOR;
+                    break;
                 default: throw new InvalidOperationException();
             }
 
             return new BinaryExpressionNode(op, left, right);
         }
 
-        public override Tree VisitUnaryExpression(UnaryExpressionContext context)
+        private Expression makeAssignment(ExpressionContext context)
         {
-            UnaryExpressionNotPlusMinusContext lower = context.down;
-            if (lower != null) {
-                return VisitUnaryExpressionNotPlusMinus(lower);
-            }
+            Expression left = (Expression)VisitExpression(context.left);
+            Expression right = (Expression)VisitExpression(context.right);
 
             Tag op;
-
-            switch (context.@operator.Type) {
-                case INC:
-                    op = Tag.PRE_INC;
+            switch (context.bop.Type) {
+                case ASSIGN: return new AssignNode(left, right);
+                case ADD_ASSIGN:
+                    op = Tag.PLUS_ASG;
                     break;
-                case DEC:
-                    op = Tag.PRE_DEC;
+                case SUB_ASSIGN:
+                    op = Tag.MINUS;
                     break;
-                case ADD:
-                    op = Tag.NEG;
+                case MUL_ASSIGN:
+                    op = Tag.MUL_ASG;
+                    break;
+                case DIV_ASSIGN:
+                    op = Tag.DIV_ASG;
+                    break;
+                case MOD_ASSIGN:
+                    op = Tag.MOD_ASG;
+                    break;
+                case AND_ASSIGN:
+                    op = Tag.BITAND_ASG;
+                    break;
+                case OR_ASSIGN:
+                    op = Tag.BITOR_ASG;
+                    break;
+                case XOR_ASSIGN:
+                    op = Tag.BITXOR_ASG;
+                    break;
+                case LSHIFT_ASSIGN:
+                    op = Tag.SHL_ASG;
+                    break;
+                case RSHIFT_ASSIGN:
+                    op = Tag.SHR_ASG;
                     break;
                 default: throw new InvalidOperationException();
             }
 
-            Expression arg = (Expression)VisitUnaryExpression(context.arg);
-
-            return new UnaryExpressionNode(context.Start.Line, context.Start.Column, arg.endLine,
-                arg.endCol, op, arg);
+            return new CompoundAssignNode(op, left, right);
         }
     }
 }
