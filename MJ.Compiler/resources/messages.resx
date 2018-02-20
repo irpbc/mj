@@ -19,6 +19,7 @@
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
 
+    <data name="expressionStatement"><value>Only incremet, decrement, assignment and invokation can be expression statements</value></data>
     <data name="intLiteratTooBig"><value>Integer literal {0} is too big</value></data>
     <data name="floatLiteratTooBig"><value>Floating point literal {0} is too big</value></data>
     <data name="duplicateMethodName"><value>Method {0} is already defiend</value></data>

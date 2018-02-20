@@ -373,6 +373,10 @@ namespace mj.compiler.parsing
         {
             Expression expression = (Expression)VisitExpression(stat.statementExpression);
 
+            if (!expression.IsExpressionStatement) {
+                log.error(expression.Pos, messages.expressionStatement);
+            }
+            
             return new ExpressionStatement(expression.beginLine, expression.beginCol,
                 stat.Stop.Line, stat.Stop.Column, expression);
         }
