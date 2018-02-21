@@ -781,9 +781,16 @@ namespace mj.compiler.parsing
             Expression left = (Expression)VisitExpression(context.left);
             Expression right = (Expression)VisitExpression(context.right);
 
+            bool lValueError = !left.IsLValue;
+
             Tag op;
             switch (context.bop.Type) {
-                case ASSIGN: return new AssignNode(left, right);
+                case ASSIGN:
+                    AssignNode assign = new AssignNode(left, right);
+                    if (lValueError) {
+                        log.error(assign.Pos, messages.assignmentLHS);
+                    }
+                    return assign;
                 case ADD_ASSIGN:
                     op = Tag.PLUS_ASG;
                     break;
@@ -817,7 +824,11 @@ namespace mj.compiler.parsing
                 default: throw new InvalidOperationException();
             }
 
-            return new CompoundAssignNode(op, left, right);
+            CompoundAssignNode compAssign = new CompoundAssignNode(op, left, right);
+            if (lValueError) {
+                log.error(compAssign.Pos, messages.assignmentLHS);
+            }
+            return compAssign;
         }
     }
 }

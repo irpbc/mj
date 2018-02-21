@@ -119,7 +119,7 @@ namespace mj.compiler.tree
             this.operand = operand;
         }
 
-        public override bool IsExpressionStatement => Tag.isIncDec();
+        public override bool IsExpressionStatement => opcode.isIncDec();
 
         public override void accept(AstVisitor v) => v.visitUnary(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitUnary(this);

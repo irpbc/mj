@@ -396,15 +396,10 @@ namespace mj.compiler.symbol
 
         public override Type visitAssign(AssignNode assign, Environment env)
         {
-            bool lValueError = !assign.left.IsLValue;
-            if (lValueError) {
-                log.error(assign.Pos, messages.assignmentLHS);
-            }
-
             Type lType = analyzeExpr(assign.left, env);
             Type rType = analyzeExpr(assign.right, env);
 
-            if (!lValueError && !typings.isAssignableFrom(lType, rType)) {
+            if (!typings.isAssignableFrom(lType, rType)) {
                 log.error(assign.Pos, messages.assignmentUncompatible);
             }
 
