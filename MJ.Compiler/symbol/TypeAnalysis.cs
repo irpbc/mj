@@ -262,6 +262,7 @@ namespace mj.compiler.symbol
                 }
             }
 
+            msym.isInvoked = true;
             invocation.methodSym = msym;
             invocation.type = msym.type.ReturnType;
             return msym.type.ReturnType;
