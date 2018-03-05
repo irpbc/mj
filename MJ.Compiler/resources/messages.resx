@@ -26,7 +26,6 @@
     <data name="duplicateClassName"><value>Class {0} is already defined</value></data>
     <data name="duplicateParamName"><value>Parameter {0} is already defined in method {1}</value></data>
     <data name="duplicateVar"><value>Local variable {0} is already defined in this scope</value></data>
-    <data name="duplicateField"><value>Field {0} is already defined in this class</value></data>
     <data name="varParamNameConflict"><value>Local variable {0} has same name as a parameter</value></data>
     <data name="mainMethodNotDefined"><value>The main method is not defined</value></data>
     <data name="mainMethodSig"><value>Main method must accept int and long and return int</value></data>

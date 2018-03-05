@@ -142,6 +142,24 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Class {0} is already defined.
+        /// </summary>
+        public static string duplicateClassName {
+            get {
+                return ResourceManager.GetString("duplicateClassName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Field &quot;{0}&quot; is already defined in class &quot;{1}&quot;.
+        /// </summary>
+        public static string duplicateField {
+            get {
+                return ResourceManager.GetString("duplicateField", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Method {0} is already defiend.
         /// </summary>
         public static string duplicateMethodName {
@@ -304,6 +322,15 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Attempted field access on primitive type.
+        /// </summary>
+        public static string selectOnPrimitive {
+            get {
+                return ResourceManager.GetString("selectOnPrimitive", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Switch expression must be of integral type.
         /// </summary>
         public static string switchSelectorType {
@@ -331,11 +358,38 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Class &quot;{0}&quot; is not defined.
+        /// </summary>
+        public static string undefinedClass {
+            get {
+                return ResourceManager.GetString("undefinedClass", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unknown type &quot;{0}&quot;.
+        /// </summary>
+        public static string undefinedType {
+            get {
+                return ResourceManager.GetString("undefinedType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Variable &quot;{0}&quot; is undefined at this point.
         /// </summary>
         public static string undefinedVariable {
             get {
                 return ResourceManager.GetString("undefinedVariable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Field &quot;{0}&quot; is not defined in class &quot;{1}&quot;.
+        /// </summary>
+        public static string unknownField {
+            get {
+                return ResourceManager.GetString("unknownField", resourceCulture);
             }
         }
         
