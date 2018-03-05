@@ -61,7 +61,7 @@ namespace mj.compiler.symbol
                     return op;
                 }
             }
-            log.error(pos, messages.unresolvedUnaryOperator, operatorNames[(int)tag], argType);
+            log.error(pos, messages.unresolvedUnaryOperator, operatorNames[tag.operatorIndex()], argType);
             return symtab.errorOpSymbol;
         }
 

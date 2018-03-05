@@ -242,9 +242,11 @@ namespace mj.compiler.codegen
             IList<Symbol.MethodSymbol> builtins = symtab.builtins;
             for (var i = 0; i < builtins.Count; i++) {
                 Symbol.MethodSymbol m = builtins[i];
-                LLVMValueRef func = LLVM.AddFunction(module, "mj_" + m.name, typeResolver.resolve(m.type));
-                func.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
-                m.llvmPointer = func;
+                if (m.isInvoked) {
+                    LLVMValueRef func = LLVM.AddFunction(module, "mj_" + m.name, typeResolver.resolve(m.type));
+                    func.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
+                    m.llvmPointer = func;
+                }
             }
         }
 
@@ -858,7 +860,7 @@ namespace mj.compiler.codegen
             LLVM.PositionBuilderAtEnd(builder, afterIf);
 
             LLVMValueRef phi = LLVM.BuildPhi(builder, LLVMTypeRef.Int1Type(), "res");
-            
+
             LLVMValueRef phiLeftVal = LLVM.ConstInt(LLVMTypeRef.Int1Type(), (ulong)(isOR ? 1 : 0), new LLVMBool(0));
 
             phi.AddIncoming(new[] {phiLeftVal, rightVal}, new[] {prevBlock, rightBlock}, 2);

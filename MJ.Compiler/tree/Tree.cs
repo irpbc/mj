@@ -93,6 +93,7 @@ namespace mj.compiler.tree
             : base(beginLine, beginCol, endLine, endCol) { }
 
         public virtual bool IsLValue => false;
+        public virtual bool IsExpressionStatement => false;
     }
 
     public abstract class OperatorExpression : Expression
@@ -137,6 +138,8 @@ namespace mj.compiler.tree
         {
             this.operand = operand;
         }
+
+        public override bool IsExpressionStatement => opcode.isIncDec();
 
         public override void accept(AstVisitor v) => v.visitUnary(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitUnary(this);
@@ -196,6 +199,7 @@ namespace mj.compiler.tree
         }
 
         public override Tag Tag => Tag.ASSIGN;
+        public override bool IsExpressionStatement => true;
 
         public override void accept(AstVisitor v) => v.visitAssign(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitAssign(this);
@@ -213,6 +217,8 @@ namespace mj.compiler.tree
             this.left = left;
             this.right = right;
         }
+        
+        public override bool IsExpressionStatement => true;
 
         public override void accept(AstVisitor v) => v.visitCompoundAssign(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitCompoundAssign(this);
@@ -429,6 +435,7 @@ namespace mj.compiler.tree
         }
 
         public override Tag Tag => Tag.INVOKE;
+        public override bool IsExpressionStatement => true;
 
         public override void accept(AstVisitor v) => v.visitMethodInvoke(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitMethodInvoke(this);

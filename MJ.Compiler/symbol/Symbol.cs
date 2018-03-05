@@ -65,6 +65,7 @@ namespace mj.compiler.symbol
             public Scope.WriteableScope scope;
             public LLVMValueRef llvmPointer;
             public bool isVararg;
+            public bool isInvoked;
 
             public MethodSymbol(string name, Symbol owner, Type type) : base(Kind.MTH, name, owner, type) { }
 

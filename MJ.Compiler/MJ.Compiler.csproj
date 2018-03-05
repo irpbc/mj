@@ -21,6 +21,19 @@
     </Antlr4>
   </ItemGroup>
   <ItemGroup>
+    <Compile Update="resources/messages.Designer.cs">
+      <DependentUpon>resources/messages.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="resources/messages.Designer.cs">
+      <LastGenOutput>resources/messages.Designer.cs</LastGenOutput>
+      <Generator>PublicResXFileCodeGenerator</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="obj\Debug\netcoreapp2.0\MJBaseVisitor.cs">
       <Link>Parsing\AntlrGenerated\MJBaseVisitor.cs</Link>
     </Compile>

@@ -25,10 +25,6 @@ type
     |   className=Identifier
 	;
 
-nameExpression
-	:	parts+=Identifier ( '.' parts+=Identifier )*
-	;
-
 compilationUnit
 	:   declarations+=declaration+ EOF
 	;
@@ -100,57 +96,17 @@ variableDeclaration
 	;
 
 statement
-	:	statementWithoutTrailingSubstatement
-	|	ifThenStatement
-	|	ifThenElseStatement
-	|	whileStatement
-	|	forStatement
-	;
-
-statementNoShortIf
-	:	statementWithoutTrailingSubstatement
-	|	ifThenElseStatementNoShortIf
-	|	whileStatementNoShortIf
-	|	forStatementNoShortIf
-	;
-
-statementWithoutTrailingSubstatement
-	:	block
-	|	expressionStatement
-	|	switchStatement
-	|	doStatement
-	|	breakStatement
-	|	continueStatement
-	|	returnStatement
-	;
-
-expressionStatement
-	:	statementExpression ';'
-	;
-
-statementExpression
-	:	assignment
-	|	preIncDecExpression
-	|	postIncDecExpression
-	|	methodInvocation
-	|   newClass
-	;
-
-ifThenStatement
-	:	'if' '(' condition=expression ')' ifTrue=statement
-	;
-
-ifThenElseStatement
-	:	'if' '(' condition=expression ')' ifTrue=statementNoShortIf 'else' ifFalse=statement
-	;
-
-ifThenElseStatementNoShortIf
-	:	'if' '(' condition=expression ')' ifTrue=statementNoShortIf 'else' ifFalse=statementNoShortIf
-	;
-
-switchStatement
-	:	'switch' '(' expression ')' '{' caseGroup* bottomLabels+=switchLabel* '}'
-	;
+   :   token='{' blockStatementList? '}'
+   |   token=IF '(' expression ')' ifTrue=statement (ELSE ifFalse=statement | { _input.La(1) != ELSE }?)
+   |   token=FOR '(' forInit? ';' condition=expression? ';' update=expressionList? ')' body=statement
+   |   token=WHILE '(' expression ')' body=statement
+   |   token=DO body=statement WHILE '(' expression ')' ';'
+   |   token=SWITCH '(' expression ')' '{' caseGroup* bottomLabels+=switchLabel* '}'
+   |   token=RETURN expression? ';'
+   |   token=BREAK ';'
+   |   token=CONTINUE ';'
+   |   statementExpression=expression ';'
+   ;
 
 caseGroup
 	:	labels=switchLabels stmts=blockStatementList
@@ -169,194 +125,53 @@ constantExpression
     : literal
     ;
 
-whileStatement
-	:	'while' '(' condition=expression ')' statement
-	;
-
-whileStatementNoShortIf
-	:	'while' '(' condition=expression ')' statementNoShortIf
-	;
-
-doStatement
-	:	'do' statement 'while' '(' condition=expression ')' ';'
-	;
-
-forStatementNoShortIf
-	:	'for' '(' forInit? ';' condition=expression? ';' update=forUpdate? ')' statementNoShortIf
-	;
-
-forStatement
-	:	'for' '(' forInit? ';' condition=expression? ';' update=forUpdate? ')' statement
-	;
-
 forInit
-	:	statementExpressionList
+	:	expressionList
 	|	variableDeclaration
 	;
 
-forUpdate
-	:	statementExpressionList
-	;
-
-statementExpressionList
-	:	statements+=statementExpression (',' statements+=statementExpression)*
-	;
-
-breakStatement
-	:	'break' ';'
-	;
-
-continueStatement
-	:	'continue' ';'
-	;
-
-returnStatement
-	:	'return' value=expression? ';'
+expressionList
+	:	statements+=expression (',' statements+=expression)*
 	;
 
 primary
-	:   (   literal 
-	    |   '(' parenthesized=expression ')' 
-	    |	methodInvocation
-	    |   newClass
-	    )
-	    (   fieldAccess_aftPrimary
-	    )*
+	:   '(' parenthesized=expression ')' 
+	|   literal
+	|   Identifier
 	;
-
-newClass
-    :   'new' className=Identifier '(' ')'
-    ;
-
-fieldAccess_aftPrimary
-    :   '.' fieldName=Identifier
-    ;
 
 methodInvocation
 	:	neme=Identifier '(' argumentList? ')'
 	;
 
-
 argumentList
 	:	args+=expression (',' args+=expression)*
 	;
 
-expression
-	:	conditionalExpression
-	|	assignment
-	;
-
-assignment
-	:	leftHandSide assignmentOperator expression
-	;
-
-leftHandSide
-	:   nameExpression
-	|   fieldAccess	
-	;
-
-fieldAccess
-	:	primary dot='.' Identifier
-	;
-
-assignmentOperator
-	:	op='='
-	|	op='*='
-	|	op='/='
-	|	op='%='
-	|	op='+='
-	|	op='-='
-	|	op='<<='
-	|	op='>>='
-	|	op='&='
-	|	op='^='
-	|	op='|='
-	;
-
-conditionalExpression
-	:	down=conditionalOrExpression
-	|	condition=conditionalOrExpression '?' ifTrue=expression ':' ifFalse=conditionalExpression
-	;
-
-conditionalOrExpression
-	:	down=conditionalAndExpression
-	|	left=conditionalOrExpression operator='||' right=conditionalAndExpression
-	;
-
-conditionalAndExpression
-	:	down=inclusiveOrExpression
-	|	left=conditionalAndExpression operator='&&' right=inclusiveOrExpression
-	;
-
-inclusiveOrExpression
-	:	down=exclusiveOrExpression
-	|	left=inclusiveOrExpression operator='|' right=exclusiveOrExpression
-	;
-
-exclusiveOrExpression
-	:	down=andExpression
-	|	left=exclusiveOrExpression operator='^' right=andExpression
-	;
-
-andExpression
-	:	down=equalityExpression
-	|	left=andExpression operator='&' right=equalityExpression
-	;
-
-equalityExpression
-	:	down=relationalExpression
-	|	left=equalityExpression operator='==' right=relationalExpression
-	|	left=equalityExpression operator='!=' right=relationalExpression
-	;
-
-relationalExpression
-	:	down=shiftExpression
-	|	left=relationalExpression operator='<' right=shiftExpression
-	|	left=relationalExpression operator='>' right=shiftExpression
-	|	left=relationalExpression operator='<=' right=shiftExpression
-	|	left=relationalExpression operator='>=' right=shiftExpression
-	;
-
-shiftExpression returns [ int operator ]
-	:	down=additiveExpression
-	|	left=shiftExpression '<' '<' right=additiveExpression {$shiftExpression::operator = LSHIFT;}
-	|	left=shiftExpression '>' '>' right=additiveExpression {$shiftExpression::operator = RSHIFT;}
-	;
-
-additiveExpression
-	:	down=multiplicativeExpression
-	|	left=additiveExpression operator='+' right=multiplicativeExpression
-	|	left=additiveExpression operator='-' right=multiplicativeExpression
-	;
-
-multiplicativeExpression
-	:	down=unaryExpression
-	|	left=multiplicativeExpression operator='*' right=unaryExpression
-	|	left=multiplicativeExpression operator='/' right=unaryExpression
-	|	left=multiplicativeExpression operator='%' right=unaryExpression
-	;
-
-unaryExpression
-	:	operator='++' arg=unaryExpression
-	|	operator='--' arg=unaryExpression
-	|	operator='-' arg=unaryExpression
-	|	down=unaryExpressionNotPlusMinus
-	;
-
-preIncDecExpression
-	:	operator=('++' | '--' ) arg=unaryExpression
-	;
-
-unaryExpressionNotPlusMinus
-	:	down=postIncDecExpression
-	|	operator='~' arg=unaryExpression
-	|	operator='!' arg=unaryExpression
-	;
-
-postIncDecExpression
-	:	( down=primary | nameExpression )
-		( postfixes+='++' | postfixes+='--' )*
-	;
+expression returns [ bool isAssignment, int shiftOp ]
+    : primary
+    | left=expression bop='.' Identifier
+    | methodInvocation
+    | NEW Identifier '(' ')'
+    | arg=expression postfix=('++' | '--')
+    | prefix=('+'|'-'|'++'|'--') arg=expression
+    | prefix=('~'|'!') arg=expression
+    | left=expression bop=('*'|'/'|'%') right=expression
+    | left=expression bop=('+'|'-') right=expression
+    | left=expression ('<' '<' { $expression::shiftOp=LSHIFT; } | '>' '>' { $expression::shiftOp=RSHIFT; }) 
+      right=expression
+    | left=expression bop=('<=' | '>=' | '>' | '<') right=expression
+    | left=expression bop=('==' | '!=') right=expression
+    | left=expression bop='&' right=expression
+    | left=expression bop='^' right=expression
+    | left=expression bop='|' right=expression
+    | left=expression bop='&&' right=expression
+    | left=expression bop='||' right=expression
+    | condition=expression '?' ifTrue=expression ':' ifFalse=expression
+    | <assoc=right> left=expression
+      bop=('=' | '+=' | '-=' | '*=' | '/=' | '&=' | '|=' | '^=' | '>>=' | '<<=' | '%=')
+      right=expression { $expression::isAssignment=true; }
+    ;
 
 ABSTRACT : 'abstract';
 ASSERT : 'assert';

@@ -42,7 +42,7 @@ namespace mj.compiler.symbol
             foreach (CompilationUnit tree in compilationUnits) {
                 SourceFile prevSource = log.useSource(tree.sourceFile);
                 try {
-                    scan(tree, env);
+                    analyze(tree, env);
                 } finally {
                     log.useSource(prevSource);
                 }
@@ -50,7 +50,16 @@ namespace mj.compiler.symbol
             return compilationUnits;
         }
 
-        private Type scanExpr(Expression expr, Environment env)
+        private void analyze<T>(IList<T> trees, Environment env) where T : Tree
+        {
+            foreach (T tree in trees) {
+                analyze(tree, env);
+            }
+        }
+
+        private void analyze(Tree tree, Environment env) => tree.accept(this, env);
+
+        private Type analyzeExpr(Expression expr, Environment env)
         {
             Type type = expr.accept(this, env);
             expr.type = type;
@@ -99,8 +108,8 @@ namespace mj.compiler.symbol
 
         public override Type visitMethodDef(MethodDef method, Environment env)
         {
-            scan(method.annotations, env);
-            scan(method.body.statements, new Environment {
+            analyze(method.annotations, env);
+            analyze(method.body.statements, new Environment {
                 enclMethod = method.symbol,
                 scope = method.symbol.scope,
                 parent = env
@@ -122,13 +131,13 @@ namespace mj.compiler.symbol
 
         public override Type visitAspectDef(AspectDef aspect, Environment env)
         {
-            scan(aspect.after, env);
+            analyze(aspect.after, env);
             return null;
         }
 
         public override Type visitBlock(Block block, Environment env)
         {
-            scan(block.statements, env.subScope(block));
+            analyze(block.statements, env.subScope(block));
             return null;
         }
 
@@ -141,7 +150,7 @@ namespace mj.compiler.symbol
             VarSymbol varSymbol = new VarSymbol(Kind.LOCAL, name, declaredType, env.enclMethod);
             varDef.symbol = varSymbol;
             if (init != null) {
-                Type initType = scanExpr(init, env);
+                Type initType = analyzeExpr(init, env);
                 if (!typings.isAssignableFrom(declaredType, initType)) {
                     log.error(varDef.Pos, messages.varInitTypeMismatch, name, initType, declaredType);
                 }
@@ -157,14 +166,14 @@ namespace mj.compiler.symbol
 
         public override Type visitIf(If @if, Environment env)
         {
-            Type conditionType = scanExpr(@if.condition, env);
+            Type conditionType = analyzeExpr(@if.condition, env);
             if (!isBoolean(conditionType)) {
                 log.error(@if.condition.Pos, messages.ifConditonType);
             }
 
-            scan(@if.thenPart, env);
+            analyze(@if.thenPart, env);
             if (@if.elsePart != null) {
-                scan(@if.elsePart, env);
+                analyze(@if.elsePart, env);
             }
 
             return null;
@@ -172,13 +181,13 @@ namespace mj.compiler.symbol
 
         public override Type visitWhileLoop(WhileStatement whileStatement, Environment outerEnv)
         {
-            Type conditionType = scanExpr(whileStatement.condition, outerEnv);
+            Type conditionType = analyzeExpr(whileStatement.condition, outerEnv);
             if (!isBoolean(conditionType)) {
                 log.error(whileStatement.condition.Pos, messages.whileConditonType);
             }
 
             Environment whileEnv = outerEnv.subScope(whileStatement);
-            scan(whileStatement.body, whileEnv);
+            analyze(whileStatement.body, whileEnv);
 
             return null;
         }
@@ -186,9 +195,9 @@ namespace mj.compiler.symbol
         public override Type visitDo(DoStatement doStatement, Environment outerEnv)
         {
             Environment doEnv = outerEnv.subScope(doStatement);
-            scan(doStatement.body, doEnv);
+            analyze(doStatement.body, doEnv);
 
-            Type conditionType = scanExpr(doStatement.condition, outerEnv);
+            Type conditionType = analyzeExpr(doStatement.condition, outerEnv);
             if (!isBoolean(conditionType)) {
                 log.error(doStatement.condition.Pos, messages.whileConditonType);
             }
@@ -201,28 +210,28 @@ namespace mj.compiler.symbol
         public override Type visitForLoop(ForLoop forLoop, Environment env)
         {
             Environment forEnv = env;
-            if (forLoop.init.Any(st => st.Tag == Tag.VAR_DEF)) {
+            if (forLoop.init.Any(st => st is VariableDeclaration)) {
                 forEnv = env.subScope(forLoop);
             }
             foreach (StatementNode st in forLoop.init) {
-                scan(st, forEnv);
+                analyze(st, forEnv);
             }
             if (forLoop.condition != null) {
-                Type conditionType = scanExpr(forLoop.condition, forEnv);
+                Type conditionType = analyzeExpr(forLoop.condition, forEnv);
                 if (!isBoolean(conditionType)) {
                     log.error(forLoop.condition.Pos, messages.ifConditonType);
                 }
             }
             foreach (Expression exp in forLoop.update) {
-                scan(exp, forEnv);
+                analyze(exp, forEnv);
             }
-            scan(forLoop.body, forEnv);
+            analyze(forLoop.body, forEnv);
             return null;
         }
 
         public override Type visitSwitch(Switch @switch, Environment env)
         {
-            Type selectorType = scanExpr(@switch.selector, env);
+            Type selectorType = analyzeExpr(@switch.selector, env);
             if (!selectorType.IsIntegral && !selectorType.IsError) {
                 log.error(@switch.selector.Pos, messages.switchSelectorType);
             }
@@ -234,7 +243,7 @@ namespace mj.compiler.symbol
             for (var i = 0; i < cases.Count; i++) {
                 Case @case = cases[i];
                 if (@case.expression != null) {
-                    Type caseExprType = scanExpr(@case.expression, env);
+                    Type caseExprType = analyzeExpr(@case.expression, env);
                     if (caseExprType.ConstValue == null || caseExprType.BaseType != selectorType) {
                         log.error(@case.expression.Pos, messages.caseExpressionType);
                     } else if (!caseValues.Add(caseExprType.ConstValue)) {
@@ -246,7 +255,7 @@ namespace mj.compiler.symbol
                     hasDefault = true;
                 }
 
-                scan(@case.statements, switchEnv);
+                analyze(@case.statements, switchEnv);
             }
 
             return null;
@@ -257,7 +266,7 @@ namespace mj.compiler.symbol
         public override Type visitMethodInvoke(MethodInvocation invocation, Environment env)
         {
             // analyze argument expressions
-            IList<Type> argTypes = invocation.args.convert(arg => scanExpr(arg, env));
+            IList<Type> argTypes = invocation.args.convert(arg => analyzeExpr(arg, env));
 
             // resolve method
             string name = invocation.methodName;
@@ -287,6 +296,7 @@ namespace mj.compiler.symbol
                 }
             }
 
+            msym.isInvoked = true;
             invocation.methodSym = msym;
             invocation.type = msym.type.ReturnType;
             return msym.type.ReturnType;
@@ -294,7 +304,7 @@ namespace mj.compiler.symbol
 
         public override Type visitExpresionStmt(ExpressionStatement expr, Environment env)
         {
-            return scanExpr(expr.expression, env);
+            return analyzeExpr(expr.expression, env);
         }
 
         public override Type visitPrimitiveType(PrimitiveTypeNode prim, Environment env)
@@ -320,7 +330,7 @@ namespace mj.compiler.symbol
 
         public override Type visitSelect(Select select, Environment env)
         {
-            Type leftType = scanExpr(select.selected, env);
+            Type leftType = analyzeExpr(select.selected, env);
             if (leftType.IsError) {
                 select.symbol = symtab.errorVarSymbol;
                 return symtab.errorType;
@@ -361,12 +371,12 @@ namespace mj.compiler.symbol
 
         public override Type visitIdent(Identifier ident, Environment env)
         {
-            VarSymbol varSym = (VarSymbol)env.scope.findFirst(ident.name, s => (s.kind & Kind.VAR) != 0);
+            Symbol varSym = env.scope.findFirst(ident.name, s => (s.kind & Kind.VAR) != 0);
             if (varSym == null) {
                 log.error(ident.Pos, messages.undefinedVariable, ident.name);
                 varSym = symtab.errorVarSymbol;
             }
-            ident.symbol = varSym;
+            ident.symbol = (VarSymbol)varSym;
             return varSym.type;
         }
 
@@ -375,7 +385,7 @@ namespace mj.compiler.symbol
             Type returnType = env.enclMethod.type.ReturnType;
             Expression expr = returnStatement.value;
             if (expr != null) {
-                Type exprType = scanExpr(expr, env);
+                Type exprType = analyzeExpr(expr, env);
                 if (returnType == symtab.voidType) {
                     log.error(returnStatement.Pos, messages.returnVoidMethod);
                 } else if (!typings.isAssignableFrom(returnType, exprType)) {
@@ -390,9 +400,9 @@ namespace mj.compiler.symbol
 
         public override Type visitConditional(ConditionalExpression conditional, Environment env)
         {
-            Type condType = scanExpr(conditional.condition, env);
-            Type trueType = scanExpr(conditional.ifTrue, env);
-            Type falseType = scanExpr(conditional.ifFalse, env);
+            Type condType = analyzeExpr(conditional.condition, env);
+            Type trueType = analyzeExpr(conditional.ifTrue, env);
+            Type falseType = analyzeExpr(conditional.ifFalse, env);
 
             if (condType != symtab.booleanType) {
                 log.error(conditional.condition.Pos, messages.conditionalBoolean);
@@ -451,7 +461,7 @@ namespace mj.compiler.symbol
 
         public override Type visitUnary(UnaryExpressionNode unary, Environment env)
         {
-            Type operandType = scanExpr(unary.operand, env);
+            Type operandType = analyzeExpr(unary.operand, env);
             if (unary.opcode.isIncDec() && !unary.operand.IsLValue) {
                 log.error(unary.Pos, messages.incDecArgument);
             }
@@ -463,8 +473,8 @@ namespace mj.compiler.symbol
 
         public override Type visitBinary(BinaryExpressionNode binary, Environment env)
         {
-            Type leftType = scanExpr(binary.left, env);
-            Type rightType = scanExpr(binary.right, env);
+            Type leftType = analyzeExpr(binary.left, env);
+            Type rightType = analyzeExpr(binary.right, env);
 
             OperatorSymbol op = operators.resolveBinary(binary.Pos, binary.opcode, leftType, rightType);
             binary.operatorSym = op;
@@ -478,8 +488,8 @@ namespace mj.compiler.symbol
                 log.error(assign.Pos, messages.assignmentLHS);
             }
 
-            Type lType = scanExpr(assign.left, env);
-            Type rType = scanExpr(assign.right, env);
+            Type lType = analyzeExpr(assign.left, env);
+            Type rType = analyzeExpr(assign.right, env);
 
             if (!lValueError && !typings.isAssignableFrom(lType, rType)) {
                 log.error(assign.Pos, messages.assignmentUncompatible);
@@ -495,8 +505,8 @@ namespace mj.compiler.symbol
                 log.error(compAssign.Pos, messages.assignmentLHS);
             }
 
-            Type lType = scanExpr(compAssign.left, env);
-            Type rType = scanExpr(compAssign.right, env);
+            Type lType = analyzeExpr(compAssign.left, env);
+            Type rType = analyzeExpr(compAssign.right, env);
 
             OperatorSymbol op = operators.resolveBinary(compAssign.Pos, compAssign.opcode.baseOperator(), lType, rType);
             return op.type.ReturnType;
