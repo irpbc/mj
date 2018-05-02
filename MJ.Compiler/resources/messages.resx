@@ -62,7 +62,6 @@
     <data name="multipleDefaults"><value>Multiple default cases in switch</value></data>
     <data name="selectOnPrimitive"><value>Attempted field access on primitive type</value></data>
     <data name="unknownField"><value>Field "{0}" is not defined in class "{1}"</value></data>
-    <data name="duplicateField"><value>Field "{0}" is already defined in class "{1}"</value></data>
     <data name="undefinedClass"><value>Class "{0}" is not defined</value></data>
     
 </root>
