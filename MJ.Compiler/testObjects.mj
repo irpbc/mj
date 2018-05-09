@@ -1,0 +1,36 @@
+
+class A {
+    int intField;
+    float floatField;
+    boolean boolField;
+}
+
+class B {
+    A aField;
+    A anotherAField;
+    B bField;
+}
+
+int main(int argc, long arvPtr) {
+    
+    for (int i = 0; i < 100; i++) {
+        printf("---- Loop count = %d ----\n", i);
+        B b = deepB1();
+        B b2 = deepB2();
+        b.aField = deepA1();
+    }
+    
+    return 0;
+}
+
+B deepB1() { return deepB2(); }
+B deepB2() { return deepB3(); }
+B deepB3() { return new B(); }
+
+A deepA1() { return deepA2(); }
+A deepA2() { return deepA3(); }
+A deepA3() { return new A(); }
+
+string nekaFunkcija(B b) {
+    return "Neki string\n\n";
+}

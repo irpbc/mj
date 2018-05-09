@@ -104,13 +104,13 @@ namespace mj.compiler.parsing
         {
             String name = context.name.Text;
 
-            Tree[] members = new Tree[context._fields.Count];
+            VariableDeclaration[] fields = new VariableDeclaration[context._fields.Count];
             for (var i = 0; i < context._fields.Count; i++) {
-                members[i] = (VariableDeclaration)VisitFieldDef(context._fields[i]);
+                fields[i] = (VariableDeclaration)VisitFieldDef(context._fields[i]);
             }
 
             return new ClassDef(context.Start.Line, context.Start.Column, context.Stop.Line,
-                context.Stop.Column, name, members);
+                context.Stop.Column, name, fields);
         }
 
         public override Tree VisitFieldDef(FieldDefContext context)

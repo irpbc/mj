@@ -4,6 +4,8 @@ using LLVMSharp;
 
 using mj.compiler.symbol;
 
+using static mj.compiler.codegen.LLVMUtils;
+
 using Type = mj.compiler.symbol.Type;
 
 namespace mj.compiler.codegen
@@ -15,13 +17,13 @@ namespace mj.compiler.codegen
         public override LLVMTypeRef visitPrimitiveType(PrimitiveType prim)
         {
             switch (prim.Tag) {
-                case TypeTag.INT: return LLVMTypeRef.Int32Type();
-                case TypeTag.LONG: return LLVMTypeRef.Int64Type();
-                case TypeTag.FLOAT: return LLVMTypeRef.FloatType();
-                case TypeTag.DOUBLE: return LLVMTypeRef.DoubleType();
-                case TypeTag.BOOLEAN: return LLVMTypeRef.Int1Type();
-                case TypeTag.STRING: return LLVMTypeRef.PointerType(LLVMTypeRef.Int8Type(), 0);
-                case TypeTag.VOID: return LLVMTypeRef.VoidType();
+                case TypeTag.INT: return INT32;
+                case TypeTag.LONG: return INT64;
+                case TypeTag.FLOAT: return FLOAT;
+                case TypeTag.DOUBLE: return DOUBLE;
+                case TypeTag.BOOLEAN: return INT1;
+                case TypeTag.STRING: return PTR_INT8;
+                case TypeTag.VOID: return VOID;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -34,12 +36,12 @@ namespace mj.compiler.codegen
             for (var i = 0; i < paramTypes.Length; i++) {
                 paramTypes[i] = methodType.ParameterTypes[i].accept(this);
             }
-            return LLVMTypeRef.FunctionType(retType, paramTypes, methodType.isVarArg);
+            return LLVM.FunctionType(retType, paramTypes, methodType.isVarArg);
         }
 
         public override LLVMTypeRef visitClassType(ClassType classType)
         {
-            return LLVM.PointerType(((Symbol.ClassSymbol)classType.definer).llvmPointer, 0);
+            return HEAP_PTR(((Symbol.ClassSymbol)classType.definer).llvmTypeRef);
         }
     }
 }

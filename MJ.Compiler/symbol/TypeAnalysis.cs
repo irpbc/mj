@@ -88,19 +88,18 @@ namespace mj.compiler.symbol
             // create scope for class members
             WriteableScope membersScope = WriteableScope.create(classDef.symbol);
             classDef.symbol.membersScope = membersScope;
+            // field indexes start at 1 to accomodate for the meta pointer (object header)
             int fieldIndex = 0;
-            for (var i = 0; i < classDef.members.Count; i++) {
-                Tree member = classDef.members[i];
-                if (member is VariableDeclaration vd) {
-                    VarSymbol field = (VarSymbol)membersScope.findFirst(vd.name, s => s.kind == Kind.FIELD);
-                    if (field != null) {
-                        log.error(vd.Pos, messages.duplicateVar, vd.name, classDef.name);
-                    } else {
-                        VarSymbol var = new VarSymbol(Kind.FIELD, vd.name, scan(vd.type, env), classDef.symbol);
-                        var.fieldIndex = fieldIndex++;
-                        membersScope.enter(var);
-                        vd.symbol = var;
-                    }
+            for (var i = 0; i < classDef.fields.Count; i++) {
+                VariableDeclaration vd = classDef.fields[i];
+                VarSymbol field = (VarSymbol)membersScope.findFirst(vd.name, s => s.kind == Kind.FIELD);
+                if (field != null) {
+                    log.error(vd.Pos, messages.duplicateVar, vd.name, classDef.name);
+                } else {
+                    VarSymbol var = new VarSymbol(Kind.FIELD, vd.name, scan(vd.type, env), classDef.symbol);
+                    var.fieldIndex = fieldIndex++;
+                    membersScope.enter(var);
+                    vd.symbol = var;
                 }
             }
             return null;
@@ -330,7 +329,7 @@ namespace mj.compiler.symbol
 
         public override Type visitSelect(Select select, Environment env)
         {
-            Type leftType = analyzeExpr(select.selected, env);
+            Type leftType = analyzeExpr(select.selectBase, env);
             if (leftType.IsError) {
                 select.symbol = symtab.errorVarSymbol;
                 return symtab.errorType;

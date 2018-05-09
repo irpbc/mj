@@ -22,11 +22,17 @@ namespace mj.compiler.symbol
             log = Log.instance(ctx);
         }
 
-        public Type resolveType(TypeTree tree)
+        public Type resolveType(TypeTree tree, Scope.WriteableScope scope)
         {
             if (tree is PrimitiveTypeNode p) {
                 Type type = symtab.typeForTag(p.type);
                 return type;
+            }
+            if (tree is DeclaredType d) {
+                Symbol sym = scope.findFirst(d.name);
+                if (sym != null) {
+                    return sym.type;
+                }
             }
             return symtab.errorType;
         }
