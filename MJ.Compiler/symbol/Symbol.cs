@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 using LLVMSharp;
 
-using mj.compiler.tree;
+using mj.compiler.codegen;
 using mj.compiler.utils;
 
 using Newtonsoft.Json;
@@ -51,7 +51,8 @@ namespace mj.compiler.symbol
         public class ClassSymbol : TypeSymbol
         {
             public Scope.WriteableScope membersScope;
-            public LLVMTypeRef llvmPointer;
+            public LLVMTypeRef llvmTypeRef;
+            public LLVMValueRef llvmMetaRef;
 
             public ClassSymbol(string name, Symbol owner, Type type) 
                 : base(Kind.CLASS, name, owner, type) { }
@@ -63,7 +64,7 @@ namespace mj.compiler.symbol
         {
             public IList<VarSymbol> parameters;
             public Scope.WriteableScope scope;
-            public LLVMValueRef llvmPointer;
+            public LLVMValueRef llvmRef;
             public bool isVararg;
             public bool isInvoked;
 
@@ -86,12 +87,14 @@ namespace mj.compiler.symbol
 
         public class VarSymbol : Symbol
         {
-            public LLVMValueRef llvmPointer;
+            public LLVMValueRef llvmRef;
             public int fieldIndex;
 
             public VarSymbol(Kind kind, string name, Type type, Symbol owner) : base(kind, name, owner, type) { }
 
             public override string ToString() => name + ": " + type;
+
+            public int LLVMFieldIndex => fieldIndex + LLVMUtils.OBJECT_HEADER_FIELDS;
         }
 
         public abstract class TypeSymbol : Symbol

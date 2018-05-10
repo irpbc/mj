@@ -68,14 +68,14 @@ namespace mj.compiler.tree
     public sealed class ClassDef : Tree
     {
         public String name;
-        public IList<Tree> members;
+        public IList<VariableDeclaration> fields;
         public Symbol.ClassSymbol symbol;
 
-        public ClassDef(int beginLine, int beginCol, int endLine, int endCol, string name, IList<Tree> members) 
+        public ClassDef(int beginLine, int beginCol, int endLine, int endCol, string name, VariableDeclaration[] fields) 
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
-            this.members = members;
+            this.fields = fields;
         }
 
         public override Tag Tag => Tag.CLASS_DEF;
@@ -148,14 +148,14 @@ namespace mj.compiler.tree
 
     public sealed class Select : Expression
     {
-        public Expression selected;
+        public Expression selectBase;
         public String name;
         public Symbol.VarSymbol symbol;
 
-        public Select(int beginLine, int beginCol, int endLine, int endCol, Expression selected, string name) 
+        public Select(int beginLine, int beginCol, int endLine, int endCol, Expression selectBase, string name) 
             : base(beginLine, beginCol, endLine, endCol)
         {
-            this.selected = selected;
+            this.selectBase = selectBase;
             this.name = name;
         }
 

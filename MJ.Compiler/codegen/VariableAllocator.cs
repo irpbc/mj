@@ -17,7 +17,7 @@ namespace mj.compiler.codegen
 
         public override void visitVarDef(VariableDeclaration varDef)
         {
-            varDef.symbol.llvmPointer =
+            varDef.symbol.llvmRef =
                 LLVM.BuildAlloca(builder, varDef.symbol.type.accept(typeResolver), varDef.symbol.name);
         }
 

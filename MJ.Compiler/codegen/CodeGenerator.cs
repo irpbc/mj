@@ -11,6 +11,8 @@ using mj.compiler.symbol;
 using mj.compiler.tree;
 using mj.compiler.utils;
 
+using static mj.compiler.codegen.LLVMUtils;
+
 using Type = mj.compiler.symbol.Type;
 
 namespace mj.compiler.codegen
@@ -48,6 +50,7 @@ namespace mj.compiler.codegen
         private MethodDef method;
         private LLVMBuilderRef builder;
 
+        private LLVMValueRef initRuntime;
         private LLVMValueRef allocFunction;
 
         private static readonly LLVMValueRef nullValue = default(LLVMValueRef);
@@ -64,6 +67,7 @@ namespace mj.compiler.codegen
             LLVMPassManagerRef passManager = LLVM.CreatePassManager();
             LLVM.AddStripDeadPrototypesPass(passManager);
             LLVM.AddPromoteMemoryToRegisterPass(passManager);
+            CompilerNative.AddRewriteStatepointsForGCPass(passManager);
             LLVM.AddEarlyCSEPass(passManager);
             LLVM.AddCFGSimplificationPass(passManager);
             LLVM.AddNewGVNPass(passManager);
@@ -124,7 +128,6 @@ namespace mj.compiler.codegen
 
             LLVMTargetRef target = LLVM.GetFirstTarget();
             if (target.Pointer == IntPtr.Zero) {
-                Console.WriteLine("Cvrc");
                 return;
             }
 
@@ -136,8 +139,6 @@ namespace mj.compiler.codegen
 
             LLVM.TargetMachineEmitToMemoryBuffer(targetMachine, module, LLVMCodeGenFileType.LLVMObjectFile,
                 out var targetDescription, out var memoryBuffer);
-
-            Console.WriteLine(targetDescription);
 
             size_t bufferSize = LLVM.GetBufferSize(memoryBuffer);
             IntPtr bufferStart = LLVM.GetBufferStart(memoryBuffer);
@@ -245,17 +246,23 @@ namespace mj.compiler.codegen
                 if (m.isInvoked) {
                     LLVMValueRef func = LLVM.AddFunction(module, "mj_" + m.name, typeResolver.resolve(m.type));
                     func.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
-                    m.llvmPointer = func;
+                    m.llvmRef = func;
                 }
             }
         }
 
         public void declareRuntimeHelpers()
         {
-            LLVMTypeRef retType = LLVM.PointerType(LLVM.Int8Type(), 0);
-            LLVMTypeRef[] args = {LLVM.Int32Type()};
-            allocFunction = LLVM.AddFunction(module, "mjrt_alloc", LLVM.FunctionType(retType, args, false));
+            allocFunction = module.Func(HEAP_PTR(INT8), "mjrt_alloc", PTR_VOID);
             allocFunction.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
+
+            initRuntime = module.Func(VOID, "_premain");
+            initRuntime.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
+        }
+
+        private void writeProlog()
+        {
+            LLVM.BuildCall(builder, initRuntime, new LLVMValueRef[0], "");
         }
 
         private void build(IList<CompilationUnit> compilationUnits)
@@ -274,13 +281,28 @@ namespace mj.compiler.codegen
 
         private void createFunctionsAndClasses(CompilationUnit compilationUnit)
         {
-            foreach (Tree decl in compilationUnit.declarations) {
+            // Declare classes first before processing function argumets;
+            for (int i = 0, count = compilationUnit.declarations.Count; i < count; i++) {
+                Tree decl = compilationUnit.declarations[i];
+                if (decl is ClassDef cd) {
+                    declareLLLVMStructType(cd);
+                }
+            }
+
+            // Struct bodies are added afterwards because of possible references
+            for (int i = 0, count = compilationUnit.declarations.Count; i < count; i++) {
+                Tree decl = compilationUnit.declarations[i];
+                if (decl is ClassDef cd) {
+                    setStructTypeBody(cd);
+                    createObjectMetadataRecord(cd);
+                }
+            }
+
+            for (int i = 0, count = compilationUnit.declarations.Count; i < count; i++) {
+                Tree decl = compilationUnit.declarations[i];
                 switch (decl) {
                     case MethodDef mt:
                         createFunction(mt);
-                        break;
-                    case ClassDef cd:
-                        createClass(cd);
                         break;
                     case AspectDef asp:
                         createFunction(asp.after);
@@ -289,18 +311,58 @@ namespace mj.compiler.codegen
             }
         }
 
-        private void createClass(ClassDef cd)
+        private void declareLLLVMStructType(ClassDef cd)
         {
             Symbol.ClassSymbol sym = cd.symbol;
-  
-            LLVMTypeRef[] llvmTypes = cd.members
-                                        .OfType<VariableDeclaration>()
-                                        .Select(f => typeResolver.resolve(f.symbol.type)).ToArray();
 
-            LLVMTypeRef structType = LLVM.StructCreateNamed(context, cd.name);
-            structType.StructSetBody(llvmTypes, false);
+            LLVMTypeRef structType = LLVM.StructCreateNamed(context, "struct." + cd.name);
 
-            sym.llvmPointer = structType;
+            sym.llvmTypeRef = structType;
+        }
+
+        private void setStructTypeBody(ClassDef cd)
+        {
+            LLVMTypeRef[] llvmTypes = new LLVMTypeRef[cd.fields.Count + OBJECT_HEADER_FIELDS];
+
+            // Metadata pointer, GC forwarding address, GC scan status
+            llvmTypes[0] = PTR_VOID;
+            llvmTypes[1] = PTR_VOID;
+            llvmTypes[2] = INT8;
+
+            // Declared fields
+            for (int i = 0, count = cd.fields.Count; i < count; i++) {
+                llvmTypes[i + OBJECT_HEADER_FIELDS] = typeResolver.resolve(cd.fields[i].symbol.type);
+            }
+
+            cd.symbol.llvmTypeRef.StructSetBody(llvmTypes, false);
+        }
+
+        private void createObjectMetadataRecord(ClassDef cd)
+        {
+            LLVMTypeRef objectType = cd.symbol.llvmTypeRef;
+            LLVMValueRef nullPtr = NULL(PTR(objectType));
+
+            LLVMValueRef sizeGep = LLVM.ConstGEP(nullPtr, new[] {CONST_INT32(1)});
+            LLVMValueRef objectSize = LLVM.ConstPtrToInt(sizeGep, INT32);
+
+            LLVMValueRef[] ptrOffsets = cd.fields
+                                          .Where(v => v.type.Tag == Tag.DECLARED_TYPE)
+                                          .Select(v => {
+                                              LLVMValueRef offsetGep = LLVM.ConstInBoundsGEP(nullPtr,
+                                                  new[] {CONST_INT32(0), CONST_INT32(v.symbol.LLVMFieldIndex)});
+                                              LLVMValueRef offset = LLVM.ConstPtrToInt(offsetGep, INT32);
+                                              return offset;
+                                          }).ToArray();
+
+            LLVMValueRef offsetsArray = LLVM.ConstArray(INT32, ptrOffsets);
+            LLVMValueRef[] metadataFields = {objectSize, CONST_INT32(ptrOffsets.Length), offsetsArray};
+            LLVMValueRef metadata = LLVM.ConstStruct(metadataFields, false);
+
+            LLVMValueRef global = LLVM.AddGlobal(module, metadata.TypeOf(), "__meta__" + cd.name);
+            global.SetInitializer(metadata);
+            global.SetGlobalConstant(true);
+
+            cd.symbol.llvmMetaRef = global;
         }
 
         private void createFunction(MethodDef mt)
@@ -308,25 +370,30 @@ namespace mj.compiler.codegen
             LLVMTypeRef llvmType = typeResolver.resolve(mt.symbol.type);
             LLVMValueRef func = LLVM.AddFunction(module, mt.name, llvmType);
             func.SetFunctionCallConv((uint)LLVMCallConv.LLVMCCallConv);
+            func.SetGC("statepoint-example");
 
-            mt.symbol.llvmPointer = func;
+            mt.symbol.llvmRef = func;
+
+            LLVMValueRef[] llvmParams = func.GetParams();
+            for (var i = 0; i < llvmParams.Length; i++) {
+                mt.symbol.parameters[i].llvmRef = llvmParams[i];
+            }
         }
 
         public override LLVMValueRef visitClassDef(ClassDef classDef) => nullValue;
 
         public override LLVMValueRef visitMethodDef(MethodDef mt)
         {
-            function = mt.symbol.llvmPointer;
+            function = mt.symbol.llvmRef;
 
             LLVMBasicBlockRef entryBlock = function.AppendBasicBlock("entry");
             LLVM.PositionBuilderAtEnd(builder, entryBlock);
 
-            variableAllocator.scan(mt.body);
-
-            LLVMValueRef[] llvmParams = function.GetParams();
-            for (var i = 0; i < llvmParams.Length; i++) {
-                mt.symbol.parameters[i].llvmPointer = llvmParams[i];
+            if (mt.name == "main") {
+                writeProlog();
             }
+
+            variableAllocator.scan(mt.body);
 
             method = mt;
             scan(mt.body.statements);
@@ -582,9 +649,7 @@ namespace mj.compiler.codegen
                 LLVM.BuildRetVoid(builder);
             } else {
                 LLVMValueRef value = scan(returnStatement.value);
-                value = promote((PrimitiveType)returnStatement.value.type,
-                    (PrimitiveType)method.symbol.type.ReturnType,
-                    value);
+                value = promote(returnStatement.value.type, method.symbol.type.ReturnType, value);
                 if (returnStatement.afterAspects != null) {
                     scan(returnStatement.afterAspects);
                 }
@@ -605,7 +670,7 @@ namespace mj.compiler.codegen
             if (varDef.init != null) {
                 LLVMValueRef initVal = scan(varDef.init);
                 initVal = promote(varDef.init.type, varDef.symbol.type, initVal);
-                LLVM.BuildStore(builder, initVal, varDef.symbol.llvmPointer);
+                LLVM.BuildStore(builder, initVal, varDef.symbol.llvmRef);
             }
 
             return nullValue;
@@ -654,8 +719,7 @@ namespace mj.compiler.codegen
             for (; i < fixedCount; i++) {
                 Expression arg = mi.args[i];
                 LLVMValueRef argVal = scan(arg);
-                args[i] = promote((PrimitiveType)arg.type, (PrimitiveType)mi.methodSym.type.ParameterTypes[i],
-                    argVal);
+                args[i] = promote(arg.type, mi.methodSym.type.ParameterTypes[i], argVal);
             }
 
             // add varargs without promotion
@@ -665,7 +729,7 @@ namespace mj.compiler.codegen
             }
 
             string name = mi.type.IsVoid ? "" : mi.methodSym.name;
-            LLVMValueRef callInst = LLVM.BuildCall(builder, mi.methodSym.llvmPointer, args, name);
+            LLVMValueRef callInst = LLVM.BuildCall(builder, mi.methodSym.llvmRef, args, name);
             return callInst;
         }
 
@@ -673,31 +737,30 @@ namespace mj.compiler.codegen
         {
             if (ident.symbol.kind == Symbol.Kind.PARAM) {
                 // parameters are direct values
-                return ident.symbol.llvmPointer;
+                return ident.symbol.llvmRef;
             }
 
             // local variables are "allocated"
-            return LLVM.BuildLoad(builder, ident.symbol.llvmPointer, "load." + ident.name);
+            return LLVM.BuildLoad(builder, ident.symbol.llvmRef, "load." + ident.name);
         }
 
         public override LLVMValueRef visitSelect(Select select)
         {
-            LLVMValueRef left = scan(select.selected);
+            LLVMValueRef left = scan(select.selectBase);
             LLVMValueRef ptr =
-                LLVM.BuildStructGEP(builder, left, (uint)select.symbol.fieldIndex, select.name + ".ptr");
+                LLVM.BuildStructGEP(builder, left, (uint)select.symbol.LLVMFieldIndex, select.name + ".ptr");
             return LLVM.BuildLoad(builder, ptr, select.name);
         }
 
         public override LLVMValueRef visitNewClass(NewClass newClass)
         {
-            LLVMTypeRef structType = newClass.symbol.llvmPointer;
-            LLVMTypeRef ptrToStruct = LLVM.PointerType(structType, 0);
+            LLVMTypeRef structType = newClass.symbol.llvmTypeRef;
+            LLVMTypeRef ptrToStruct = HEAP_PTR(structType);
 
-            LLVMValueRef gep = LLVM.BuildGEP(builder, LLVM.ConstNull(ptrToStruct), new[] {const1(TypeTag.INT)}, "tmp");
-            LLVMValueRef size = LLVM.BuildPtrToInt(builder, gep, LLVM.Int32Type(), "size");
+            LLVMValueRef metaPtr = LLVM.BuildPointerCast(builder, newClass.symbol.llvmMetaRef, PTR_VOID, "met");
 
-            LLVMValueRef untypedPtr = LLVM.BuildCall(builder, allocFunction, new[] {size}, "tmp");
-            return LLVM.BuildPointerCast(builder, untypedPtr, ptrToStruct, newClass.symbol.name);
+            LLVMValueRef untypedPtr = LLVM.BuildCall(builder, allocFunction, new[] {metaPtr}, "tmp");
+            return LLVM.BuildPointerCast(builder, untypedPtr, ptrToStruct, "tmp");
         }
 
         public override LLVMValueRef visitLiteral(LiteralExpression literal)
@@ -748,13 +811,13 @@ namespace mj.compiler.codegen
         private LLVMValueRef getPointerToLocation(Expression expr)
         {
             switch (expr) {
-                case Identifier id: return id.symbol.llvmPointer;
+                case Identifier id: return id.symbol.llvmRef;
                 case Select s:
-                    LLVMValueRef ptrToPtrToObject = getPointerToLocation(s.selected);
+                    LLVMValueRef ptrToPtrToObject = getPointerToLocation(s.selectBase);
                     LLVMValueRef ptrToObject = LLVM.BuildLoad(builder, ptrToPtrToObject, "tmp");
-                    LLVMValueRef ptrToField = LLVM.BuildStructGEP(builder, ptrToObject, 
-                        (uint)s.symbol.fieldIndex, s.name + ".ptr");
-                    
+                    LLVMValueRef ptrToField = LLVM.BuildStructGEP(builder, ptrToObject,
+                        (uint)s.symbol.LLVMFieldIndex, s.name + ".ptr");
+
                     return ptrToField;
             }
             throw new InvalidOperationException();
@@ -776,26 +839,22 @@ namespace mj.compiler.codegen
             }
 
             if (expr.opcode.isIncDec()) {
-                LLVMValueRef one = const1(expr.operatorSym.type.ReturnType.Tag);
+                LLVMValueRef one = toLLVMConst(1, expr.operatorSym.type.ReturnType.Tag);
                 LLVMValueRef resVal = LLVM.BuildBinOp(builder, expr.operatorSym.opcode, operandVal, one, "incDec");
-                LLVM.BuildStore(builder, resVal, ((Identifier)expr.operand).symbol.llvmPointer);
+                LLVM.BuildStore(builder, resVal, ((Identifier)expr.operand).symbol.llvmRef);
                 return expr.opcode.isPre() ? resVal : operandVal;
             }
 
             throw new ArgumentOutOfRangeException();
         }
 
-        private LLVMValueRef const1(TypeTag type)
+        private LLVMValueRef toLLVMConst(int num, TypeTag type)
         {
             switch (type) {
-                case TypeTag.INT:
-                    return LLVM.ConstInt(LLVMTypeRef.Int32Type(), 1, new LLVMBool(0));
-                case TypeTag.LONG:
-                    return LLVM.ConstInt(LLVMTypeRef.Int64Type(), 1, new LLVMBool(0));
-                case TypeTag.FLOAT:
-                    return LLVM.ConstReal(LLVMTypeRef.FloatType(), 1);
-                case TypeTag.DOUBLE:
-                    return LLVM.ConstReal(LLVMTypeRef.DoubleType(), 1);
+                case TypeTag.INT: return CONST_INT32(num);
+                case TypeTag.LONG: return CONST_INT64(num);
+                case TypeTag.FLOAT: return CONST_FLOAT(num);
+                case TypeTag.DOUBLE: return CONST_DOUBLE(num);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }

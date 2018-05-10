@@ -160,12 +160,12 @@ namespace mj.compiler.symbol
             scan(paramTrees, scope);
 
             // get return type
-            Type retType = typings.resolveType(retTypeTree);
+            Type retType = typings.resolveType(retTypeTree, scope);
 
             Type[] paramTypes = new Type[paramTrees.Count];
             for (var i = 0; i < paramTrees.Count; i++) {
                 VariableDeclaration tree = paramTrees[i];
-                paramTypes[i] = typings.resolveType(tree.type);
+                paramTypes[i] = typings.resolveType(tree.type, scope);
             }
 
             return new MethodType(paramTypes, retType);
@@ -173,7 +173,7 @@ namespace mj.compiler.symbol
 
         public override object visitVarDef(VariableDeclaration varDef, WriteableScope scope)
         {
-            Type varType = typings.resolveType(varDef.type);
+            Type varType = typings.resolveType(varDef.type, scope);
             MethodSymbol met = (MethodSymbol)scope.owner;
             VarSymbol varSym = new VarSymbol(Kind.PARAM, varDef.name, varType, met);
 
