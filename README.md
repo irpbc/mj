@@ -9,13 +9,13 @@ Language is based on widely used C syntax. It's syntax supports:
 * Functions (refered to as "methods" in the compiler)
 * Usual control flow statements (`if`, `for`, `while`, `do`, `switch`)
 * Variable declarations
-* Types: `int`, `long`, `float`, `double` and `boolean`
+* Primitive types: `int`, `long`, `float`, `double` and `boolean`
 * Comments (single line `// ...` and block `/* ... */`)
 * `string` type, which is a pointer to a null terminated utf8 string, and currently 
 does not support any operations except creating one with a string literal
+* Declaring structured types, which are heap allocated and garbage collected.
 
-The language has some built-in functions written in C as a 
-[Runtime library](http://www.github.com/irpbc/mj-rt):
+The language has some built-in functions:
 
 * `void hello()` - prints "Hello World"
 * `int puts(string str)` - prints a string to the console
@@ -30,9 +30,7 @@ The language has some built-in functions written in C as a
 
 It **does not** support (for now):
 
-* Pointer types
 * Arrays
-* Aggregate types (like structs or objects)
 
 ### Example
 
@@ -58,6 +56,8 @@ int main(int argc, long argvPtr) {
 
 Compiler is written in C# 7 (.Net Core), parser is generated with ANTLR4, and uses LLVM for code 
 generation.
+
+The runtime library and compiler native code is located at [irpbc/mj-rt](http://github.com/irpbc/mj-rt)
 
 [Technocal docs](Docs/Technical.md)
 

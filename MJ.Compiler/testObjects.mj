@@ -13,12 +13,15 @@ class B {
 
 int main(int argc, long arvPtr) {
     
-    for (int i = 0; i < 100; i++) {
+    int i = 0;
+    for (; i < 100; i++) {
         printf("---- Loop count = %d ----\n", i);
         B b = deepB1();
         B b2 = deepB2();
         b.aField = deepA1();
     }
+    
+    printf("I na kraju: %d", i);
     
     return 0;
 }
