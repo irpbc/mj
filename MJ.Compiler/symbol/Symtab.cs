@@ -26,9 +26,11 @@ namespace mj.compiler.symbol
         public readonly PrimitiveType stringType;
         public readonly PrimitiveType voidType;
 
+        public readonly Symbol.VarSymbol arrayLengthField;
+
         public readonly Type errorType;
         public readonly Symbol errorSymbol;
-        
+
         public readonly Symbol.VarSymbol errorVarSymbol;
         public readonly Symbol.TypeSymbol errorTypeSymbol;
 
@@ -37,13 +39,15 @@ namespace mj.compiler.symbol
         //public Symbol.OperatorSymbol noOpSymbol;
         public Symbol.OperatorSymbol errorOpSymbol;
 
+        public readonly Dictionary<Type, ArrayType> arrayTypes = new Dictionary<Type, ArrayType>();
+
         private sealed class NoSymbol : Symbol.TypeSymbol
         {
             public NoSymbol(Symbol owner, Type type) : base(Kind.MTH, "", owner, type) { }
 
             public override string ToString() => "<no symbol>";
         }
-        
+
         private sealed class ErrorTypeSymbol : Symbol.TypeSymbol
         {
             public ErrorTypeSymbol(Symbol owner, Type type) : base(Kind.ERROR, "<error>", owner, type) { }
@@ -65,6 +69,9 @@ namespace mj.compiler.symbol
             booleanType = primitive(TypeTag.BOOLEAN, "boolean");
             stringType = primitive(TypeTag.STRING, "string");
             voidType = primitive(TypeTag.VOID, "void");
+            
+            arrayLengthField = new Symbol.VarSymbol(Symbol.Kind.FIELD, "length", intType, noSymbol);
+            arrayLengthField.fieldIndex = 0;
 
             errorSymbol = new Symbol.ErrorSymbol(topLevelSymbol, null);
             errorType = new ErrorType(errorSymbol);
@@ -162,6 +169,16 @@ namespace mj.compiler.symbol
                 default:
                     throw new ArgumentOutOfRangeException(nameof(tag), tag, null);
             }
+        }
+
+        public ArrayType arrayTypeForElemType(Type elemType)
+        {
+            if (arrayTypes.TryGetValue(elemType, out var arrayType)) {
+                return arrayType;
+            }
+            arrayType = new ArrayType(elemType, elemType.definer);
+            arrayTypes.Add(elemType, arrayType);
+            return arrayType;
         }
     }
 }

@@ -52,6 +52,7 @@ namespace mj.compiler.codegen
 
         private LLVMValueRef initRuntime;
         private LLVMValueRef allocFunction;
+        private LLVMValueRef allocArrayFunction;
 
         private static readonly LLVMValueRef nullValue = default(LLVMValueRef);
 
@@ -138,7 +139,7 @@ namespace mj.compiler.codegen
                 LLVMCodeModel.LLVMCodeModelDefault);
 
             LLVM.TargetMachineEmitToMemoryBuffer(targetMachine, module, LLVMCodeGenFileType.LLVMObjectFile,
-                out var targetDescription, out var memoryBuffer);
+                out var _, out var memoryBuffer);
 
             size_t bufferSize = LLVM.GetBufferSize(memoryBuffer);
             IntPtr bufferStart = LLVM.GetBufferStart(memoryBuffer);
@@ -151,7 +152,7 @@ namespace mj.compiler.codegen
                 }
 
                 using (FileStream fs = file.Open(FileMode.Create, FileAccess.Write))
-                using (DisposableBuffer buffer = new DisposableBuffer(memoryBuffer)) {
+                using (DisposableBuffer unused = new DisposableBuffer(memoryBuffer)) {
                     s.CopyTo(fs);
                 }
             }
@@ -176,7 +177,7 @@ namespace mj.compiler.codegen
             return triple;
         }
 
-        // C++ RTTI style object to wrap the unmanaged resource
+        // C++ RAII style object to wrap the unmanaged resource
         private struct DisposableBuffer : IDisposable
         {
             private readonly LLVMMemoryBufferRef buffer;
@@ -256,6 +257,9 @@ namespace mj.compiler.codegen
             allocFunction = module.Func(HEAP_PTR(INT8), "mjrt_alloc", PTR_VOID);
             allocFunction.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
 
+            allocArrayFunction = module.Func(HEAP_PTR(INT8), "mjrt_alloc_array", PTR_VOID, INT32);
+            allocArrayFunction.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
+
             initRuntime = module.Func(VOID, "_premain");
             initRuntime.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
         }
@@ -285,7 +289,7 @@ namespace mj.compiler.codegen
             for (int i = 0, count = compilationUnit.declarations.Count; i < count; i++) {
                 Tree decl = compilationUnit.declarations[i];
                 if (decl is ClassDef cd) {
-                    declareLLLVMStructType(cd);
+                    declareLLVMStructType(cd);
                 }
             }
 
@@ -296,6 +300,12 @@ namespace mj.compiler.codegen
                     setStructTypeBody(cd);
                     createObjectMetadataRecord(cd);
                 }
+            }
+
+            foreach (var pair in symtab.arrayTypes) {
+                ArrayType arrayType = pair.Value;
+                declareLLVMStructType(arrayType);
+                createArrayMetadataRecord(arrayType);
             }
 
             for (int i = 0, count = compilationUnit.declarations.Count; i < count; i++) {
@@ -311,7 +321,7 @@ namespace mj.compiler.codegen
             }
         }
 
-        private void declareLLLVMStructType(ClassDef cd)
+        private void declareLLVMStructType(ClassDef cd)
         {
             Symbol.ClassSymbol sym = cd.symbol;
 
@@ -337,13 +347,21 @@ namespace mj.compiler.codegen
             cd.symbol.llvmTypeRef.StructSetBody(llvmTypes, false);
         }
 
+        private void declareLLVMStructType(ArrayType arrayType)
+        {
+            LLVMTypeRef structType = LLVM.StructCreateNamed(context, "array");
+            LLVMTypeRef[] fields = {
+                PTR_VOID, PTR_VOID, INT8, INT32, LLVM.ArrayType(typeResolver.resolve(arrayType.elemType), 0)
+            };
+            structType.StructSetBody(fields, false);
+
+            arrayType.llvmType = structType;
+        }
+
         private void createObjectMetadataRecord(ClassDef cd)
         {
             LLVMTypeRef objectType = cd.symbol.llvmTypeRef;
             LLVMValueRef nullPtr = NULL(PTR(objectType));
-
-            LLVMValueRef sizeGep = LLVM.ConstGEP(nullPtr, new[] {CONST_INT32(1)});
-            LLVMValueRef objectSize = LLVM.ConstPtrToInt(sizeGep, INT32);
 
             LLVMValueRef[] ptrOffsets = cd.fields
                                           .Where(v => v.type.Tag == Tag.DECLARED_TYPE)
@@ -355,14 +373,42 @@ namespace mj.compiler.codegen
                                           }).ToArray();
 
             LLVMValueRef offsetsArray = LLVM.ConstArray(INT32, ptrOffsets);
-            LLVMValueRef[] metadataFields = {objectSize, CONST_INT32(ptrOffsets.Length), offsetsArray};
-            LLVMValueRef metadata = LLVM.ConstStruct(metadataFields, false);
+
+            LLVMValueRef metadata = LLVM.ConstStruct(new[] {
+                CONST_UINT8((int)TypeKind.OBJECT), // kind
+                CONST_UINT8(0), // array elem size
+                SIZE_OF(objectType),
+                CONST_INT32(ptrOffsets.Length), // num ref fields
+                offsetsArray
+            }, false);
 
             LLVMValueRef global = LLVM.AddGlobal(module, metadata.TypeOf(), "__meta__" + cd.name);
             global.SetInitializer(metadata);
             global.SetGlobalConstant(true);
 
             cd.symbol.llvmMetaRef = global;
+        }
+
+        private void createArrayMetadataRecord(ArrayType arrayType)
+        {
+            TypeKind kind = arrayType.elemType.IsPrimitive
+                ? TypeKind.ARRAY_OF_PRIMITIVES
+                : TypeKind.ARRAY_OF_REFERENCES;
+
+            LLVMTypeRef elemTypeRef = typeResolver.resolve(arrayType.elemType);
+
+            LLVMValueRef metadata = LLVM.ConstStruct(new[] {
+                CONST_UINT8((int)kind),
+                SIZE_OF(elemTypeRef, INT8), // array elem size
+                SIZE_OF(arrayType.llvmType), // array size without elements (usefull for allignment)
+                CONST_INT32(0) // num ref fields
+            }, false);
+
+            LLVMValueRef global = LLVM.AddGlobal(module, metadata.TypeOf(), "__meta__arr__");
+            global.SetInitializer(metadata);
+            global.SetGlobalConstant(true);
+
+            arrayType.llvmMetaRef = global;
         }
 
         private void createFunction(MethodDef mt)
@@ -394,12 +440,25 @@ namespace mj.compiler.codegen
             }
 
             variableAllocator.scan(mt.body);
+            parametersToAllocas(mt.parameters);
 
             method = mt;
             scan(mt.body.statements);
 
             endFunction();
             return nullValue;
+        }
+
+        private void parametersToAllocas(IList<VariableDeclaration> parameters)
+        {
+            for (var i = 0; i < parameters.Count; i++) {
+                VariableDeclaration param = parameters[i];
+                param.symbol.llvmRef = LLVM.BuildAlloca(builder, typeResolver.resolve(param.symbol.type), param.name);
+            }
+            for (var i = 0; i < parameters.Count; i++) {
+                VariableDeclaration param = parameters[i];
+                LLVM.BuildStore(builder, function.GetParams()[i], param.symbol.llvmRef);
+            }
         }
 
         public override LLVMValueRef visitAspectDef(AspectDef aspect)
@@ -735,12 +794,6 @@ namespace mj.compiler.codegen
 
         public override LLVMValueRef visitIdent(Identifier ident)
         {
-            if (ident.symbol.kind == Symbol.Kind.PARAM) {
-                // parameters are direct values
-                return ident.symbol.llvmRef;
-            }
-
-            // local variables are "allocated"
             return LLVM.BuildLoad(builder, ident.symbol.llvmRef, "load." + ident.name);
         }
 
@@ -752,31 +805,52 @@ namespace mj.compiler.codegen
             return LLVM.BuildLoad(builder, ptr, select.name);
         }
 
+        public override LLVMValueRef visitIndex(ArrayIndex indexExpr)
+        {
+            LLVMValueRef array = scan(indexExpr.indexBase);
+            LLVMValueRef index = scan(indexExpr.index);
+            // GEP indexing: Obligatory 0 > elems field number is 4 > index into array
+            LLVMValueRef ptr =
+                LLVM.BuildInBoundsGEP(builder, array, new[] {CONST_INT32(0), CONST_INT32(4), index}, "elem.ptr");
+            return LLVM.BuildLoad(builder, ptr, "elem");
+        }
+
         public override LLVMValueRef visitNewClass(NewClass newClass)
         {
-            LLVMTypeRef structType = newClass.symbol.llvmTypeRef;
-            LLVMTypeRef ptrToStruct = HEAP_PTR(structType);
+            Symbol.ClassSymbol sym = newClass.symbol;
 
-            LLVMValueRef metaPtr = LLVM.BuildPointerCast(builder, newClass.symbol.llvmMetaRef, PTR_VOID, "met");
-
+            LLVMValueRef metaPtr = LLVM.BuildPointerCast(builder, sym.llvmMetaRef, PTR_VOID, "met");
             LLVMValueRef untypedPtr = LLVM.BuildCall(builder, allocFunction, new[] {metaPtr}, "tmp");
-            return LLVM.BuildPointerCast(builder, untypedPtr, ptrToStruct, "tmp");
+            
+            return LLVM.BuildPointerCast(builder, untypedPtr, HEAP_PTR(sym.llvmTypeRef), "tmp");
+        }
+
+        public override LLVMValueRef visitNewArray(NewArray newArray)
+        {
+            ArrayType arrayType = (ArrayType)newArray.type;
+            Expression lengthExpr = newArray.length;
+            LLVMValueRef length = scan(lengthExpr);
+            length = promote(lengthExpr.type, symtab.intType, length);
+
+            LLVMValueRef metaPtr = LLVM.BuildPointerCast(builder, arrayType.llvmMetaRef, PTR_VOID, "met");
+
+            LLVMValueRef untypedPtr = LLVM.BuildCall(builder, allocArrayFunction, new[] {metaPtr, length}, "tmp");
+            return LLVM.BuildPointerCast(builder, untypedPtr, HEAP_PTR(arrayType.llvmType), "tmp");
         }
 
         public override LLVMValueRef visitLiteral(LiteralExpression literal)
         {
             switch (literal.typeTag) {
                 case TypeTag.INT:
-                    return LLVM.ConstInt(LLVMTypeRef.Int32Type(), (ulong)(int)literal.value, new LLVMBool(1));
+                    return LLVM.ConstInt(INT32, (ulong)(int)literal.value, true);
                 case TypeTag.LONG:
-                    return LLVM.ConstInt(LLVMTypeRef.Int32Type(), (ulong)(long)literal.value, new LLVMBool(1));
+                    return LLVM.ConstInt(INT64, (ulong)(long)literal.value, true);
                 case TypeTag.FLOAT:
-                    return LLVM.ConstReal(LLVMTypeRef.FloatType(), (float)literal.value);
+                    return LLVM.ConstReal(FLOAT, (float)literal.value);
                 case TypeTag.DOUBLE:
-                    return LLVM.ConstReal(LLVMTypeRef.DoubleType(), (double)literal.value);
+                    return LLVM.ConstReal(DOUBLE, (double)literal.value);
                 case TypeTag.BOOLEAN:
-                    return LLVM.ConstInt(LLVMTypeRef.Int1Type(), (ulong)((bool)literal.value ? 1 : 0),
-                        new LLVMBool(0));
+                    return LLVM.ConstInt(INT1, (ulong)((bool)literal.value ? 1 : 0), false);
                 case TypeTag.STRING:
                     LLVMValueRef val = LLVM.BuildGlobalStringPtr(builder, (string)literal.value, "strLit");
                     return val;
@@ -817,8 +891,14 @@ namespace mj.compiler.codegen
                     LLVMValueRef ptrToObject = LLVM.BuildLoad(builder, ptrToPtrToObject, "tmp");
                     LLVMValueRef ptrToField = LLVM.BuildStructGEP(builder, ptrToObject,
                         (uint)s.symbol.LLVMFieldIndex, s.name + ".ptr");
-
                     return ptrToField;
+                case ArrayIndex ind:
+                    LLVMValueRef index = scan(ind.index);
+                    LLVMValueRef ptrToPtrToArray = getPointerToLocation(ind.indexBase);
+                    LLVMValueRef ptrToArray = LLVM.BuildLoad(builder, ptrToPtrToArray, "tmp");
+                    LLVMValueRef ptrToElem = LLVM.BuildInBoundsGEP(builder, ptrToArray, 
+                        new[] {CONST_INT32(0), CONST_INT32(4), index}, "elem.ptr");
+                    return ptrToElem;
             }
             throw new InvalidOperationException();
         }
@@ -918,9 +998,9 @@ namespace mj.compiler.codegen
             afterIf.MoveBasicBlockAfter(function.GetLastBasicBlock());
             LLVM.PositionBuilderAtEnd(builder, afterIf);
 
-            LLVMValueRef phi = LLVM.BuildPhi(builder, LLVMTypeRef.Int1Type(), "res");
+            LLVMValueRef phi = LLVM.BuildPhi(builder, INT1, "res");
 
-            LLVMValueRef phiLeftVal = LLVM.ConstInt(LLVMTypeRef.Int1Type(), (ulong)(isOR ? 1 : 0), new LLVMBool(0));
+            LLVMValueRef phiLeftVal = LLVM.ConstInt(INT1, (ulong)(isOR ? 1 : 0), false);
 
             phi.AddIncoming(new[] {phiLeftVal, rightVal}, new[] {prevBlock, rightBlock}, 2);
             return phi;

@@ -15,11 +15,13 @@ namespace mj.compiler.symbol
         LONG,
         FLOAT,
         DOUBLE,
+        
         BOOLEAN,
         STRING,
         VOID,
         METHOD,
         CLASS,
+        ARRAY,
         NONE,
         ERROR,
     }
@@ -48,6 +50,7 @@ namespace mj.compiler.symbol
                 case TypeTag.VOID: return "void";
                 case TypeTag.METHOD: return "<method>";
                 case TypeTag.CLASS: return "<class>";
+                case TypeTag.ARRAY: return "<array>";
                 case TypeTag.NONE: return "<none>";
                 case TypeTag.ERROR: return "<error>";
                 default:

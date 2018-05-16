@@ -12,8 +12,9 @@
     <PackageReference Include="Mono.Options" Version="5.3.0.1" />
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
   </ItemGroup>
+  <!-- We are building our own libLLVM.dll on windows -->
   <ItemGroup Condition="$(OS) == 'Windows_NT'">
-    <PackageReference Include="LibLLVM" Version="5.0.1" ExcludeAssets="native"/>
+    <PackageReference Include="LibLLVM" Version="5.0.1" ExcludeAssets="native" />
   </ItemGroup>
   <ItemGroup>
     <Antlr4 Include="antlrgrammar\MJ.g4">

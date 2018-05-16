@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using LLVMSharp;
+
 using mj.compiler.utils;
 
 using Newtonsoft.Json;
@@ -30,6 +32,7 @@ namespace mj.compiler.symbol
         public virtual bool IsNumeric => false;
         public virtual bool IsIntegral => false;
         public virtual bool IsBoolean => false;
+        public virtual bool IsArray => false;
         public virtual bool IsVoid => false;
         public virtual bool IsError => false;
 
@@ -146,6 +149,24 @@ namespace mj.compiler.symbol
         public override T accept<T>(TypeVisitor<T> v) => v.visitClassType(this);
     }
 
+    public class ArrayType : Type
+    {
+        public Type elemType;
+        public LLVMTypeRef llvmType;
+        public LLVMValueRef llvmMetaRef;
+
+        public ArrayType(Type elemType, Symbol definer) : base(definer)
+        {
+            this.elemType = elemType;
+        }
+
+        public override TypeTag Tag => TypeTag.ARRAY;
+        public override bool IsArray => true;
+        public override string ToString() => elemType + "[]";
+
+        public override T accept<T>(TypeVisitor<T> v) => v.visitArrayType(this);
+    }
+
     /// <summary>
     /// Represents a method signature.
     /// </summary>
@@ -205,6 +226,7 @@ namespace mj.compiler.symbol
     {
         public virtual T visitPrimitiveType(PrimitiveType prim) => visit(prim);
         public virtual T visitClassType(ClassType classType) => visit(classType);
+        public virtual T visitArrayType(ArrayType arrayType) => visit(arrayType);
         public virtual T visitMethodType(MethodType methodType) => visit(methodType);
 
         public virtual T visit(Type type) => throw new InvalidOperationException();

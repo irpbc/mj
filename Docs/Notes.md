@@ -16,3 +16,18 @@ this case).
 ### AOP implementation
 
 TODO
+
+### Garbage collection
+
+It turned out implementing a rudimentary accurate GC was not relly dificult. The hardest
+part to get right is stack walking. It was a lot of trial and error to discover locations
+of return addresses. I found that you can't get a pointer to the previous stack frame
+from the current, and must use the LLVM generated stack map which gives you the size of 
+the stack frame at the current return address. This required the use of couple of assembly
+instractions as a trampoline to extract the stack pointer from RSP register when calling
+memory allocation functions. This assembly is different depending of OS and assambler
+syntax. The second part is extracting the stack maps from a section in the EXE file. This
+step is also OS dependent. Once we can reliably walk the stack and read heap pointer
+locations from the stack maps, everything else is just a matter of implementing the chosen
+garbage collection method in C++ and making the compiler leave metadata for the GC to pick
+up and use inside the passes.

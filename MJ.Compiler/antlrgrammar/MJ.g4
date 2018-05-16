@@ -15,14 +15,14 @@ literal returns [ int literalType ]
 	|   StringLiteral        { $literal::literalType=STRING; }
     ;
 
-type
-	:	primitive='int'
+type returns [ int arrays ]
+	:	(primitive='int'
     |	primitive='long'
     |	primitive='float'
     |	primitive='double'
     |	primitive='boolean'
     |	primitive='string'
-    |   className=Identifier
+    |   className=Identifier) ('[' ']' { $type::arrays++; } )*
 	;
 
 compilationUnit
@@ -151,8 +151,9 @@ argumentList
 expression returns [ bool isAssignment, int shiftOp ]
     : primary
     | left=expression bop='.' Identifier
+    | indexBase=expression '[' index=expression ']'
     | methodInvocation
-    | NEW Identifier '(' ')'
+    | NEW (Identifier '(' ')' | type '[' length=expression ']' )
     | arg=expression postfix=('++' | '--')
     | prefix=('+'|'-'|'++'|'--') arg=expression
     | prefix=('~'|'!') arg=expression

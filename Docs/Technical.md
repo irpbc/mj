@@ -73,4 +73,13 @@ declare them at the tom of the function.
 All local variables are predeclared at the top of the function using `alloca` instructions, as per the
 recomendation of the LLVM docs. Later, load and store instructions are generated when accessing variables.
 LLVM then runs an algorithm to remove `allocas` and convert the variables to SSA form. Clang itself 
-uses this technique to generate code.
+uses this technique to generate code. To support reassigning of function parameters, after declaring
+`allocas` for local variables, additional `allocas` are declare for each parameter, and param values
+loaded into them. These are also eliminated by LLVM.
+
+#### Garbage collection
+
+For accurate garbage collection compiler emits constant data with information about objects in
+the program (length of objects and offsets of fields with heap pointers). Pointer to this info
+is passed when allocating objects and arrays, and is stored in the header of every object for
+GC to use to accurately identify all pointers inside objects.

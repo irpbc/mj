@@ -160,12 +160,12 @@ namespace mj.compiler.symbol
             scan(paramTrees, scope);
 
             // get return type
-            Type retType = typings.resolveType(retTypeTree, scope);
+            Type retType = (Type)scan(retTypeTree, scope);
 
             Type[] paramTypes = new Type[paramTrees.Count];
             for (var i = 0; i < paramTrees.Count; i++) {
                 VariableDeclaration tree = paramTrees[i];
-                paramTypes[i] = typings.resolveType(tree.type, scope);
+                paramTypes[i] = (Type)scan(tree.type, scope);
             }
 
             return new MethodType(paramTypes, retType);
@@ -173,7 +173,7 @@ namespace mj.compiler.symbol
 
         public override object visitVarDef(VariableDeclaration varDef, WriteableScope scope)
         {
-            Type varType = typings.resolveType(varDef.type, scope);
+            Type varType = (Type)scan(varDef.type, scope);
             MethodSymbol met = (MethodSymbol)scope.owner;
             VarSymbol varSym = new VarSymbol(Kind.PARAM, varDef.name, varType, met);
 
@@ -186,6 +186,26 @@ namespace mj.compiler.symbol
             }
 
             return null;
+        }
+
+        public override object visitPrimitiveType(PrimitiveTypeNode prim, WriteableScope scope)
+        {
+            return symtab.typeForTag(prim.type);
+        }
+
+        public override object visitDeclaredType(DeclaredType declaredType, WriteableScope scope)
+        {
+            Symbol sym = scope.findFirst(declaredType.name, s => (s.kind & Kind.CLASS) != 0);
+            if (sym != null) {
+                return sym.type;
+            }
+            log.error(declaredType.Pos, messages.undefinedType, declaredType.name);
+            return symtab.errorType;
+        }
+
+        public override object visitArrayType(ArrayTypeTree arrayType, WriteableScope scope)
+        {
+            return symtab.arrayTypeForElemType((Type)scan(arrayType.elemTypeTree, scope));
         }
     }
 }

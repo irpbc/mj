@@ -18,7 +18,9 @@ namespace mj.compiler.tree
         public virtual T visitLiteral(LiteralExpression literal) => visit(literal);
         public virtual T visitIdent(Identifier ident) => visit(ident);
         public virtual T visitSelect(Select select) => visit(select);
+        public virtual T visitIndex(ArrayIndex index) => visit(index);
         public virtual T visitNewClass(NewClass newClass) => visit(newClass);
+        public virtual T visitNewArray(NewArray newArray) => visit(newArray);
         public virtual T visitMethodInvoke(MethodInvocation methodInvocation) => visit(methodInvocation);
         public virtual T visitReturn(ReturnStatement returnStatement) => visit(returnStatement);
         public virtual T visitBlock(Block block) => visit(block);
@@ -32,6 +34,7 @@ namespace mj.compiler.tree
         public virtual T visitConditional(ConditionalExpression conditional) => visit(conditional);
         public virtual T visitPrimitiveType(PrimitiveTypeNode prim) => visit(prim);
         public virtual T visitDeclaredType(DeclaredType declaredType) => visit(declaredType);
+        public virtual T visitArrayType(ArrayTypeTree arrayType) => visit(arrayType);
         public virtual T visitSwitch(Switch @switch) => visit(@switch);
         public virtual T visitCase(Case @case) => visit(@case);
 
@@ -70,7 +73,9 @@ namespace mj.compiler.tree
         public virtual T visitLiteral(LiteralExpression literal, A arg) => visit(literal, arg);
         public virtual T visitIdent(Identifier ident, A arg) => visit(ident, arg);
         public virtual T visitSelect(Select select, A arg) => visit(select, arg);
+        public virtual T visitIndex(ArrayIndex index, A arg) => visit(index, arg);
         public virtual T visitNewClass(NewClass newClass, A arg) => visit(newClass, arg);
+        public virtual T visitNewArray(NewArray newArray, A env) => visit(newArray, env);
         public virtual T visitMethodInvoke(MethodInvocation methodInvocation, A arg) => visit(methodInvocation, arg);
         public virtual T visitConditional(ConditionalExpression conditional, A arg) => visit(conditional, arg);
         public virtual T visitReturn(ReturnStatement returnStatement, A arg) => visit(returnStatement, arg);
@@ -83,6 +88,7 @@ namespace mj.compiler.tree
         public virtual T visitDo(DoStatement doStatement, A arg) => visit(doStatement, arg);
         public virtual T visitPrimitiveType(PrimitiveTypeNode prim, A arg) => visit(prim, arg);
         public virtual T visitDeclaredType(DeclaredType declaredType, A arg) => visit(declaredType, arg);
+        public virtual T visitArrayType(ArrayTypeTree arrayType, A arg) => visit(arrayType, arg);
         public virtual T visitSwitch(Switch @switch, A arg) => visit(@switch, arg);
         public virtual T visitCase(Case @case, A arg) => visit(@case, arg);
 
@@ -120,7 +126,9 @@ namespace mj.compiler.tree
         public virtual void visitLiteral(LiteralExpression literal) => visit(literal);
         public virtual void visitIdent(Identifier ident) => visit(ident);
         public virtual void visitSelect(Select select) => visit(select);
+        public virtual void visitIndex(ArrayIndex index) => visit(index);
         public virtual void visitNewClass(NewClass newClass) => visit(newClass);
+        public virtual void visitNewArray(NewArray newArray) => visit(newArray);
         public virtual void visitMethodInvoke(MethodInvocation methodInvocation) => visit(methodInvocation);
         public virtual void visitReturn(ReturnStatement returnStatement) => visit(returnStatement);
         public virtual void visitBlock(Block block) => visit(block);
@@ -134,6 +142,7 @@ namespace mj.compiler.tree
         public virtual void visitConditional(ConditionalExpression conditional) => visit(conditional);
         public virtual void visitPrimitiveType(PrimitiveTypeNode prim) => visit(prim);
         public virtual void visitDeclaredType(DeclaredType declaredType) => visit(declaredType);
+        public virtual void visitArrayType(ArrayTypeTree arrayType) => visit(arrayType);
         public virtual void visitSwitch(Switch @switch) => visit(@switch);
         public virtual void visitCase(Case @case) => visit(@case);
 

@@ -50,7 +50,7 @@
     <data name="conditionalMismatch"><value>Type mismatch of branches in a conditional expression</value></data>
     <data name="continueNotInLoop"><value>Continue statement must be inside a loop</value></data>
     <data name="breakNotInLoopSwitch"><value>Break statement must be inside a loop or a switch</value></data>
-    <data name="assignmentLHS"><value>Assignment must be to a variable</value></data>
+    <data name="assignmentLHS"><value>Assignment must be to a variable, field or array element</value></data>
     <data name="assignmentUncompatible"><value>Uncompatible types in assignment</value></data>
     <data name="incDecArgument"><value>Incremet or decrement can only be on a variable</value></data>
     <data name="unresolvedUnaryOperator"><value>Operator "{0}" cannot be applied to type "{1}"</value></data>
@@ -62,5 +62,8 @@
     <data name="selectOnPrimitive"><value>Attempted field access on primitive type</value></data>
     <data name="unknownField"><value>Field "{0}" is not defined in class "{1}"</value></data>
     <data name="undefinedClass"><value>Class "{0}" is not defined</value></data>
+    <data name="arrayLengthType"><value>Array length must be of type integer or smaller</value></data>
+    <data name="indexNotArray"><value>Base of index expression must be an array</value></data>
+    <data name="indexNotInteger"><value>Index of index expression must be of integer type</value></data>
     
 </root>

@@ -43,5 +43,10 @@ namespace mj.compiler.codegen
         {
             return HEAP_PTR(((Symbol.ClassSymbol)classType.definer).llvmTypeRef);
         }
+
+        public override LLVMTypeRef visitArrayType(ArrayType arrayType)
+        {
+            return HEAP_PTR(arrayType.llvmType);
+        }
     }
 }

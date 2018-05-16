@@ -14,6 +14,7 @@ Language is based on widely used C syntax. It's syntax supports:
 * `string` type, which is a pointer to a null terminated utf8 string, and currently 
 does not support any operations except creating one with a string literal
 * Declaring structured types, which are heap allocated and garbage collected.
+* Arrays of any type, only heap allocated.
 
 The language has some built-in functions:
 
@@ -26,11 +27,6 @@ The language has some built-in functions:
     * `long scan_long()` - read a `long` from console
     * `float scan_float()` - read a `float` from console
     * `double scan_double()` - read a `double` from console
-
-
-It **does not** support (for now):
-
-* Arrays
 
 ### Example
 

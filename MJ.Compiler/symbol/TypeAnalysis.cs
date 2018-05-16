@@ -143,7 +143,7 @@ namespace mj.compiler.symbol
         public override Type visitVarDef(VariableDeclaration varDef, Environment env)
         {
             string name = varDef.name;
-            Type declaredType = varDef.type.accept(this, env);
+            Type declaredType = scan(varDef.type, env);
             Expression init = varDef.init;
 
             VarSymbol varSymbol = new VarSymbol(Kind.LOCAL, name, declaredType, env.enclMethod);
@@ -315,11 +315,15 @@ namespace mj.compiler.symbol
         {
             Symbol classSym = env.scope.findFirst(declaredType.name, s => s.kind == Kind.CLASS);
             if (classSym == null) {
-                log.error(declaredType.Pos, messages.undefinedType, declaredType.name);
-                classSym = symtab.errorTypeSymbol;
+                log.error(declaredType.Pos, messages.undefinedClass, declaredType.name);
+                return symtab.errorType;
             }
-            declaredType.symbol = (ClassSymbol)classSym;
             return classSym.type;
+        }
+
+        public override Type visitArrayType(ArrayTypeTree arrayType, Environment env)
+        {
+            return symtab.arrayTypeForElemType(scan(arrayType.elemTypeTree, env));
         }
 
         public override Type visitLiteral(LiteralExpression literal, Environment env)
@@ -341,6 +345,16 @@ namespace mj.compiler.symbol
                 return symtab.errorType;
             }
 
+            if (leftType.IsArray) {
+                if (select.name != "length") {
+                    log.error(select.Pos, "Arrays only have a \"length\" field");
+                    return symtab.errorType;
+                }
+                select.symbol = symtab.arrayLengthField;
+                select.type = symtab.arrayLengthField.type;
+                return select.type;
+            }
+            
             ClassSymbol csym = (ClassSymbol)leftType.definer;
             VarSymbol field = (VarSymbol)csym.membersScope.findFirst(select.name);
             if (field == null) {
@@ -352,6 +366,25 @@ namespace mj.compiler.symbol
             select.symbol = field;
             select.type = field.type;
             return field.type;
+        }
+        
+        public override Type visitIndex(ArrayIndex index, Environment env)
+        {
+            Type arrayType = analyzeExpr(index.indexBase, env);
+            Type indexType = analyzeExpr(index.index, env);
+            
+            if (!indexType.IsError && (!indexType.IsIntegral || indexType.Tag > TypeTag.INT)) {
+                log.error(index.index.Pos, messages.indexNotInteger);
+            }
+            
+            if (arrayType.IsError) {
+                return symtab.errorType;
+            }
+            if (!arrayType.IsArray) {
+                log.error(index.Pos, messages.indexNotArray);
+                return symtab.errorType;
+            }
+            return ((ArrayType)arrayType).elemType;
         }
 
         public override Type visitNewClass(NewClass newClass, Environment env)
@@ -365,7 +398,22 @@ namespace mj.compiler.symbol
             }
 
             newClass.symbol = csym;
+            newClass.type = csym.type;
             return csym.type;
+        }
+
+        public override Type visitNewArray(NewArray newArray, Environment env)
+        {
+            Type elemType = scan(newArray.elemenTypeTree, env);
+            ArrayType arrayType = symtab.arrayTypeForElemType(elemType);
+            newArray.type = arrayType;
+
+            Type lenType = analyzeExpr(newArray.length, env);
+            if (!lenType.IsIntegral || lenType.Tag == TypeTag.LONG) {
+                log.error(newArray.Pos, messages.arrayLengthType);
+            }
+
+            return arrayType;
         }
 
         public override Type visitIdent(Identifier ident, Environment env)
@@ -482,13 +530,19 @@ namespace mj.compiler.symbol
 
         public override Type visitAssign(AssignNode assign, Environment env)
         {
-            bool lValueError = !assign.left.IsLValue;
+            Expression assignLeft = assign.left;
+            bool lValueError = !assignLeft.IsLValue;
             if (lValueError) {
                 log.error(assign.Pos, messages.assignmentLHS);
             }
 
-            Type lType = analyzeExpr(assign.left, env);
+            Type lType = analyzeExpr(assignLeft, env);
             Type rType = analyzeExpr(assign.right, env);
+            
+            if (assignLeft is Select s && s.symbol == symtab.arrayLengthField) {
+                log.error(s.Pos, "Array length is read only");
+                return symtab.errorType;
+            }
 
             if (!lValueError && !typings.isAssignableFrom(lType, rType)) {
                 log.error(assign.Pos, messages.assignmentUncompatible);
@@ -499,14 +553,20 @@ namespace mj.compiler.symbol
 
         public override Type visitCompoundAssign(CompoundAssignNode compAssign, Environment env)
         {
-            bool lValueError = !compAssign.left.IsLValue;
+            Expression assignLeft = compAssign.left;
+            bool lValueError = !assignLeft.IsLValue;
             if (lValueError) {
                 log.error(compAssign.Pos, messages.assignmentLHS);
             }
 
-            Type lType = analyzeExpr(compAssign.left, env);
+            Type lType = analyzeExpr(assignLeft, env);
             Type rType = analyzeExpr(compAssign.right, env);
 
+            if (assignLeft is Select s && s.symbol == symtab.arrayLengthField) {
+                log.error(s.Pos, "Array length is read only");
+                return symtab.errorType;
+            }
+            
             OperatorSymbol op = operators.resolveBinary(compAssign.Pos, compAssign.opcode.baseOperator(), lType, rType);
             return op.type.ReturnType;
         }

@@ -1,5 +1,4 @@
 ﻿using mj.compiler.main;
-using mj.compiler.tree;
 using mj.compiler.utils;
 
 namespace mj.compiler.symbol
@@ -22,21 +21,6 @@ namespace mj.compiler.symbol
             log = Log.instance(ctx);
         }
 
-        public Type resolveType(TypeTree tree, Scope.WriteableScope scope)
-        {
-            if (tree is PrimitiveTypeNode p) {
-                Type type = symtab.typeForTag(p.type);
-                return type;
-            }
-            if (tree is DeclaredType d) {
-                Symbol sym = scope.findFirst(d.name);
-                if (sym != null) {
-                    return sym.type;
-                }
-            }
-            return symtab.errorType;
-        }
-
         public bool isAssignableFrom(Type left, Type right)
         {
             // Stops propagation of errors to 
@@ -47,6 +31,11 @@ namespace mj.compiler.symbol
             if (left.IsNumeric && right.IsNumeric) {
                 return left.Tag.isNumericAssignableFrom(right.Tag);
             }
+
+            if (left.IsArray || right.IsArray) {
+                return left == right;
+            }
+            
             // compare base types to account for constants
             return left.BaseType == right.BaseType;
         }

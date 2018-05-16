@@ -31,36 +31,44 @@ namespace mj.compiler.parsing
         public override Tree VisitType(TypeContext context)
         {
             TypeTag type;
+            TypeTree tree;
             IToken token = context.primitive;
-            if (token == null) {
-                return new DeclaredType(context.Start.Line, context.Start.Column, context.Stop.Line,
-                    context.Stop.Column, context.className.Text);
+            if (token != null) {
+                switch (token.Type) {
+                    case INT:
+                        type = TypeTag.INT;
+                        break;
+                    case LONG:
+                        type = TypeTag.LONG;
+                        break;
+                    case FLOAT:
+                        type = TypeTag.FLOAT;
+                        break;
+                    case DOUBLE:
+                        type = TypeTag.DOUBLE;
+                        break;
+                    case BOOLEAN:
+                        type = TypeTag.BOOLEAN;
+                        break;
+                    case STRING:
+                        type = TypeTag.STRING;
+                        break;
+                    default:
+                        throw new ArgumentException();
+                }
+
+                int endCol = token.Column + token.StopIndex - token.StopIndex;
+                return new PrimitiveTypeNode(token.Line, token.Column, token.Line, endCol, type);
             }
-            switch (token.Type) {
-                case INT:
-                    type = TypeTag.INT;
-                    break;
-                case LONG:
-                    type = TypeTag.LONG;
-                    break;
-                case FLOAT:
-                    type = TypeTag.FLOAT;
-                    break;
-                case DOUBLE:
-                    type = TypeTag.DOUBLE;
-                    break;
-                case BOOLEAN:
-                    type = TypeTag.BOOLEAN;
-                    break;
-                case STRING:
-                    type = TypeTag.STRING;
-                    break;
-                default:
-                    throw new ArgumentException();
+            tree = new DeclaredType(context.Start.Line, context.Start.Column, context.Stop.Line,
+                context.Stop.Column, context.className.Text);
+
+            for (int i = 0; i < context.arrays; i++) {
+                tree = new ArrayTypeTree(context.Start.Line, context.Start.Column, context.Stop.Line,
+                    context.Stop.Column, tree);
             }
 
-            int endCol = token.Column + token.StopIndex - token.StopIndex;
-            return new PrimitiveTypeNode(token.Line, token.Column, token.Line, endCol, type);
+            return tree;
         }
 
         public override Tree VisitCompilationUnit(CompilationUnitContext context)
@@ -396,7 +404,7 @@ namespace mj.compiler.parsing
             if (!expression.IsExpressionStatement) {
                 log.error(expression.Pos, messages.expressionStatement);
             }
-            
+
             return new ExpressionStatement(expression.beginLine, expression.beginCol,
                 stat.Stop.Line, stat.Stop.Column, expression);
         }
@@ -529,7 +537,12 @@ namespace mj.compiler.parsing
                 return (Expression)VisitMethodInvocation(invocation);
             }
             if (context.NEW() != null) {
-                return makeNewClass(context);
+                return context.Identifier() != null
+                    ? makeNewClass(context)
+                    : makeNewArray(context);
+            }
+            if (context.index != null) {
+                return makeArrayIndex(context);
             }
             IToken postfix = context.postfix;
             if (postfix != null) {
@@ -554,9 +567,18 @@ namespace mj.compiler.parsing
         private Select makeSelect(ExpressionContext context)
         {
             Expression left = (Expression)VisitExpression(context.left);
-            
-            return new Select(context.bop.Line, context.bop.Column, 
+
+            return new Select(context.bop.Line, context.bop.Column,
                 context.stop.Line, context.stop.Column, left, context.Identifier().GetText());
+        }
+
+        private ArrayIndex makeArrayIndex(ExpressionContext context)
+        {
+            Expression indexBase = (Expression)VisitExpression(context.indexBase);
+            Expression index = (Expression)VisitExpression(context.index);
+
+            return new ArrayIndex(context.index.start.Line, context.start.Column,
+                context.index.stop.Line, context.index.stop.Column, indexBase: indexBase, index: index);
         }
 
         public override Tree VisitPrimary(PrimaryContext primary)
@@ -586,6 +608,15 @@ namespace mj.compiler.parsing
         {
             return new NewClass(context.Start.Line, context.Start.Column, context.Stop.Line,
                 context.Stop.Column, context.Identifier().GetText());
+        }
+
+        public Tree makeNewArray(ExpressionContext context)
+        {
+            TypeTree type = (TypeTree)VisitType(context.type());
+            Expression length = (Expression)VisitExpression(context.length);
+
+            return new NewArray(context.Start.Line, context.Start.Column, context.Stop.Line,
+                context.Stop.Column, type, length);
         }
 
         public override Tree VisitLiteral(LiteralContext context)
@@ -809,14 +840,12 @@ namespace mj.compiler.parsing
                     break;
                 case CARET:
                     op = Tag.BITXOR;
-                    break; 
+                    break;
                 default: throw new InvalidOperationException();
             }
 
             return new BinaryExpressionNode(op, left, right);
         }
-        
-        
 
         private Expression makeAssignment(ExpressionContext context)
         {

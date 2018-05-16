@@ -13,6 +13,14 @@ class B {
 
 int main(int argc, long arvPtr) {
     
+    A dummy1 = new A();
+    A dummy2 = new A();
+    A[] nizA = new A[10];
+    A dummy3 = new A();
+    A dummy4 = new A();
+    A a = nizA[5] = new A();
+    a.intField = argc;
+    
     int i = 0;
     for (; i < 100; i++) {
         printf("---- Loop count = %d ----\n", i);
@@ -21,7 +29,7 @@ int main(int argc, long arvPtr) {
         b.aField = deepA1();
     }
     
-    printf("I na kraju: %d", i);
+    printf("I na kraju: %d, %d, %d\n", i, nizA.length, nizA[5].intField);
     
     return 0;
 }

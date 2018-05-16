@@ -61,7 +61,16 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Assignment must be to a variable.
+        ///   Looks up a localized string similar to Array length must be of type integer or smaller.
+        /// </summary>
+        public static string arrayLengthType {
+            get {
+                return ResourceManager.GetString("arrayLengthType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Assignment must be to a variable, field or array element.
         /// </summary>
         public static string assignmentLHS {
             get {
@@ -228,6 +237,24 @@ namespace mj.compiler.resources {
         public static string incDecArgument {
             get {
                 return ResourceManager.GetString("incDecArgument", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Base of index expression must be an array.
+        /// </summary>
+        public static string indexNotArray {
+            get {
+                return ResourceManager.GetString("indexNotArray", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Index of index expression must be of integer type.
+        /// </summary>
+        public static string indexNotInteger {
+            get {
+                return ResourceManager.GetString("indexNotInteger", resourceCulture);
             }
         }
         

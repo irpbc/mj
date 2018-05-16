@@ -252,19 +252,13 @@ namespace mj.compiler.symbol
         public override Exit visitAssign(AssignNode expr, Environment env)
         {
             analyzeExpr(expr.right, env);
-            VarSymbol varSym = getSymbol(expr.left);
-            env.assigned(varSym);
-
-            return 0;
-        }
-
-        private VarSymbol getSymbol(Expression expr)
-        {
-            switch (expr) {
-                case Select s: return s.symbol;
-                case Identifier id: return id.symbol;
+            if (expr.left is Identifier id) {
+                VarSymbol varSym = id.symbol;
+                if (varSym.kind == Kind.LOCAL) {
+                    env.assigned(varSym);
+                }
             }
-            throw new InvalidOperationException();
+            return 0;
         }
 
         public override Exit visitVarDef(VariableDeclaration varDef, Environment env)
@@ -300,7 +294,7 @@ namespace mj.compiler.symbol
         public override Exit visitIdent(Identifier ident, Environment env)
         {
             VarSymbol varSym = ident.symbol;
-            if (varSym.kind != Kind.PARAM && !env.isAssigned(varSym)) {
+            if (varSym.kind == Kind.LOCAL && !env.isAssigned(varSym)) {
                 log.error(ident.Pos, messages.unassignedVariable, ident.name);
             }
             return 0;
@@ -330,7 +324,9 @@ namespace mj.compiler.symbol
 
         public override Exit visitLiteral(LiteralExpression literal, Environment arg) => 0;
         public override Exit visitSelect(Select select, Environment arg) => 0;
+        public override Exit visitIndex(ArrayIndex index, Environment arg) => 0;
         public override Exit visitNewClass(NewClass newClass, Environment arg) => 0;
+        public override Exit visitNewArray(NewArray newArray, Environment env) => 0;
 
         public override Exit visitReturn(ReturnStatement returnStatement, Environment env)
         {

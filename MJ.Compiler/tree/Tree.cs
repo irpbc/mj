@@ -168,6 +168,27 @@ namespace mj.compiler.tree
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitSelect(this, arg);
     }
 
+    public sealed class ArrayIndex : Expression
+    {
+        public Expression indexBase;
+        public Expression index;
+
+        public ArrayIndex(int beginLine, int beginCol, int endLine, int endCol, Expression indexBase, Expression index) 
+            : base(beginLine, beginCol, endLine, endCol)
+        {
+            this.indexBase = indexBase;
+            this.index = index;
+        }
+
+        public override Tag Tag => Tag.INDEX;
+
+        public override bool IsLValue => true;
+
+        public override void accept(AstVisitor v) => v.visitIndex(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitIndex(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitIndex(this, arg);
+    }
+
     public sealed class NewClass : Expression
     {
         public String className;
@@ -184,6 +205,25 @@ namespace mj.compiler.tree
         public override void accept(AstVisitor v) => v.visitNewClass(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitNewClass(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitNewClass(this, arg);
+    }
+
+    public sealed class NewArray : Expression
+    {
+        public TypeTree elemenTypeTree;
+        public Expression length;
+
+        public NewArray(int beginLine, int beginCol, int endLine, int endCol, TypeTree elemenTypeTree, Expression length) 
+            : base(beginLine, beginCol, endLine, endCol)
+        {
+            this.elemenTypeTree = elemenTypeTree;
+            this.length = length;
+        }
+
+        public override Tag Tag => Tag.NEW_ARRAY;
+
+        public override void accept(AstVisitor v) => v.visitNewArray(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitNewArray(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitNewArray(this, arg);
     }
 
     public sealed class AssignNode : Expression
@@ -387,7 +427,6 @@ namespace mj.compiler.tree
     public sealed class DeclaredType : TypeTree
     {
         public String name;
-        public Symbol.ClassSymbol symbol;
 
         public DeclaredType(int beginLine, int beginCol, int endLine, int endCol, String name) 
             : base(beginLine, beginCol, endLine, endCol)
@@ -400,6 +439,23 @@ namespace mj.compiler.tree
         public override void accept(AstVisitor v) => v.visitDeclaredType(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitDeclaredType(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitDeclaredType(this, arg);
+    }
+
+    public sealed class ArrayTypeTree : TypeTree
+    {
+        public TypeTree elemTypeTree;
+
+        public ArrayTypeTree(int beginLine, int beginCol, int endLine, int endCol, TypeTree elemTypeTree) 
+            : base(beginLine, beginCol, endLine, endCol)
+        {
+            this.elemTypeTree = elemTypeTree;
+        }
+
+        public override Tag Tag => Tag.ARRAY_TYPE;
+
+        public override void accept(AstVisitor v) => v.visitArrayType(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitArrayType(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitArrayType(this, arg);
     }
 
     public sealed class Identifier : Expression
@@ -712,9 +768,12 @@ namespace mj.compiler.tree
         LITERAL,
         PRIM_TYPE,
         DECLARED_TYPE,
+        ARRAY_TYPE,
         IDENT,
         SELECT,
+        INDEX,
         NEW_CLASS,
+        NEW_ARRAY,
         RETURN,
 
         // Assign expression
