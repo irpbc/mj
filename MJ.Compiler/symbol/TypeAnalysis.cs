@@ -328,6 +328,9 @@ namespace mj.compiler.symbol
 
         public override Type visitLiteral(LiteralExpression literal, Environment env)
         {
+            if (literal.typeTag == TypeTag.NULL) {
+                return symtab.bottomType;
+            }
             return symtab.typeForTag(literal.typeTag).constType(literal.value);
         }
 

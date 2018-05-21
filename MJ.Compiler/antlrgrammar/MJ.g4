@@ -13,6 +13,7 @@ literal returns [ int literalType ]
 	|	FloatingPointLiteral { $literal::literalType=FLOAT; }
 	|	BooleanLiteral       { $literal::literalType=BOOLEAN; }
 	|   StringLiteral        { $literal::literalType=STRING; }
+	|   NULL                 { $literal::literalType=NULL; }
     ;
 
 type returns [ int arrays ]
@@ -205,6 +206,7 @@ INTERFACE : 'interface';
 LONG : 'long';
 NATIVE : 'native';
 NEW : 'new';
+NULL : 'null';
 PACKAGE : 'package';
 PRIVATE : 'private';
 PROTECTED : 'protected';

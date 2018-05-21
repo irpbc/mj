@@ -18,6 +18,7 @@ namespace mj.compiler.symbol
         
         BOOLEAN,
         STRING,
+        NULL,
         VOID,
         METHOD,
         CLASS,
@@ -48,6 +49,7 @@ namespace mj.compiler.symbol
                 case TypeTag.BOOLEAN: return "boolean";
                 case TypeTag.STRING: return "string";
                 case TypeTag.VOID: return "void";
+                case TypeTag.NULL: return "null";
                 case TypeTag.METHOD: return "<method>";
                 case TypeTag.CLASS: return "<class>";
                 case TypeTag.ARRAY: return "<array>";

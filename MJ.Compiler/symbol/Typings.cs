@@ -32,6 +32,10 @@ namespace mj.compiler.symbol
                 return left.Tag.isNumericAssignableFrom(right.Tag);
             }
 
+            if (right == symtab.bottomType && left.IsRefType) {
+                return true;
+            }
+            
             if (left.IsArray || right.IsArray) {
                 return left == right;
             }

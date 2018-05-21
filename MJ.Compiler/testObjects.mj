@@ -13,6 +13,9 @@ class B {
 
 int main(int argc, long arvPtr) {
     
+    A nullA = null;
+    string str = null;
+    
     A dummy1 = new A();
     A dummy2 = new A();
     A[] nizA = new A[10];

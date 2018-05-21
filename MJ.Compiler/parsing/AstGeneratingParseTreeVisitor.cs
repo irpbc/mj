@@ -689,6 +689,12 @@ namespace mj.compiler.parsing
                     type = TypeTag.STRING;
                     value = parseStringLiteral(text);
                     break;
+                case NULL:
+                    value = null;
+                    symbol = context.NULL().Symbol;
+                    type = TypeTag.NULL;
+                    text = "null";
+                    break;
                 default:
                     throw new InvalidOperationException();
             }

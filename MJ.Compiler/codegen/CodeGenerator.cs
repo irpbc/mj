@@ -56,6 +56,8 @@ namespace mj.compiler.codegen
 
         private static readonly LLVMValueRef nullValue = default(LLVMValueRef);
 
+        private readonly LLVMValueRef dummyNullPtr = LLVM.ConstPointerNull(PTR_INT8);
+
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int MainFunction(int argc, long argvPtr);
 
@@ -852,8 +854,9 @@ namespace mj.compiler.codegen
                 case TypeTag.BOOLEAN:
                     return LLVM.ConstInt(INT1, (ulong)((bool)literal.value ? 1 : 0), false);
                 case TypeTag.STRING:
-                    LLVMValueRef val = LLVM.BuildGlobalStringPtr(builder, (string)literal.value, "strLit");
-                    return val;
+                    return LLVM.BuildGlobalStringPtr(builder, (string)literal.value, "strLit");
+                case TypeTag.NULL:
+                    return dummyNullPtr;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -1015,6 +1018,11 @@ namespace mj.compiler.codegen
 
             Assert.assert(typings.isAssignableFrom(requestedType, actualType));
 
+            if (actualType == symtab.bottomType) {
+                LLVMTypeRef reqTypeRef = typeResolver.resolve(requestedType);
+                return LLVM.ConstPointerNull(reqTypeRef);
+            }
+            
             switch (requestedType.Tag) {
                 case TypeTag.LONG:
                     return LLVM.BuildSExt(builder, value, LLVMTypeRef.Int64Type(), "toLong");

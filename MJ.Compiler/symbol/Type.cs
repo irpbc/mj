@@ -33,6 +33,7 @@ namespace mj.compiler.symbol
         public virtual bool IsIntegral => false;
         public virtual bool IsBoolean => false;
         public virtual bool IsArray => false;
+        public virtual bool IsRefType => false;
         public virtual bool IsVoid => false;
         public virtual bool IsError => false;
 
@@ -82,6 +83,7 @@ namespace mj.compiler.symbol
         public override bool IsPrimitive => true;
         public override bool IsNumeric => tag.isNumeric();
         public override bool IsBoolean => tag == TypeTag.BOOLEAN;
+        public override bool IsRefType => tag == TypeTag.STRING;
 
         public override bool IsIntegral {
             get {
@@ -144,6 +146,8 @@ namespace mj.compiler.symbol
 
         public override TypeTag Tag => TypeTag.CLASS;
 
+        public override bool IsRefType => true;
+
         public override string ToString() => "Class " + name;
 
         public override T accept<T>(TypeVisitor<T> v) => v.visitClassType(this);
@@ -162,6 +166,8 @@ namespace mj.compiler.symbol
 
         public override TypeTag Tag => TypeTag.ARRAY;
         public override bool IsArray => true;
+        public override bool IsRefType => true;
+
         public override string ToString() => elemType + "[]";
 
         public override T accept<T>(TypeVisitor<T> v) => v.visitArrayType(this);

@@ -26,6 +26,8 @@ namespace mj.compiler.symbol
         public readonly PrimitiveType stringType;
         public readonly PrimitiveType voidType;
 
+        public readonly Type bottomType;
+
         public readonly Symbol.VarSymbol arrayLengthField;
 
         public readonly Type errorType;
@@ -54,6 +56,18 @@ namespace mj.compiler.symbol
 
             public override string ToString() => "<error>";
         }
+        
+        private sealed class BottomType : Type
+        {
+            public BottomType() : base(null) { }
+
+            public override TypeTag Tag => TypeTag.NULL;
+            public override bool IsRefType => true;
+            
+            public override string ToString() => "null";
+            
+            public override T accept<T>(TypeVisitor<T> v) => default(T);
+        }
 
         private Symtab(Context context)
         {
@@ -69,6 +83,8 @@ namespace mj.compiler.symbol
             booleanType = primitive(TypeTag.BOOLEAN, "boolean");
             stringType = primitive(TypeTag.STRING, "string");
             voidType = primitive(TypeTag.VOID, "void");
+            
+            bottomType = new BottomType();
             
             arrayLengthField = new Symbol.VarSymbol(Symbol.Kind.FIELD, "length", intType, noSymbol);
             arrayLengthField.fieldIndex = 0;
