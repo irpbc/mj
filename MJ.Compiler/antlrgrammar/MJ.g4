@@ -507,8 +507,8 @@ BITOR : '|';
 CARET : '^';
 MOD : '%';
 
-LSHIFT : 'LSHIFT';
-RSHIFT : 'RSHIFT';
+LSHIFT : '<<';
+RSHIFT : '>>';
 
 ADD_ASSIGN : '+=';
 SUB_ASSIGN : '-=';

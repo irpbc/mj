@@ -56,7 +56,7 @@ namespace mj.compiler.utils
 
         public static IList<T> emptyList<T>() => EmptyList<T>.INSTANCE;
 
-        private class EmptyList<T> : IList<T>
+        internal class EmptyList<T> : IList<T>
         {
             internal static readonly EmptyList<T> INSTANCE = new EmptyList<T>();
             private static readonly Enumerator ENUMERATOR = new Enumerator();
@@ -94,9 +94,12 @@ namespace mj.compiler.utils
             if (input.Count == 0) {
                 return emptyList<O>();
             }
-            List<O> output = new List<O>(input.Count);
+            if (input.Count == 1) {
+                return singletonList(func(input[0]));
+            }
+            O[] output = new O[input.Count];
             for (var i = 0; i < input.Count; i++) {
-                output.Add(func(input[i]));
+                output[i] = func(input[i]);
             }
             return output;
         }

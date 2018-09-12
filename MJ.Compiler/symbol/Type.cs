@@ -39,8 +39,8 @@ namespace mj.compiler.symbol
 
         /// <summary>
         /// The constant value of this type, null if this type does not
-        /// have a constant value attribute. Only primitive types and
-        /// strings (ClassType) can have a constant value attribute.
+        /// have a constant value attribute. Only primitive types and strings
+        /// can have a constant value attribute.
         /// </summary>
         /// <returns> the constant value attribute of this type </returns>
         public virtual Object ConstValue => null;
