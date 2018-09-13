@@ -872,7 +872,7 @@ namespace mj.compiler.parsing
                     op = Tag.PLUS_ASG;
                     break;
                 case SUB_ASSIGN:
-                    op = Tag.MINUS;
+                    op = Tag.MINUS_ASG;
                     break;
                 case MUL_ASSIGN:
                     op = Tag.MUL_ASG;

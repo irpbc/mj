@@ -117,7 +117,7 @@ namespace mj.compiler.codegen
         {
             // LLVM.DumpModule() is unreliable on Windows. It sometimes prints binary garbage.
             IntPtr stringPtr = LLVM.PrintModuleToString(module);
-            string str = Marshal.PtrToStringUTF8(stringPtr);
+            string str       = Marshal.PtrToStringUTF8(stringPtr);
             Console.WriteLine(str);
         }
 
@@ -143,11 +143,11 @@ namespace mj.compiler.codegen
             LLVM.TargetMachineEmitToMemoryBuffer(targetMachine, module, LLVMCodeGenFileType.LLVMObjectFile,
                 out var _, out var memoryBuffer);
 
-            size_t bufferSize = LLVM.GetBufferSize(memoryBuffer);
+            size_t bufferSize  = LLVM.GetBufferSize(memoryBuffer);
             IntPtr bufferStart = LLVM.GetBufferStart(memoryBuffer);
 
             unsafe {
-                Stream s = new UnmanagedMemoryStream((byte*)bufferStart.ToPointer(), bufferSize);
+                Stream   s    = new UnmanagedMemoryStream((byte*)bufferStart.ToPointer(), bufferSize);
                 FileInfo file = new FileInfo(options.OutPath);
                 if (file.Exists) {
                     file.Delete();
@@ -176,6 +176,7 @@ namespace mj.compiler.codegen
                 default:
                     throw new ArgumentOutOfRangeException("OSPlatform unknown");
             }
+
             return triple;
         }
 
@@ -238,6 +239,7 @@ namespace mj.compiler.codegen
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+
             LLVM.LoadLibraryPermanently(libPath);
         }
 
@@ -276,6 +278,7 @@ namespace mj.compiler.codegen
             foreach (CompilationUnit cu in compilationUnits) {
                 createFunctionsAndClasses(cu);
             }
+
             scan(compilationUnits);
         }
 
@@ -362,17 +365,15 @@ namespace mj.compiler.codegen
 
         private void createObjectMetadataRecord(ClassDef cd)
         {
-            LLVMTypeRef objectType = cd.symbol.llvmTypeRef;
-            LLVMValueRef nullPtr = NULL(PTR(objectType));
+            LLVMTypeRef  objectType = cd.symbol.llvmTypeRef;
+            LLVMValueRef nullPtr    = NULL(PTR(objectType));
 
-            LLVMValueRef[] ptrOffsets = cd.fields
-                                          .Where(v => v.type.Tag == Tag.DECLARED_TYPE)
-                                          .Select(v => {
-                                              LLVMValueRef offsetGep = LLVM.ConstInBoundsGEP(nullPtr,
-                                                  new[] {CONST_INT32(0), CONST_INT32(v.symbol.LLVMFieldIndex)});
-                                              LLVMValueRef offset = LLVM.ConstPtrToInt(offsetGep, INT32);
-                                              return offset;
-                                          }).ToArray();
+            LLVMValueRef[] ptrOffsets = (from f in cd.fields
+                                         where f.type.Tag == Tag.DECLARED_TYPE
+                                         let offsetGep = LLVM.ConstInBoundsGEP(nullPtr, new[] {
+                                             CONST_INT32(0), CONST_INT32(f.symbol.LLVMFieldIndex)
+                                         })
+                                         select LLVM.ConstPtrToInt(offsetGep, INT32)).ToArray();
 
             LLVMValueRef offsetsArray = LLVM.ConstArray(INT32, ptrOffsets);
 
@@ -415,8 +416,8 @@ namespace mj.compiler.codegen
 
         private void createFunction(MethodDef mt)
         {
-            LLVMTypeRef llvmType = typeResolver.resolve(mt.symbol.type);
-            LLVMValueRef func = LLVM.AddFunction(module, mt.name, llvmType);
+            LLVMTypeRef  llvmType = typeResolver.resolve(mt.symbol.type);
+            LLVMValueRef func     = LLVM.AddFunction(module, mt.name, llvmType);
             func.SetFunctionCallConv((uint)LLVMCallConv.LLVMCCallConv);
             func.SetGC("statepoint-example");
 
@@ -457,6 +458,7 @@ namespace mj.compiler.codegen
                 VariableDeclaration param = parameters[i];
                 param.symbol.llvmRef = LLVM.BuildAlloca(builder, typeResolver.resolve(param.symbol.type), param.name);
             }
+
             for (var i = 0; i < parameters.Count; i++) {
                 VariableDeclaration param = parameters[i];
                 LLVM.BuildStore(builder, function.GetParams()[i], param.symbol.llvmRef);
@@ -547,7 +549,7 @@ namespace mj.compiler.codegen
             LLVM.PositionBuilderAtEnd(builder, whileBlock);
             LLVMValueRef conditionVal = scan(whileStat.condition);
 
-            LLVMBasicBlockRef thenBlock = LLVM.AppendBasicBlock(function, "then");
+            LLVMBasicBlockRef thenBlock  = LLVM.AppendBasicBlock(function, "then");
             LLVMBasicBlockRef afterWhile = LLVM.AppendBasicBlock(function, "afterWhile");
 
             whileStat.ContinueBlock = whileBlock;
@@ -600,7 +602,7 @@ namespace mj.compiler.codegen
 
             LLVM.PositionBuilderAtEnd(builder, forBlock);
             if (forLoop.condition != null) {
-                LLVMValueRef condValue = scan(forLoop.condition);
+                LLVMValueRef      condValue = scan(forLoop.condition);
                 LLVMBasicBlockRef thenBlock = function.AppendBasicBlock("then");
                 LLVM.BuildCondBr(builder, condValue, thenBlock, afterFor);
                 LLVM.PositionBuilderAtEnd(builder, thenBlock);
@@ -627,8 +629,8 @@ namespace mj.compiler.codegen
 
             int numRealCases = @switch.cases.Count(@case => @case.expression != null);
 
-            LLVMBasicBlockRef dummy = LLVM.AppendBasicBlock(function, "dummy");
-            LLVMValueRef switchInst = LLVM.BuildSwitch(builder, selectorVal, dummy, (uint)numRealCases);
+            LLVMBasicBlockRef dummy      = LLVM.AppendBasicBlock(function, "dummy");
+            LLVMValueRef      switchInst = LLVM.BuildSwitch(builder, selectorVal, dummy, (uint)numRealCases);
 
             LLVMBasicBlockRef? defaultBlock = null;
 
@@ -636,7 +638,7 @@ namespace mj.compiler.codegen
             @switch.BreakBlock = afterSwitch;
 
             for (var i = 0; i < @switch.cases.Count; i++) {
-                Case @case = @switch.cases[i];
+                Case              @case     = @switch.cases[i];
                 LLVMBasicBlockRef caseBlock = function.AppendBasicBlock("case");
 
                 if (i > 0) {
@@ -676,7 +678,7 @@ namespace mj.compiler.codegen
         private bool safeJumpTo(LLVMBasicBlockRef destBlock)
         {
             LLVMBasicBlockRef prevBlock = LLVM.GetInsertBlock(builder);
-            LLVMValueRef lastInst = prevBlock.GetLastInstruction();
+            LLVMValueRef      lastInst  = prevBlock.GetLastInstruction();
             if (lastInst.Pointer == IntPtr.Zero) {
                 LLVM.BuildBr(builder, destBlock);
                 return true;
@@ -714,6 +716,7 @@ namespace mj.compiler.codegen
                 if (returnStatement.afterAspects != null) {
                     scan(returnStatement.afterAspects);
                 }
+
                 LLVM.BuildRet(builder, value);
             }
 
@@ -743,21 +746,21 @@ namespace mj.compiler.codegen
 
             LLVMBasicBlockRef thenBlock = LLVM.AppendBasicBlock(function, "then");
             LLVMBasicBlockRef elseBlock = LLVM.AppendBasicBlock(function, "else");
-            LLVMBasicBlockRef afterIf = LLVM.AppendBasicBlock(function, "afterIf");
+            LLVMBasicBlockRef afterIf   = LLVM.AppendBasicBlock(function, "afterIf");
 
             LLVM.BuildCondBr(builder, conditionVal, thenBlock, elseBlock);
 
             LLVM.PositionBuilderAtEnd(builder, thenBlock);
-            Expression trueExpr = conditional.ifTrue;
-            LLVMValueRef trueVal = scan(trueExpr);
+            Expression   trueExpr = conditional.ifTrue;
+            LLVMValueRef trueVal  = scan(trueExpr);
             trueVal = promote(trueExpr.type, conditional.type, trueVal);
             safeJumpTo(afterIf);
             thenBlock = LLVM.GetInsertBlock(builder);
 
             elseBlock.MoveBasicBlockAfter(function.GetLastBasicBlock());
             LLVM.PositionBuilderAtEnd(builder, elseBlock);
-            Expression falseExpr = conditional.ifFalse;
-            LLVMValueRef falseVal = scan(falseExpr);
+            Expression   falseExpr = conditional.ifFalse;
+            LLVMValueRef falseVal  = scan(falseExpr);
             falseVal = promote(falseExpr.type, conditional.type, falseVal);
             safeJumpTo(afterIf);
             elseBlock = LLVM.GetInsertBlock(builder);
@@ -773,12 +776,13 @@ namespace mj.compiler.codegen
         public override LLVMValueRef visitMethodInvoke(MethodInvocation mi)
         {
             int fixedCount = mi.methodSym.type.ParameterTypes.Count;
-            int callCount = mi.args.Count;
+            int callCount  = mi.args.Count;
 
             LLVMValueRef[] args = new LLVMValueRef[callCount];
+
             int i = 0;
             for (; i < fixedCount; i++) {
-                Expression arg = mi.args[i];
+                Expression   arg    = mi.args[i];
                 LLVMValueRef argVal = scan(arg);
                 args[i] = promote(arg.type, mi.methodSym.type.ParameterTypes[i], argVal);
             }
@@ -789,7 +793,7 @@ namespace mj.compiler.codegen
                 args[i] = scan(arg);
             }
 
-            string name = mi.type.IsVoid ? "" : mi.methodSym.name;
+            string       name     = mi.type.IsVoid ? "" : mi.methodSym.name;
             LLVMValueRef callInst = LLVM.BuildCall(builder, mi.methodSym.llvmRef, args, name);
             return callInst;
         }
@@ -821,17 +825,17 @@ namespace mj.compiler.codegen
         {
             Symbol.ClassSymbol sym = newClass.symbol;
 
-            LLVMValueRef metaPtr = LLVM.BuildPointerCast(builder, sym.llvmMetaRef, PTR_VOID, "met");
+            LLVMValueRef metaPtr    = LLVM.BuildPointerCast(builder, sym.llvmMetaRef, PTR_VOID, "met");
             LLVMValueRef untypedPtr = LLVM.BuildCall(builder, allocFunction, new[] {metaPtr}, "tmp");
-            
+
             return LLVM.BuildPointerCast(builder, untypedPtr, HEAP_PTR(sym.llvmTypeRef), "tmp");
         }
 
         public override LLVMValueRef visitNewArray(NewArray newArray)
         {
-            ArrayType arrayType = (ArrayType)newArray.type;
-            Expression lengthExpr = newArray.length;
-            LLVMValueRef length = scan(lengthExpr);
+            ArrayType    arrayType  = (ArrayType)newArray.type;
+            Expression   lengthExpr = newArray.length;
+            LLVMValueRef length     = scan(lengthExpr);
             length = promote(lengthExpr.type, symtab.intType, length);
 
             LLVMValueRef metaPtr = LLVM.BuildPointerCast(builder, arrayType.llvmMetaRef, PTR_VOID, "met");
@@ -891,18 +895,19 @@ namespace mj.compiler.codegen
                 case Identifier id: return id.symbol.llvmRef;
                 case Select s:
                     LLVMValueRef ptrToPtrToObject = getPointerToLocation(s.selectBase);
-                    LLVMValueRef ptrToObject = LLVM.BuildLoad(builder, ptrToPtrToObject, "tmp");
+                    LLVMValueRef ptrToObject      = LLVM.BuildLoad(builder, ptrToPtrToObject, "tmp");
                     LLVMValueRef ptrToField = LLVM.BuildStructGEP(builder, ptrToObject,
                         (uint)s.symbol.LLVMFieldIndex, s.name + ".ptr");
                     return ptrToField;
                 case ArrayIndex ind:
-                    LLVMValueRef index = scan(ind.index);
+                    LLVMValueRef index           = scan(ind.index);
                     LLVMValueRef ptrToPtrToArray = getPointerToLocation(ind.indexBase);
-                    LLVMValueRef ptrToArray = LLVM.BuildLoad(builder, ptrToPtrToArray, "tmp");
-                    LLVMValueRef ptrToElem = LLVM.BuildInBoundsGEP(builder, ptrToArray, 
+                    LLVMValueRef ptrToArray      = LLVM.BuildLoad(builder, ptrToPtrToArray, "tmp");
+                    LLVMValueRef ptrToElem = LLVM.BuildInBoundsGEP(builder, ptrToArray,
                         new[] {CONST_INT32(0), CONST_INT32(4), index}, "elem.ptr");
                     return ptrToElem;
             }
+
             throw new InvalidOperationException();
         }
 
@@ -922,7 +927,7 @@ namespace mj.compiler.codegen
             }
 
             if (expr.opcode.isIncDec()) {
-                LLVMValueRef one = toLLVMConst(1, expr.operatorSym.type.ReturnType.Tag);
+                LLVMValueRef one    = toLLVMConst(1, expr.operatorSym.type.ReturnType.Tag);
                 LLVMValueRef resVal = LLVM.BuildBinOp(builder, expr.operatorSym.opcode, operandVal, one, "incDec");
                 LLVM.BuildStore(builder, resVal, ((Identifier)expr.operand).symbol.llvmRef);
                 return expr.opcode.isPre() ? resVal : operandVal;
@@ -934,9 +939,9 @@ namespace mj.compiler.codegen
         private LLVMValueRef toLLVMConst(int num, TypeTag type)
         {
             switch (type) {
-                case TypeTag.INT: return CONST_INT32(num);
-                case TypeTag.LONG: return CONST_INT64(num);
-                case TypeTag.FLOAT: return CONST_FLOAT(num);
+                case TypeTag.INT:    return CONST_INT32(num);
+                case TypeTag.LONG:   return CONST_INT64(num);
+                case TypeTag.FLOAT:  return CONST_FLOAT(num);
                 case TypeTag.DOUBLE: return CONST_DOUBLE(num);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
@@ -948,12 +953,13 @@ namespace mj.compiler.codegen
             if (expr.opcode == Tag.AND || expr.opcode == Tag.OR) {
                 return buildShortCircutLogical(expr.opcode == Tag.OR, expr.left, expr.right);
             }
+
             return doBinary(expr.left, expr.right, expr.operatorSym);
         }
 
         private LLVMValueRef doBinary(Expression left, Expression right, Symbol.OperatorSymbol op)
         {
-            LLVMValueRef leftVal = scan(left);
+            LLVMValueRef leftVal  = scan(left);
             LLVMValueRef rightVal = scan(right);
 
             if (op.type.ReturnType.IsNumeric || op.IsComparison) {
@@ -980,11 +986,11 @@ namespace mj.compiler.codegen
 
         public LLVMValueRef buildShortCircutLogical(bool isOR, Expression left, Expression right)
         {
-            LLVMValueRef leftVal = scan(left);
+            LLVMValueRef      leftVal   = scan(left);
             LLVMBasicBlockRef prevBlock = LLVM.GetInsertBlock(builder);
 
             LLVMBasicBlockRef rightBlock = LLVM.AppendBasicBlock(function, "right");
-            LLVMBasicBlockRef afterIf = LLVM.AppendBasicBlock(function, "afterSC");
+            LLVMBasicBlockRef afterIf    = LLVM.AppendBasicBlock(function, "afterSC");
 
             if (isOR) {
                 LLVM.BuildCondBr(builder, leftVal, afterIf, rightBlock);
@@ -1054,12 +1060,15 @@ namespace mj.compiler.codegen
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
                 return TargetOS.Windows;
             }
+
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
                 return TargetOS.OSX;
             }
+
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
                 return TargetOS.Linux;
             }
+
             throw new ArgumentOutOfRangeException("OSPlatform unknown");
         }
 

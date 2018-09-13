@@ -1,11 +1,11 @@
 
-class A {
+struct A {
     int intField;
     float floatField;
     boolean boolField;
 }
 
-class B {
+struct B {
     A aField;
     A anotherAField;
     B bField;

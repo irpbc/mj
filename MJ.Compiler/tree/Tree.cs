@@ -15,17 +15,13 @@ namespace mj.compiler.tree
 {
     public abstract class Tree
     {
-        [JsonIgnore]
-        public readonly int beginLine;
+        [JsonIgnore] public readonly int beginLine;
 
-        [JsonIgnore]
-        public readonly int beginCol;
+        [JsonIgnore] public readonly int beginCol;
 
-        [JsonIgnore]
-        public int endLine;
+        [JsonIgnore] public int endLine;
 
-        [JsonIgnore]
-        public int endCol;
+        [JsonIgnore] public int endCol;
 
         protected Tree(int beginLine, int beginCol, int endLine, int endCol)
         {
@@ -71,7 +67,7 @@ namespace mj.compiler.tree
         public IList<VariableDeclaration> fields;
         public Symbol.ClassSymbol symbol;
 
-        public ClassDef(int beginLine, int beginCol, int endLine, int endCol, string name, VariableDeclaration[] fields) 
+        public ClassDef(int beginLine, int beginCol, int endLine, int endCol, string name, VariableDeclaration[] fields)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
@@ -79,7 +75,7 @@ namespace mj.compiler.tree
         }
 
         public override Tag Tag => Tag.CLASS_DEF;
-        
+
         public override void accept(AstVisitor v) => v.visitClassDef(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitClassDef(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitClassDef(this, arg);
@@ -152,7 +148,7 @@ namespace mj.compiler.tree
         public String name;
         public Symbol.VarSymbol symbol;
 
-        public Select(int beginLine, int beginCol, int endLine, int endCol, Expression selectBase, string name) 
+        public Select(int beginLine, int beginCol, int endLine, int endCol, Expression selectBase, string name)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.selectBase = selectBase;
@@ -173,7 +169,7 @@ namespace mj.compiler.tree
         public Expression indexBase;
         public Expression index;
 
-        public ArrayIndex(int beginLine, int beginCol, int endLine, int endCol, Expression indexBase, Expression index) 
+        public ArrayIndex(int beginLine, int beginCol, int endLine, int endCol, Expression indexBase, Expression index)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.indexBase = indexBase;
@@ -194,14 +190,14 @@ namespace mj.compiler.tree
         public String className;
         public Symbol.ClassSymbol symbol;
 
-        public NewClass(int beginLine, int beginCol, int endLine, int endCol, String className) 
+        public NewClass(int beginLine, int beginCol, int endLine, int endCol, String className)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.className = className;
         }
 
         public override Tag Tag => Tag.NEW_CLASS;
-        
+
         public override void accept(AstVisitor v) => v.visitNewClass(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitNewClass(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitNewClass(this, arg);
@@ -212,7 +208,8 @@ namespace mj.compiler.tree
         public TypeTree elemenTypeTree;
         public Expression length;
 
-        public NewArray(int beginLine, int beginCol, int endLine, int endCol, TypeTree elemenTypeTree, Expression length) 
+        public NewArray(int beginLine, int beginCol, int endLine, int endCol,
+                        TypeTree elemenTypeTree, Expression length)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.elemenTypeTree = elemenTypeTree;
@@ -257,7 +254,7 @@ namespace mj.compiler.tree
             this.left = left;
             this.right = right;
         }
-        
+
         public override bool IsExpressionStatement => true;
 
         public override void accept(AstVisitor v) => v.visitCompoundAssign(this);
@@ -428,7 +425,7 @@ namespace mj.compiler.tree
     {
         public String name;
 
-        public DeclaredType(int beginLine, int beginCol, int endLine, int endCol, String name) 
+        public DeclaredType(int beginLine, int beginCol, int endLine, int endCol, String name)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
@@ -445,7 +442,7 @@ namespace mj.compiler.tree
     {
         public TypeTree elemTypeTree;
 
-        public ArrayTypeTree(int beginLine, int beginCol, int endLine, int endCol, TypeTree elemTypeTree) 
+        public ArrayTypeTree(int beginLine, int beginCol, int endLine, int endCol, TypeTree elemTypeTree)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.elemTypeTree = elemTypeTree;

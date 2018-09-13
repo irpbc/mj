@@ -115,10 +115,10 @@ namespace mj.compiler.symbol
             return type;
         }
 
-        public void enterBuiltins()
+        private void enterBuiltins()
         {
             Scope.WriteableScope scope = topLevelSymbol.topScope;
-            builtins = new List<Symbol.MethodSymbol>(1);
+            builtins = new List<Symbol.MethodSymbol>();
 
             scope.enter(builtin("puts", intType, stringType));
             scope.enter(builtin("putchar", intType, intType));

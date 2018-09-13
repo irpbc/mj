@@ -151,20 +151,11 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Class {0} is already defined.
+        ///   Looks up a localized string similar to Type {0} is already defined.
         /// </summary>
         public static string duplicateClassName {
             get {
                 return ResourceManager.GetString("duplicateClassName", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Field &quot;{0}&quot; is already defined in class &quot;{1}&quot;.
-        /// </summary>
-        public static string duplicateField {
-            get {
-                return ResourceManager.GetString("duplicateField", resourceCulture);
             }
         }
         
@@ -385,7 +376,7 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Class &quot;{0}&quot; is not defined.
+        ///   Looks up a localized string similar to Type &quot;{0}&quot; is not defined.
         /// </summary>
         public static string undefinedClass {
             get {
@@ -412,7 +403,7 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Field &quot;{0}&quot; is not defined in class &quot;{1}&quot;.
+        ///   Looks up a localized string similar to Field &quot;{0}&quot; is not defined in struct &quot;{1}&quot;.
         /// </summary>
         public static string unknownField {
             get {

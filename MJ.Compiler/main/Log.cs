@@ -43,6 +43,20 @@ namespace mj.compiler.main
             NumErrors++;
         }
         
+        public void error(DiagnosticPosition pos, String msg)
+        {
+            ConsoleColor prevColor = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.Red;
+            try {
+                Console.Write($"Error: {currentSource.Path}({pos.line},{pos.column}): ");
+                Console.WriteLine(msg);
+            } finally {
+                Console.ForegroundColor = prevColor;
+            }
+
+            NumErrors++;
+        }
+        
         public void globalError(String format, params Object[] args)
         {
             ConsoleColor prevColor = Console.ForegroundColor;

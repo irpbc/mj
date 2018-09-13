@@ -23,7 +23,7 @@
     <data name="intLiteratTooBig"><value>Integer literal {0} is too big</value></data>
     <data name="floatLiteratTooBig"><value>Floating point literal {0} is too big</value></data>
     <data name="duplicateMethodName"><value>Method {0} is already defiend</value></data>
-    <data name="duplicateClassName"><value>Class {0} is already defined</value></data>
+    <data name="duplicateClassName"><value>Type {0} is already defined</value></data>
     <data name="duplicateParamName"><value>Parameter {0} is already defined in method {1}</value></data>
     <data name="duplicateVar"><value>Local variable {0} is already defined in this scope</value></data>
     <data name="varParamNameConflict"><value>Local variable {0} has same name as a parameter</value></data>
@@ -60,8 +60,8 @@
     <data name="unassignedVariable"><value>Variable {0} might not have been assigned</value></data>
     <data name="multipleDefaults"><value>Multiple default cases in switch</value></data>
     <data name="selectOnPrimitive"><value>Attempted field access on primitive type</value></data>
-    <data name="unknownField"><value>Field "{0}" is not defined in class "{1}"</value></data>
-    <data name="undefinedClass"><value>Class "{0}" is not defined</value></data>
+    <data name="unknownField"><value>Field "{0}" is not defined in struct "{1}"</value></data>
+    <data name="undefinedClass"><value>Type "{0}" is not defined</value></data>
     <data name="arrayLengthType"><value>Array length must be of type integer or smaller</value></data>
     <data name="indexNotArray"><value>Base of index expression must be an array</value></data>
     <data name="indexNotInteger"><value>Index of index expression must be of integer type</value></data>

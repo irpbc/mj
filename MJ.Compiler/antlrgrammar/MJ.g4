@@ -41,7 +41,7 @@ annotation
     ;
     
 classDef
-    : 'class' name=Identifier '{' (fields+=fieldDef)+ '}'
+    : 'struct' name=Identifier '{' (fields+=fieldDef)+ '}'
     ;
 
 fieldDef
@@ -156,7 +156,8 @@ expression returns [ bool isAssignment, int shiftOp ]
     | methodInvocation
     | NEW (Identifier '(' ')' | type '[' length=expression ']' )
     | arg=expression postfix=('++' | '--')
-    | prefix=('+'|'-'|'++'|'--') arg=expression
+    | prefix=('++'|'--') arg=expression
+    | prefix='-' arg=expression
     | prefix=('~'|'!') arg=expression
     | left=expression bop=('*'|'/'|'%') right=expression
     | left=expression bop=('+'|'-') right=expression
@@ -175,59 +176,27 @@ expression returns [ bool isAssignment, int shiftOp ]
       right=expression { $expression::isAssignment=true; }
     ;
 
-ABSTRACT : 'abstract';
-ASSERT : 'assert';
 BOOLEAN : 'boolean';
 BREAK : 'break';
-BYTE : 'byte';
 CASE : 'case';
-CATCH : 'catch';
-CHAR : 'char';
-CLASS : 'class';
-CONST : 'const';
 CONTINUE : 'continue';
-DEFAULT : 'default';
 DO : 'do';
 DOUBLE : 'double';
+DEFAULT : 'default';
 ELSE : 'else';
-ENUM : 'enum';
-EXTENDS : 'extends';
-FINAL : 'final';
-FINALLY : 'finally';
 FLOAT : 'float';
 FOR : 'for';
 IF : 'if';
-GOTO : 'goto';
-IMPLEMENTS : 'implements';
-IMPORT : 'import';
-INSTANCEOF : 'instanceof';
 INT : 'int';
-INTERFACE : 'interface';
 LONG : 'long';
-NATIVE : 'native';
 NEW : 'new';
 NULL : 'null';
-PACKAGE : 'package';
-PRIVATE : 'private';
-PROTECTED : 'protected';
-PUBLIC : 'public';
 RETURN : 'return';
-SHORT : 'short';
-STATIC : 'static';
-STRICTFP : 'strictfp';
-SUPER : 'super';
 STRING : 'string';
+STRUCT : 'struct';
 SWITCH : 'switch';
-SYNCHRONIZED : 'synchronized';
-THIS : 'this';
-THROW : 'throw';
-THROWS : 'throws';
-TRANSIENT : 'transient';
-TRY : 'try';
 VOID : 'void';
-VOLATILE : 'volatile';
 WHILE : 'while';
-
 
 
 IntegerLiteral
