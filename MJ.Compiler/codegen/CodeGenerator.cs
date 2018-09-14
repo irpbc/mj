@@ -319,9 +319,9 @@ namespace mj.compiler.codegen
                     case MethodDef mt:
                         createFunction(mt);
                         break;
-                    case AspectDef asp:
+                    /*case AspectDef asp:
                         createFunction(asp.after);
-                        break;
+                        break;*/
                 }
             }
         }
@@ -465,11 +465,11 @@ namespace mj.compiler.codegen
             }
         }
 
-        public override LLVMValueRef visitAspectDef(AspectDef aspect)
+        /*public override LLVMValueRef visitAspectDef(AspectDef aspect)
         {
             scan(aspect.after);
             return nullValue;
-        }
+        }*/
 
         private void endFunction()
         {

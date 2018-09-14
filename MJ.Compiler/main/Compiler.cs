@@ -25,7 +25,7 @@ namespace mj.compiler.main
         private readonly DeclarationAnalysis declarationAnalysis;
         private readonly TypeAnalysis typeAnalysis;
         private readonly FlowAnalysis flowAnalysis;
-        private readonly AspectWeaver aspectWeaver;
+//        private readonly AspectWeaver aspectWeaver;
         private readonly CodeGenerator codeGenerator;
 
         private readonly Log log;
@@ -38,7 +38,7 @@ namespace mj.compiler.main
             declarationAnalysis = DeclarationAnalysis.instance(context);
             typeAnalysis = TypeAnalysis.instance(context);
             flowAnalysis = FlowAnalysis.instance(context);
-            aspectWeaver = AspectWeaver.instance(context);
+//            aspectWeaver = AspectWeaver.instance(context);
             codeGenerator = CodeGenerator.instance(context);
             log = Log.instance(context);
         }
@@ -51,7 +51,11 @@ namespace mj.compiler.main
             }
             List<SourceFile> files = inputs.Select(s => new SourceFile(s)).ToList();
 
-            generateCode(aspects(flow(types(decls(parse(files))))));
+            generateCode(
+//                aspects(
+                    flow(types(decls(parse(files))))
+//                    )
+                );
         }
 
         private IList<CompilationUnit> parse(IList<SourceFile> files)
@@ -80,7 +84,7 @@ namespace mj.compiler.main
 
         private IList<CompilationUnit> flow(IList<CompilationUnit> trees) => stopIfError(flowAnalysis.main(trees));
 
-        private IList<CompilationUnit> aspects(IList<CompilationUnit> trees) => stopIfError(aspectWeaver.main(trees));
+//        private IList<CompilationUnit> aspects(IList<CompilationUnit> trees) => stopIfError(aspectWeaver.main(trees));
 
         private void generateCode(IList<CompilationUnit> trees)
         {

@@ -333,21 +333,20 @@ namespace mj.compiler.tree
         public String name;
         public TypeTree returnType;
         public IList<VariableDeclaration> parameters;
-        public IList<Annotation> annotations;
+//        public IList<Annotation> annotations;
         public bool isPrivate;
         public Block body;
         public Symbol.MethodSymbol symbol;
         public bool exitsNormally;
 
         public MethodDef(int beginLine, int beginCol, int endLine, int endCol, string name, TypeTree returnType,
-                         IList<VariableDeclaration> parameters, IList<Annotation> annotations, Block body,
-                         bool isPrivate)
+                         IList<VariableDeclaration> parameters, Block body, bool isPrivate)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
             this.returnType = returnType;
             this.parameters = parameters;
-            this.annotations = annotations;
+//            this.annotations = annotations;
             this.body = body;
             this.isPrivate = isPrivate;
         }
@@ -359,7 +358,7 @@ namespace mj.compiler.tree
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitMethodDef(this, arg);
     }
 
-    public class AspectDef : Tree
+/*    public class AspectDef : Tree
     {
         public String name;
         public MethodDef after;
@@ -377,9 +376,9 @@ namespace mj.compiler.tree
         public override void accept(AstVisitor v) => v.visitAspectDef(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitAspectDef(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitAspectDef(this, arg);
-    }
+    }*/
 
-    public class Annotation : Tree
+    /*public class Annotation : Tree
     {
         public String name;
         public Symbol.AspectSymbol symbol;
@@ -395,7 +394,7 @@ namespace mj.compiler.tree
         public override void accept(AstVisitor v) => v.visitAnnotation(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitAnnotation(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitAnnotation(this, arg);
-    }
+    }*/
 
     public abstract class TypeTree : Tree
     {

@@ -8,7 +8,7 @@ using mj.compiler.utils;
 
 namespace mj.compiler.aspect
 {
-    public class AspectWeaver : AstVisitor<object, AspectWeaver.Environment>
+    /*public class AspectWeaver : AstVisitor<object, AspectWeaver.Environment>
     {
         private static readonly Context.Key<AspectWeaver> CONTEXT_KEY = new Context.Key<AspectWeaver>();
 
@@ -110,5 +110,5 @@ namespace mj.compiler.aspect
                 this.afterAspects = afterAspects;
             }
         }
-    }
+    }*/
 }

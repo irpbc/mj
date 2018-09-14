@@ -78,11 +78,11 @@ namespace mj.compiler.symbol
             return 0;
         }
 
-        public override Exit visitAspectDef(AspectDef aspect, Environment env)
+        /*public override Exit visitAspectDef(AspectDef aspect, Environment env)
         {
             scan(aspect.after, env);
             return 0;
-        }
+        }*/
 
         public override Exit visitBlock(Block block, Environment env) => analyze(block.statements, env);
 

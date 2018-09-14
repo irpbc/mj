@@ -101,10 +101,10 @@ namespace mj.compiler.parsing
             if (cd != null) {
                 return VisitClassDef(cd);
             }
-            AspectDefContext asp = context.aspectDef();
+/*            AspectDefContext asp = context.aspectDef();
             if (asp != null) {
                 return VisitAspectDef(asp);
-            }
+            }*/
             throw new ArgumentOutOfRangeException();
         }
 
@@ -135,7 +135,7 @@ namespace mj.compiler.parsing
             String name = context.name.Text;
             ResultContext resultContext = context.result();
             IList<FormalParameterContext> parameterContexts = context._params;
-            IList<AnnotationContext> annotationContexts = context._annotations;
+//            IList<AnnotationContext> annotationContexts = context._annotations;
             bool isPrivate = context.isPrivate;
 
             TypeContext resType = resultContext.type();
@@ -155,15 +155,15 @@ namespace mj.compiler.parsing
                 parameters[i] = (VariableDeclaration)VisitFormalParameter(parameterContexts[i]);
             }
 
-            Annotation[] annotations = new Annotation[annotationContexts.Count];
+            /*Annotation[] annotations = new Annotation[annotationContexts.Count];
             for (int i = 0; i < annotationContexts.Count; i++) {
                 annotations[i] = (Annotation)VisitAnnotation(annotationContexts[i]);
-            }
+            }*/
 
             Block block = (Block)VisitBlock(context.methodBody().block());
 
             return new MethodDef(type.beginLine, type.beginCol, block.endLine, block.endCol, name, type, parameters,
-                annotations, block, isPrivate);
+                block, isPrivate);
         }
 
         public override Tree VisitResult(ResultContext context) => throw new InvalidOperationException();
@@ -180,7 +180,7 @@ namespace mj.compiler.parsing
             return new VariableDeclaration(type.beginLine, type.beginCol, stopLine, stopCol, name, type, null);
         }
 
-        public override Tree VisitAnnotation(AnnotationContext context)
+        /*public override Tree VisitAnnotation(AnnotationContext context)
         {
             IToken stopToken = context.Stop;
             int stopLine = stopToken.Line;
@@ -217,7 +217,7 @@ namespace mj.compiler.parsing
                 afterBlock, false);
 
             return methodDef;
-        }
+        }*/
 
         public override Tree VisitMethodBody(MethodBodyContext context) => throw new InvalidOperationException();
 

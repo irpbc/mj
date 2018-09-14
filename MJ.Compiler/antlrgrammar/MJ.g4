@@ -33,12 +33,12 @@ compilationUnit
 declaration
     :   classDef
     |   methodDeclaration
-    |   aspectDef
+//    |   aspectDef
     ;
 
-annotation
+/*annotation
     :   '@' name=Identifier
-    ;
+    ;*/
     
 classDef
     : 'struct' name=Identifier '{' (fields+=fieldDef)+ '}'
@@ -49,7 +49,7 @@ fieldDef
     ;
 
 methodDeclaration returns [ bool isPrivate ]
-	:	annotations+=annotation*
+	:	/*annotations+=annotation**/
 	    'private'? { $methodDeclaration::isPrivate=true; } 
 	    result 
 	    name=Identifier '(' ( params+=formalParameter (',' params+=formalParameter)* )? ')'
@@ -65,11 +65,11 @@ formalParameter
 	:	type name=Identifier
 	;
 
-aspectDef
+/*aspectDef
     : 'aspect' name=Identifier '{' 
           ( afterStart='after' after=block )?
       '}'
-    ;
+    ;*/
 
 methodBody
 	:	block

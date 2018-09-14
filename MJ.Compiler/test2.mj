@@ -1,6 +1,4 @@
 
-@LogAfter
-@LogAfter
 int main(int argc, long arvPtr) {
     hello();
     

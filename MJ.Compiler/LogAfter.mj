@@ -1,6 +1,0 @@
-
-aspect LogAfter {
-    after {
-        printf("Method %s has ended.\n", methodName);
-    }
-}

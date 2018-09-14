@@ -107,7 +107,7 @@ namespace mj.compiler.symbol
 
         public override Type visitMethodDef(MethodDef method, Environment env)
         {
-            analyze(method.annotations, env);
+//            analyze(method.annotations, env);
             analyze(method.body.statements, new Environment {
                 enclMethod = method.symbol,
                 scope = method.symbol.scope,
@@ -117,7 +117,7 @@ namespace mj.compiler.symbol
             return method.symbol.type;
         }
 
-        public override Type visitAnnotation(Annotation annotation, Environment env)
+        /*public override Type visitAnnotation(Annotation annotation, Environment env)
         {
             Symbol aspectSym = env.scope.findFirst(annotation.name, s => s.kind == Kind.ASPECT);
             if (aspectSym == null) {
@@ -132,7 +132,7 @@ namespace mj.compiler.symbol
         {
             analyze(aspect.after, env);
             return null;
-        }
+        }*/
 
         public override Type visitBlock(Block block, Environment env)
         {

@@ -140,7 +140,7 @@ namespace mj.compiler.symbol
             return msym;
         }
 
-        public override object visitAspectDef(AspectDef aspect, WriteableScope enclScope)
+        /*public override object visitAspectDef(AspectDef aspect, WriteableScope enclScope)
         {
             Symbol owner = symtab.topLevelSymbol;
 
@@ -152,7 +152,7 @@ namespace mj.compiler.symbol
             }
 
             return null;
-        }
+        }*/
 
         private MethodType signature(TypeTree retTypeTree, IList<VariableDeclaration> paramTrees, WriteableScope scope)
         {
