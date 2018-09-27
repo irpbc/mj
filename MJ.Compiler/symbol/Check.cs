@@ -27,20 +27,11 @@ namespace mj.compiler.symbol
             symtab = Symtab.instance(ctx);
         }
 
-        public bool checkUnique(DiagnosticPosition pos, MethodSymbol sym, Scope scope)
+        public bool checkUnique(DiagnosticPosition pos, FuncSymbol sym, Scope scope)
         {
             bool contains = scope.getSymbolsByName(sym.name, LookupKind.NON_RECURSIVE).Any();
             if (contains) {
-                log.error(pos, messages.duplicateMethodName, sym.name);
-            }
-            return !contains;
-        }
-        
-        public bool checkUnique(DiagnosticPosition pos, AspectSymbol sym, Scope scope)
-        {
-            bool contains = scope.getSymbolsByName(sym.name, LookupKind.NON_RECURSIVE).Any();
-            if (contains) {
-                log.error(pos, messages.duplicateMethodName, sym.name);
+                log.error(pos, messages.duplicateFunctionName, sym.name);
             }
             return !contains;
         }
@@ -54,7 +45,7 @@ namespace mj.compiler.symbol
             return true;
         }
 
-        public bool checkMainMethod(DiagnosticPosition pos, MethodSymbol main)
+        public bool checkMainFunction(DiagnosticPosition pos, FuncSymbol main)
         {
             // Mimic C main function sig: int main(int,char**)
             // with long substituting pointer (implying 64bit arch)
@@ -62,7 +53,7 @@ namespace mj.compiler.symbol
                 main.type.ParameterTypes.Count != 2 || 
                 main.type.ParameterTypes[0] != symtab.intType || 
                 main.type.ParameterTypes[1] != symtab.longType) {
-                log.error(pos, messages.mainMethodSig);
+                log.error(pos, messages.mainFunctionSig);
                 return false;
             }
             return true;
@@ -77,11 +68,11 @@ namespace mj.compiler.symbol
             return true;
         }
 
-        public bool checkUnique(DiagnosticPosition pos, ClassSymbol csym, WriteableScope scope)
+        public bool checkUnique(DiagnosticPosition pos, StructSymbol ssym, WriteableScope scope)
         {
-            bool contains = scope.getSymbolsByName(csym.name, LookupKind.NON_RECURSIVE).Any();
+            bool contains = scope.getSymbolsByName(ssym.name, LookupKind.NON_RECURSIVE).Any();
             if (contains) {
-                log.error(pos, messages.duplicateClassName, csym.name);
+                log.error(pos, messages.duplicateStructName, ssym.name);
             }
             return !contains;
         }

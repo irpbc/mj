@@ -32,6 +32,8 @@ int main(int argc, long arvPtr) {
         b.aField = deepA1();
     }
     
+    boolean res = 45 + 89 - 78 * 875 / 75 << 4 >> 7 > 5 && true != false;
+    
     printf("I na kraju: %d, %d, %d\n", i, nizA.length, nizA[5].intField);
     
     return 0;

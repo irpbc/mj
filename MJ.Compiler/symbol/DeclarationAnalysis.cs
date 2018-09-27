@@ -13,8 +13,8 @@ using static mj.compiler.symbol.Symbol;
 namespace mj.compiler.symbol
 {
     /// <summary>
-    /// Constructs symbols for declarations, lie methods and method parameters.
-    /// Does not go into method bodies. That is done 
+    /// Constructs symbols for declarations, lie funcs and func parameters.
+    /// Does not go into func bodies. That is done 
     /// </summary>
     /// <para>
     /// 
@@ -33,7 +33,6 @@ namespace mj.compiler.symbol
 
         private readonly Symtab symtab;
         private readonly Check check;
-        private readonly Typings typings;
         private readonly Log log;
 
         public DeclarationAnalysis(Context ctx)
@@ -42,11 +41,10 @@ namespace mj.compiler.symbol
 
             symtab = Symtab.instance(ctx);
             check = Check.instance(ctx);
-            typings = Typings.instance(ctx);
             log = Log.instance(ctx);
         }
 
-        private bool mainMethodFound = false;
+        private bool mainFuncFound = false;
 
         public IList<CompilationUnit> main(IList<CompilationUnit> trees)
         {
@@ -64,8 +62,8 @@ namespace mj.compiler.symbol
                 }
             }
 
-            if (!mainMethodFound) {
-                log.globalError(messages.mainMethodNotDefined);
+            if (!mainFuncFound) {
+                log.globalError(messages.mainFunctionNotDefined);
             }
 
             return trees;
@@ -73,90 +71,75 @@ namespace mj.compiler.symbol
 
         public override object visitCompilationUnit(CompilationUnit compilationUnit, WriteableScope s)
         {
-            // First enter classes because they define new types
+            // First enter structs because they define new types
             for (var i = 0; i < compilationUnit.declarations.Count; i++) {
                 Tree decl = compilationUnit.declarations[i];
-                if (decl.Tag == Tag.CLASS_DEF) {
+                if (decl.Tag == Tag.STRUCT_DEF) {
                     scan(decl, s);
                 }
             }
             // Then enter other declarations
             for (var i = 0; i < compilationUnit.declarations.Count; i++) {
                 Tree decl = compilationUnit.declarations[i];
-                if (decl.Tag != Tag.CLASS_DEF) {
+                if (decl.Tag != Tag.STRUCT_DEF) {
                     scan(decl, s);
                 }
             }
             return null;
         }
 
-        public override object visitClassDef(ClassDef classDef, WriteableScope enclScope)
+        public override object visitStructDef(StructDef structDef, WriteableScope enclScope)
         {
-            ClassSymbol csym = makeClassSymbol(classDef, enclScope.owner);
+            StructSymbol ssym = makeStructSymbol(structDef, enclScope.owner);
 
-            if (check.checkUnique(classDef.Pos, csym, enclScope)) {
-                enclScope.enter(csym);
+            if (check.checkUnique(structDef.Pos, ssym, enclScope)) {
+                enclScope.enter(ssym);
             }
             return null;
         }
 
-        private ClassSymbol makeClassSymbol(ClassDef classDef, Symbol owner)
+        private StructSymbol makeStructSymbol(StructDef structDef, Symbol owner)
         {
-            ClassSymbol csym = new ClassSymbol(classDef.name, owner, null);
-            csym.type = new ClassType(classDef.name, csym);
+            StructSymbol ssym = new StructSymbol(structDef.name, owner, null);
+            ssym.type = new StructType(ssym);
 
-            classDef.symbol = csym;
+            structDef.symbol = ssym;
 
-            return csym;
+            return ssym;
         }
 
-        public override object visitMethodDef(MethodDef method, WriteableScope enclScope)
+        public override object visitFuncDef(FuncDef func, WriteableScope enclScope)
         {
-            MethodSymbol msym = makeMethodSymbol(method, enclScope);
+            FuncSymbol fsym = makeFuncSymbol(func, enclScope);
 
-            if (method.name == "main") {
-                mainMethodFound = true;
-                check.checkMainMethod(method.Pos, msym);
+            if (func.name == "main") {
+                mainFuncFound = true;
+                check.checkMainFunction(func.Pos, fsym);
             }
 
-            if (check.checkUnique(method.Pos, msym, enclScope)) {
-                enclScope.enter(msym);
+            if (check.checkUnique(func.Pos, fsym, enclScope)) {
+                enclScope.enter(fsym);
             }
             return null;
         }
 
-        private MethodSymbol makeMethodSymbol(MethodDef method, WriteableScope enclScope)
+        private FuncSymbol makeFuncSymbol(FuncDef func, WriteableScope enclScope)
         {
-            MethodSymbol msym = new MethodSymbol(method.name, enclScope.owner, null);
-            method.symbol = msym;
+            FuncSymbol fsym = new FuncSymbol(func.name, enclScope.owner, null);
+            func.symbol = fsym;
 
-            // create scope for method parameters and local variables
-            WriteableScope methodScope = enclScope.subScope(msym);
-            msym.scope = methodScope;
+            // create scope for func parameters and local variables
+            WriteableScope funcScope = enclScope.subScope(fsym);
+            fsym.scope = funcScope;
 
-            msym.parameters = new List<VarSymbol>(method.parameters.Count);
-            msym.type = signature(method.returnType, method.parameters, methodScope);
-            msym.type.definer = msym;
-            return msym;
+            fsym.parameters = new List<VarSymbol>(func.parameters.Count);
+            fsym.type = signature(func.returnType, func.parameters, funcScope);
+            return fsym;
         }
 
-        /*public override object visitAspectDef(AspectDef aspect, WriteableScope enclScope)
+        private FuncType signature(TypeTree retTypeTree, IList<VariableDeclaration> paramTrees, WriteableScope scope)
         {
-            Symbol owner = symtab.topLevelSymbol;
-
-            AspectSymbol asym = new AspectSymbol(aspect.name, owner);
-
-            if (check.checkUnique(aspect.Pos, asym, enclScope)) {
-                enclScope.enter(asym);
-                asym.afterMethod = makeMethodSymbol(aspect.after, enclScope.subScope());
-            }
-
-            return null;
-        }*/
-
-        private MethodType signature(TypeTree retTypeTree, IList<VariableDeclaration> paramTrees, WriteableScope scope)
-        {
-            // enter params into method scope
+            // enter params into func scope
             scan(paramTrees, scope);
 
             // get return type
@@ -168,18 +151,18 @@ namespace mj.compiler.symbol
                 paramTypes[i] = (Type)scan(tree.type, scope);
             }
 
-            return new MethodType(paramTypes, retType);
+            return new FuncType(paramTypes, retType);
         }
 
         public override object visitVarDef(VariableDeclaration varDef, WriteableScope scope)
         {
             Type varType = (Type)scan(varDef.type, scope);
-            MethodSymbol met = (MethodSymbol)scope.owner;
-            VarSymbol varSym = new VarSymbol(Kind.PARAM, varDef.name, varType, met);
+            FuncSymbol func = (FuncSymbol)scope.owner;
+            VarSymbol varSym = new VarSymbol(Kind.PARAM, varDef.name, varType, func);
 
             varDef.symbol = varSym;
 
-            met.parameters.Add(varSym);
+            func.parameters.Add(varSym);
 
             if (check.checkUniqueParam(varDef.Pos, varSym, scope)) {
                 scope.enter(varSym);
@@ -195,7 +178,7 @@ namespace mj.compiler.symbol
 
         public override object visitDeclaredType(DeclaredType declaredType, WriteableScope scope)
         {
-            Symbol sym = scope.findFirst(declaredType.name, s => (s.kind & Kind.CLASS) != 0);
+            Symbol sym = scope.findFirst(declaredType.name, s => (s.kind & Kind.STRUCT) != 0);
             if (sym != null) {
                 return sym.type;
             }

@@ -6,10 +6,8 @@ namespace mj.compiler.tree
     public abstract class AstVisitor<T>
     {
         public virtual T visitCompilationUnit(CompilationUnit compilationUnit) => visit(compilationUnit);
-        public virtual T visitClassDef(ClassDef classDef) => visit(classDef);
-        public virtual T visitMethodDef(MethodDef method) => visit(method);
-//        public virtual T visitAspectDef(AspectDef aspect) => visit(aspect);
-//        public virtual T visitAnnotation(Annotation annotation) => visit(annotation);
+        public virtual T visitStructDef(StructDef structDef) => visit(structDef);
+        public virtual T visitFuncDef(FuncDef func) => visit(func);
         public virtual T visitVarDef(VariableDeclaration varDef) => visit(varDef);
         public virtual T visitBinary(BinaryExpressionNode expr) => visit(expr);
         public virtual T visitUnary(UnaryExpressionNode expr) => visit(expr);
@@ -19,9 +17,9 @@ namespace mj.compiler.tree
         public virtual T visitIdent(Identifier ident) => visit(ident);
         public virtual T visitSelect(Select select) => visit(select);
         public virtual T visitIndex(ArrayIndex index) => visit(index);
-        public virtual T visitNewClass(NewClass newClass) => visit(newClass);
+        public virtual T visitNewStruct(NewStruct newStruct) => visit(newStruct);
         public virtual T visitNewArray(NewArray newArray) => visit(newArray);
-        public virtual T visitMethodInvoke(MethodInvocation methodInvocation) => visit(methodInvocation);
+        public virtual T visitFuncInvoke(FuncInvocation funcInvocation) => visit(funcInvocation);
         public virtual T visitReturn(ReturnStatement returnStatement) => visit(returnStatement);
         public virtual T visitBlock(Block block) => visit(block);
         public virtual T visitBreak(Break @break) => visit(@break);
@@ -45,7 +43,7 @@ namespace mj.compiler.tree
             for (var i = 0; i < trees.Count; i++) {
                 scan(trees[i]);
             }
-            return default(T);
+            return default;
         }
 
         public T scan(Tree tree)
@@ -53,17 +51,15 @@ namespace mj.compiler.tree
             if (tree != null) {
                 return tree.accept(this);
             }
-            return default(T);
+            return default;
         }
     }
 
     public abstract class AstVisitor<T, A>
     {
         public virtual T visitCompilationUnit(CompilationUnit compilationUnit, A arg) => visit(compilationUnit, arg);
-        public virtual T visitClassDef(ClassDef classDef, A arg) => visit(classDef, arg);
-        public virtual T visitMethodDef(MethodDef method, A arg) => visit(method, arg);
-//        public virtual T visitAspectDef(AspectDef aspect, A arg) => visit(aspect, arg);
-//        public virtual T visitAnnotation(Annotation annotation, A arg) => visit(annotation, arg);
+        public virtual T visitStructDef(StructDef structDef, A arg) => visit(structDef, arg);
+        public virtual T visitFuncDef(FuncDef func, A arg) => visit(func, arg);
         public virtual T visitVarDef(VariableDeclaration varDef, A arg) => visit(varDef, arg);
         public virtual T visitBlock(Block block, A arg) => visit(block, arg);
         public virtual T visitBinary(BinaryExpressionNode expr, A arg) => visit(expr, arg);
@@ -74,9 +70,9 @@ namespace mj.compiler.tree
         public virtual T visitIdent(Identifier ident, A arg) => visit(ident, arg);
         public virtual T visitSelect(Select select, A arg) => visit(select, arg);
         public virtual T visitIndex(ArrayIndex index, A arg) => visit(index, arg);
-        public virtual T visitNewClass(NewClass newClass, A arg) => visit(newClass, arg);
+        public virtual T visitNewStruct(NewStruct newStruct, A arg) => visit(newStruct, arg);
         public virtual T visitNewArray(NewArray newArray, A env) => visit(newArray, env);
-        public virtual T visitMethodInvoke(MethodInvocation methodInvocation, A arg) => visit(methodInvocation, arg);
+        public virtual T visitFuncInvoke(FuncInvocation funcInvocation, A arg) => visit(funcInvocation, arg);
         public virtual T visitConditional(ConditionalExpression conditional, A arg) => visit(conditional, arg);
         public virtual T visitReturn(ReturnStatement returnStatement, A arg) => visit(returnStatement, arg);
         public virtual T visitBreak(Break @break, A arg) => visit(@break, arg);
@@ -99,7 +95,7 @@ namespace mj.compiler.tree
             for (var i = 0; i < trees.Count; i++) {
                 scan(trees[i], arg);
             }
-            return default(T);
+            return default;
         }
 
         public T scan(Tree tree, A arg)
@@ -107,17 +103,15 @@ namespace mj.compiler.tree
             if (tree != null) {
                 return tree.accept(this, arg);
             }
-            return default(T);
+            return default;
         }
     }
 
     public abstract class AstVisitor
     {
         public virtual void visitCompilationUnit(CompilationUnit compilationUnit) => visit(compilationUnit);
-        public virtual void visitClassDef(ClassDef classDef) => visit(classDef);
-        public virtual void visitMethodDef(MethodDef method) => visit(method);
-//        public virtual void visitAspectDef(AspectDef aspect) => visit(aspect);
-//        public virtual void visitAnnotation(Annotation annotation) => visit(annotation);
+        public virtual void visitStructDef(StructDef structDef) => visit(structDef);
+        public virtual void visitFuncDef(FuncDef func) => visit(func);
         public virtual void visitVarDef(VariableDeclaration varDef) => visit(varDef);
         public virtual void visitBinary(BinaryExpressionNode expr) => visit(expr);
         public virtual void visitUnary(UnaryExpressionNode expr) => visit(expr);
@@ -127,9 +121,9 @@ namespace mj.compiler.tree
         public virtual void visitIdent(Identifier ident) => visit(ident);
         public virtual void visitSelect(Select select) => visit(select);
         public virtual void visitIndex(ArrayIndex index) => visit(index);
-        public virtual void visitNewClass(NewClass newClass) => visit(newClass);
+        public virtual void visitNewStruct(NewStruct newStruct) => visit(newStruct);
         public virtual void visitNewArray(NewArray newArray) => visit(newArray);
-        public virtual void visitMethodInvoke(MethodInvocation methodInvocation) => visit(methodInvocation);
+        public virtual void visitFuncInvoke(FuncInvocation funcInvocation) => visit(funcInvocation);
         public virtual void visitReturn(ReturnStatement returnStatement) => visit(returnStatement);
         public virtual void visitBlock(Block block) => visit(block);
         public virtual void visitBreak(Break @break) => visit(@break);

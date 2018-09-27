@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 
-using mj.compiler.aspect;
 using mj.compiler.codegen;
 using mj.compiler.parsing;
 using mj.compiler.symbol;
@@ -25,8 +24,7 @@ namespace mj.compiler.main
         private readonly DeclarationAnalysis declarationAnalysis;
         private readonly TypeAnalysis typeAnalysis;
         private readonly FlowAnalysis flowAnalysis;
-//        private readonly AspectWeaver aspectWeaver;
-        private readonly CodeGenerator codeGenerator;
+        private readonly CodeGeneration codeGeneration;
 
         private readonly Log log;
 
@@ -38,8 +36,7 @@ namespace mj.compiler.main
             declarationAnalysis = DeclarationAnalysis.instance(context);
             typeAnalysis = TypeAnalysis.instance(context);
             flowAnalysis = FlowAnalysis.instance(context);
-//            aspectWeaver = AspectWeaver.instance(context);
-            codeGenerator = CodeGenerator.instance(context);
+            codeGeneration = CodeGeneration.instance(context);
             log = Log.instance(context);
         }
 
@@ -51,11 +48,7 @@ namespace mj.compiler.main
             }
             List<SourceFile> files = inputs.Select(s => new SourceFile(s)).ToList();
 
-            generateCode(
-//                aspects(
-                    flow(types(decls(parse(files))))
-//                    )
-                );
+            generateCode(flow(types(decls(parse(files)))));
         }
 
         private IList<CompilationUnit> parse(IList<SourceFile> files)
@@ -84,12 +77,7 @@ namespace mj.compiler.main
 
         private IList<CompilationUnit> flow(IList<CompilationUnit> trees) => stopIfError(flowAnalysis.main(trees));
 
-//        private IList<CompilationUnit> aspects(IList<CompilationUnit> trees) => stopIfError(aspectWeaver.main(trees));
-
-        private void generateCode(IList<CompilationUnit> trees)
-        {
-            codeGenerator.main(trees);
-        }
+        private void generateCode(IList<CompilationUnit> trees) => codeGeneration.main(trees);
 
         private IList<CompilationUnit> stopIfError(IList<CompilationUnit> trees)
         {

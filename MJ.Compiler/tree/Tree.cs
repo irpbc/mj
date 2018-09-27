@@ -16,11 +16,8 @@ namespace mj.compiler.tree
     public abstract class Tree
     {
         [JsonIgnore] public readonly int beginLine;
-
         [JsonIgnore] public readonly int beginCol;
-
         [JsonIgnore] public int endLine;
-
         [JsonIgnore] public int endCol;
 
         protected Tree(int beginLine, int beginCol, int endLine, int endCol)
@@ -31,8 +28,8 @@ namespace mj.compiler.tree
             this.endCol = endCol;
         }
 
-        public DiagnosticPosition Pos => new DiagnosticPosition {line = beginLine, column = beginCol};
-        public DiagnosticPosition EndPos => new DiagnosticPosition {line = endLine, column = endCol};
+        public DiagnosticPosition Pos => new DiagnosticPosition(beginLine, beginCol);
+        public DiagnosticPosition EndPos => new DiagnosticPosition(endLine, endCol);
 
         public abstract Tag Tag { get; }
 
@@ -61,24 +58,24 @@ namespace mj.compiler.tree
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitCompilationUnit(this, arg);
     }
 
-    public sealed class ClassDef : Tree
+    public sealed class StructDef : Tree
     {
         public String name;
         public IList<VariableDeclaration> fields;
-        public Symbol.ClassSymbol symbol;
+        public Symbol.StructSymbol symbol;
 
-        public ClassDef(int beginLine, int beginCol, int endLine, int endCol, string name, VariableDeclaration[] fields)
+        public StructDef(int beginLine, int beginCol, int endLine, int endCol, string name, VariableDeclaration[] fields)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
             this.fields = fields;
         }
 
-        public override Tag Tag => Tag.CLASS_DEF;
+        public override Tag Tag => Tag.STRUCT_DEF;
 
-        public override void accept(AstVisitor v) => v.visitClassDef(this);
-        public override T accept<T>(AstVisitor<T> v) => v.visitClassDef(this);
-        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitClassDef(this, arg);
+        public override void accept(AstVisitor v) => v.visitStructDef(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitStructDef(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitStructDef(this, arg);
     }
 
     public abstract class Expression : Tree
@@ -185,22 +182,22 @@ namespace mj.compiler.tree
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitIndex(this, arg);
     }
 
-    public sealed class NewClass : Expression
+    public sealed class NewStruct : Expression
     {
-        public String className;
-        public Symbol.ClassSymbol symbol;
+        public String structName;
+        public Symbol.StructSymbol symbol;
 
-        public NewClass(int beginLine, int beginCol, int endLine, int endCol, String className)
+        public NewStruct(int beginLine, int beginCol, int endLine, int endCol, String structName)
             : base(beginLine, beginCol, endLine, endCol)
         {
-            this.className = className;
+            this.structName = structName;
         }
 
-        public override Tag Tag => Tag.NEW_CLASS;
+        public override Tag Tag => Tag.NEW_STRUCT;
 
-        public override void accept(AstVisitor v) => v.visitNewClass(this);
-        public override T accept<T>(AstVisitor<T> v) => v.visitNewClass(this);
-        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitNewClass(this, arg);
+        public override void accept(AstVisitor v) => v.visitNewStruct(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitNewStruct(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitNewStruct(this, arg);
     }
 
     public sealed class NewArray : Expression
@@ -328,73 +325,35 @@ namespace mj.compiler.tree
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitVarDef(this, arg);
     }
 
-    public sealed class MethodDef : Tree
+    public sealed class FuncDef : Tree
     {
         public String name;
         public TypeTree returnType;
+
         public IList<VariableDeclaration> parameters;
-//        public IList<Annotation> annotations;
+
         public bool isPrivate;
         public Block body;
-        public Symbol.MethodSymbol symbol;
+        public Symbol.FuncSymbol symbol;
         public bool exitsNormally;
 
-        public MethodDef(int beginLine, int beginCol, int endLine, int endCol, string name, TypeTree returnType,
-                         IList<VariableDeclaration> parameters, Block body, bool isPrivate)
+        public FuncDef(int beginLine, int beginCol, int endLine, int endCol, string name, TypeTree returnType,
+                       IList<VariableDeclaration> parameters, Block body, bool isPrivate)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
             this.returnType = returnType;
             this.parameters = parameters;
-//            this.annotations = annotations;
             this.body = body;
             this.isPrivate = isPrivate;
         }
 
-        public override Tag Tag => Tag.METHOD_DEF;
+        public override Tag Tag => Tag.FUNC_DEF;
 
-        public override void accept(AstVisitor v) => v.visitMethodDef(this);
-        public override T accept<T>(AstVisitor<T> v) => v.visitMethodDef(this);
-        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitMethodDef(this, arg);
+        public override void accept(AstVisitor v) => v.visitFuncDef(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitFuncDef(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitFuncDef(this, arg);
     }
-
-/*    public class AspectDef : Tree
-    {
-        public String name;
-        public MethodDef after;
-        public Symbol.AspectSymbol symbol;
-
-        public AspectDef(int beginLine, int beginCol, int endLine, int endCol, String name, MethodDef after)
-            : base(beginLine, beginCol, endLine, endCol)
-        {
-            this.name = name;
-            this.after = after;
-        }
-
-        public override Tag Tag => Tag.ASPECT_DEF;
-
-        public override void accept(AstVisitor v) => v.visitAspectDef(this);
-        public override T accept<T>(AstVisitor<T> v) => v.visitAspectDef(this);
-        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitAspectDef(this, arg);
-    }*/
-
-    /*public class Annotation : Tree
-    {
-        public String name;
-        public Symbol.AspectSymbol symbol;
-
-        public Annotation(string name, int beginLine, int beginCol, int endLine, int endCol)
-            : base(beginLine, beginCol, endLine, endCol)
-        {
-            this.name = name;
-        }
-
-        public override Tag Tag => Tag.ANNOTATION;
-
-        public override void accept(AstVisitor v) => v.visitAnnotation(this);
-        public override T accept<T>(AstVisitor<T> v) => v.visitAnnotation(this);
-        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitAnnotation(this, arg);
-    }*/
 
     public abstract class TypeTree : Tree
     {
@@ -473,25 +432,25 @@ namespace mj.compiler.tree
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitIdent(this, arg);
     }
 
-    public sealed class MethodInvocation : Expression
+    public sealed class FuncInvocation : Expression
     {
-        public String methodName;
+        public String funcName;
         public IList<Expression> args;
-        public Symbol.MethodSymbol methodSym;
+        public Symbol.FuncSymbol funcSym;
 
-        public MethodInvocation(int beginLine, int beginCol, int endLine, int endCol, string methodName,
-                                IList<Expression> args) : base(beginLine, beginCol, endLine, endCol)
+        public FuncInvocation(int beginLine, int beginCol, int endLine, int endCol, string funcName,
+                              IList<Expression> args) : base(beginLine, beginCol, endLine, endCol)
         {
-            this.methodName = methodName;
+            this.funcName = funcName;
             this.args = args;
         }
 
         public override Tag Tag => Tag.INVOKE;
         public override bool IsExpressionStatement => true;
 
-        public override void accept(AstVisitor v) => v.visitMethodInvoke(this);
-        public override T accept<T>(AstVisitor<T> v) => v.visitMethodInvoke(this);
-        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitMethodInvoke(this, arg);
+        public override void accept(AstVisitor v) => v.visitFuncInvoke(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitFuncInvoke(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitFuncInvoke(this, arg);
     }
 
     public abstract class StatementNode : Tree
@@ -500,12 +459,12 @@ namespace mj.compiler.tree
             : base(beginLine, beginCol, endLine, endCol) { }
 
         public virtual LLVMBasicBlockRef BreakBlock {
-            get => default(LLVMBasicBlockRef);
+            get => default;
             set { }
         }
 
         public virtual LLVMBasicBlockRef ContinueBlock {
-            get => default(LLVMBasicBlockRef);
+            get => default;
             set { }
         }
 
@@ -515,7 +474,6 @@ namespace mj.compiler.tree
     public sealed class ReturnStatement : StatementNode
     {
         public Expression value;
-        public IList<Expression> afterAspects;
 
         public ReturnStatement(int beginLine, int beginCol, int endLine, int endCol, Expression value)
             : base(beginLine, beginCol, endLine, endCol)
@@ -735,7 +693,7 @@ namespace mj.compiler.tree
     }
 
     /// <summary>
-    /// Order of enum constants is important for extension methods below.
+    /// Order of enum constants is important for extension funcs below.
     /// </summary>
     [JsonConverter(typeof(StringEnumConverter))]
     public enum Tag
@@ -749,12 +707,10 @@ namespace mj.compiler.tree
         IF,
         BLOCK,
         INVOKE,
-        METHOD_DEF,
-        ASPECT_DEF,
-        ANNOTATION,
+        FUNC_DEF,
         VAR_DEF,
         COMPILATION_UNIT,
-        CLASS_DEF,
+        STRUCT_DEF,
         EXEC,
         SWITCH,
         CASE,
@@ -768,7 +724,7 @@ namespace mj.compiler.tree
         IDENT,
         SELECT,
         INDEX,
-        NEW_CLASS,
+        NEW_STRUCT,
         NEW_ARRAY,
         RETURN,
 

@@ -29,19 +29,19 @@ namespace mj.compiler.codegen
             }
         }
 
-        public override LLVMTypeRef visitMethodType(MethodType methodType)
+        public override LLVMTypeRef visitFuncType(FuncType funcType)
         {
-            LLVMTypeRef retType = methodType.ReturnType.accept(this);
-            LLVMTypeRef[] paramTypes = new LLVMTypeRef[methodType.ParameterTypes.Count];
+            LLVMTypeRef retType = funcType.ReturnType.accept(this);
+            LLVMTypeRef[] paramTypes = new LLVMTypeRef[funcType.ParameterTypes.Count];
             for (var i = 0; i < paramTypes.Length; i++) {
-                paramTypes[i] = methodType.ParameterTypes[i].accept(this);
+                paramTypes[i] = funcType.ParameterTypes[i].accept(this);
             }
-            return LLVM.FunctionType(retType, paramTypes, methodType.isVarArg);
+            return LLVM.FunctionType(retType, paramTypes, funcType.isVarArg);
         }
 
-        public override LLVMTypeRef visitClassType(ClassType classType)
+        public override LLVMTypeRef visitStructType(StructType structType)
         {
-            return HEAP_PTR(((Symbol.ClassSymbol)classType.definer).llvmTypeRef);
+            return HEAP_PTR(structType.symbol.llvmTypeRef);
         }
 
         public override LLVMTypeRef visitArrayType(ArrayType arrayType)

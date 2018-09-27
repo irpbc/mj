@@ -15,16 +15,6 @@ namespace mj.compiler.symbol
     {
         public static readonly Type NO_TYPE = new NoType();
 
-        /// Symbol that defines this type. 
-        /// (eg. <see cref="Symbol.PrimitiveTypeSymbol"/> for <see cref="PrimitiveType"/>)
-        [JsonIgnore]
-        public Symbol definer;
-
-        protected Type(Symbol definer)
-        {
-            this.definer = definer;
-        }
-
         [JsonConverter(typeof(StringEnumConverter))]
         public abstract TypeTag Tag { get; }
 
@@ -51,8 +41,6 @@ namespace mj.compiler.symbol
         /// Is this a constant type whose value is true?
         public virtual bool IsTrue => false;
 
-        public virtual String StringValue => null;
-
         public virtual IList<Type> ParameterTypes => CollectionUtils.emptyList<Type>();
         public virtual Type ReturnType => null;
 
@@ -75,30 +63,18 @@ namespace mj.compiler.symbol
     {
         private readonly TypeTag tag;
 
-        internal PrimitiveType(TypeTag tag, Symbol definer) : base(definer)
+        internal PrimitiveType(TypeTag tag)
         {
             this.tag = tag;
         }
+
+        public override TypeTag Tag => tag;
 
         public override bool IsPrimitive => true;
         public override bool IsNumeric => tag.isNumeric();
         public override bool IsBoolean => tag == TypeTag.BOOLEAN;
         public override bool IsRefType => tag == TypeTag.STRING;
-
-        public override bool IsIntegral {
-            get {
-                switch (tag) {
-                    case TypeTag.INT:
-                    case TypeTag.LONG:
-                        return true;
-                    default:
-                        return false;
-                }
-            }
-        }
-
-        public override TypeTag Tag => tag;
-
+        public override bool IsIntegral => tag == TypeTag.INT || tag == TypeTag.LONG;
         public override bool IsVoid => tag == TypeTag.VOID;
 
         public override T accept<T>(TypeVisitor<T> v) => v.visitPrimitiveType(this);
@@ -114,7 +90,7 @@ namespace mj.compiler.symbol
 
         public class ConstType : PrimitiveType
         {
-            public ConstType(TypeTag tag, Object value, PrimitiveType baseType) : base(tag, baseType.definer)
+            public ConstType(TypeTag tag, Object value, PrimitiveType baseType) : base(tag)
             {
                 this.ConstValue = value;
                 this.BaseType = baseType;
@@ -129,28 +105,25 @@ namespace mj.compiler.symbol
             public override string ToString() => tag.asString() + " : " + ConstValue;
         }
 
-        /// The constant value of this type, converted to String
-        public override String StringValue => ConstValue?.ToString();
-
         public override string ToString() => tag.asString();
     }
 
-    public class ClassType : Type
+    public class StructType : Type
     {
-        public String name;
+        public readonly Symbol.StructSymbol symbol;
 
-        public ClassType(String name, Symbol definer) : base(definer)
+        public StructType(Symbol.StructSymbol symbol)
         {
-            this.name = name;
+            this.symbol = symbol;
         }
 
-        public override TypeTag Tag => TypeTag.CLASS;
+        public override TypeTag Tag => TypeTag.STRUCT;
 
         public override bool IsRefType => true;
 
-        public override string ToString() => "Class " + name;
+        public override string ToString() => "Struct " + symbol.name;
 
-        public override T accept<T>(TypeVisitor<T> v) => v.visitClassType(this);
+        public override T accept<T>(TypeVisitor<T> v) => v.visitStructType(this);
     }
 
     public class ArrayType : Type
@@ -159,7 +132,7 @@ namespace mj.compiler.symbol
         public LLVMTypeRef llvmType;
         public LLVMValueRef llvmMetaRef;
 
-        public ArrayType(Type elemType, Symbol definer) : base(definer)
+        public ArrayType(Type elemType)
         {
             this.elemType = elemType;
         }
@@ -174,23 +147,22 @@ namespace mj.compiler.symbol
     }
 
     /// <summary>
-    /// Represents a method signature.
+    /// Represents a func signature.
     /// </summary>
-    public class MethodType : Type
+    public class FuncType : Type
     {
         public IList<Type> argTypes;
         public Type resType;
         public bool isVarArg;
 
-        public MethodType(IList<Type> argTypes, Type resType, bool isVarArg = false)
-            : base(null)
+        public FuncType(IList<Type> argTypes, Type resType, bool isVarArg = false)
         {
             this.argTypes = argTypes;
             this.resType = resType;
             this.isVarArg = isVarArg;
         }
 
-        public override TypeTag Tag => TypeTag.METHOD;
+        public override TypeTag Tag => TypeTag.FUNC;
         public override IList<Type> ParameterTypes => argTypes;
         public override Type ReturnType => resType;
 
@@ -199,12 +171,11 @@ namespace mj.compiler.symbol
             return resType + "(" + String.Join(", ", argTypes) + ")";
         }
 
-        public override T accept<T>(TypeVisitor<T> v) => v.visitMethodType(this);
+        public override T accept<T>(TypeVisitor<T> v) => v.visitFuncType(this);
     }
 
     public sealed class NoType : Type
     {
-        public NoType() : base(null) { }
         public override TypeTag Tag => TypeTag.NONE;
         public override bool IsError => true;
 
@@ -215,8 +186,6 @@ namespace mj.compiler.symbol
 
     public sealed class ErrorType : Type
     {
-        public ErrorType(Symbol definer) : base(definer) { }
-
         public override TypeTag Tag => TypeTag.ERROR;
         public override bool IsError => true;
 
@@ -231,9 +200,9 @@ namespace mj.compiler.symbol
     public class TypeVisitor<T>
     {
         public virtual T visitPrimitiveType(PrimitiveType prim) => visit(prim);
-        public virtual T visitClassType(ClassType classType) => visit(classType);
+        public virtual T visitStructType(StructType structType) => visit(structType);
         public virtual T visitArrayType(ArrayType arrayType) => visit(arrayType);
-        public virtual T visitMethodType(MethodType methodType) => visit(methodType);
+        public virtual T visitFuncType(FuncType funcType) => visit(funcType);
 
         public virtual T visit(Type type) => throw new InvalidOperationException();
     }

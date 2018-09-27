@@ -15,7 +15,7 @@ namespace mj.compiler.symbol
     /// and if all the variables are assigned before use.
     /// </summary>
     /// 
-    /// Each visitor method returns possible ways a statement can exit,
+    /// Each visitor func returns possible ways a statement can exit,
     /// Which determines weather the following statement in a list is
     /// reachable. Each kind of statement has its own behaviour.
     /// 
@@ -49,6 +49,7 @@ namespace mj.compiler.symbol
                     log.useSource(prevSource);
                 }
             }
+
             return compilationUnits;
         }
 
@@ -62,27 +63,21 @@ namespace mj.compiler.symbol
             return 0;
         }
 
-        public override Exit visitClassDef(ClassDef classDef, Environment arg) => 0;
+        public override Exit visitStructDef(StructDef structDef, Environment arg) => 0;
 
-        public override Exit visitMethodDef(MethodDef method, Environment env)
+        public override Exit visitFuncDef(FuncDef func, Environment env)
         {
-            Environment methodEnv = new Environment();
-            Exit exit = this.analyze(method.body, methodEnv);
+            Environment funcEnv = new Environment();
+            Exit        exit    = this.analyze(func.body, funcEnv);
             if (exit.HasFlag(Exit.NORMALLY)) {
-                method.exitsNormally = true;
-                if (!method.symbol.type.ReturnType.IsVoid) {
-                    log.error(method.Pos, messages.missingReturnStatement);
+                func.exitsNormally = true;
+                if (!func.symbol.type.ReturnType.IsVoid) {
+                    log.error(func.Pos, messages.missingReturnStatement);
                 }
             }
 
             return 0;
         }
-
-        /*public override Exit visitAspectDef(AspectDef aspect, Environment env)
-        {
-            scan(aspect.after, env);
-            return 0;
-        }*/
 
         public override Exit visitBlock(Block block, Environment env) => analyze(block.statements, env);
 
@@ -96,19 +91,33 @@ namespace mj.compiler.symbol
                 return Exit.NORMALLY;
             }
 
-            Exit total = 0;
+            Exit        total      = 0;
+            Environment currentEnv = env;
             for (var i = 0; i < stats.Count; i++) {
-                Exit res = analyze(stats[i], env);
+                Exit res = analyze(stats[i], currentEnv);
                 total |= res;
                 if (!res.HasFlag(Exit.NORMALLY)) {
                     int next = i + 1;
                     if (next < stats.Count) {
                         log.error(stats[next].Pos, messages.unreachableCodeDetected);
                     }
-                    // remove completes normally from total
+
+                    // remove normally from total
                     return total & ~Exit.NORMALLY;
                 }
+                
+                // If control flow can jump over statements following current,
+                // they are not guarantied to execute, so any assignment to
+                // variables defined before cannot be recorded in the current
+                // environment. To solve this, we can make a sub-environment
+                // every time we encounter a statement that is not guarantied
+                // to complete normaly, to isolate following statements.
+
+                if (res.HasFlag(Exit.CONTINUE | Exit.BREAK)) {
+                    currentEnv = currentEnv.subEnvironment();
+                }
             }
+
             return total;
         }
 
@@ -168,11 +177,18 @@ namespace mj.compiler.symbol
             analyzeExpr(forLoop.condition, env);
 
             if (forLoop.condition == null || forLoop.condition.type.IsTrue) {
+                foreach (Expression expr in forLoop.update) {
+                    analyzeExpr(expr, env);
+                }
+
                 return analyzeLoopBody(forLoop.body, env);
             }
 
-            Environment loopEnv = env.subEnvironment();
-            Exit bodyExit = analyzeLoopBody(forLoop.body, loopEnv);
+            Environment loopEnv  = env.subEnvironment();
+            Exit        bodyExit = analyzeLoopBody(forLoop.body, loopEnv);
+            foreach (Expression expr in forLoop.update) {
+                analyzeExpr(expr, env);
+            }
 
             return bodyExit | Exit.NORMALLY;
         }
@@ -198,6 +214,7 @@ namespace mj.compiler.symbol
             if ((res & breakCont) != 0) {
                 return (res & ~breakCont) | Exit.NORMALLY;
             }
+
             return res;
         }
 
@@ -214,16 +231,12 @@ namespace mj.compiler.symbol
 
             analyzeExpr(@switch.selector, env);
 
-            bool hasDefault = false;
-            Exit total = 0;
+            Exit               total    = 0;
             IList<Environment> caseEnvs = env.split(@switch.cases.Count);
             for (int i = 0; i < @switch.cases.Count; i++) {
-                Case @case = @switch.cases[i];
+                Case @case   = @switch.cases[i];
                 Exit caseRes = analyze(@case.statements, env);
                 total |= caseRes;
-                if (@case.expression == null) {
-                    hasDefault = true;
-                }
             }
 
             if (total.HasFlag(Exit.BREAK)) {
@@ -231,7 +244,7 @@ namespace mj.compiler.symbol
                 total |= Exit.NORMALLY;
             }
 
-            if (!hasDefault) {
+            if (!@switch.hasDefault) {
                 total |= Exit.NORMALLY;
             } else {
                 Environment.merge(caseEnvs);
@@ -258,6 +271,7 @@ namespace mj.compiler.symbol
                     env.assigned(varSym);
                 }
             }
+
             return 0;
         }
 
@@ -267,6 +281,7 @@ namespace mj.compiler.symbol
                 analyzeExpr(varDef.init, env);
                 env.assigned(varDef.symbol);
             }
+
             return Exit.NORMALLY;
         }
 
@@ -297,14 +312,16 @@ namespace mj.compiler.symbol
             if (varSym.kind == Kind.LOCAL && !env.isAssigned(varSym)) {
                 log.error(ident.Pos, messages.unassignedVariable, ident.name);
             }
+
             return 0;
         }
 
-        public override Exit visitMethodInvoke(MethodInvocation methodInvocation, Environment env)
+        public override Exit visitFuncInvoke(FuncInvocation funcInvocation, Environment env)
         {
-            for (var i = 0; i < methodInvocation.args.Count; i++) {
-                analyzeExpr(methodInvocation.args[i], env);
+            for (var i = 0; i < funcInvocation.args.Count; i++) {
+                analyzeExpr(funcInvocation.args[i], env);
             }
+
             return 0;
         }
 
@@ -322,10 +339,20 @@ namespace mj.compiler.symbol
             return 0;
         }
 
+        public override Exit visitSelect(Select select, Environment env)
+        {
+            analyzeExpr(select.selectBase, env);
+            return 0;
+        }
+
+        public override Exit visitIndex(ArrayIndex index, Environment env)
+        {
+            analyzeExpr(index.indexBase, env);
+            return 0;
+        }
+
         public override Exit visitLiteral(LiteralExpression literal, Environment arg) => 0;
-        public override Exit visitSelect(Select select, Environment arg) => 0;
-        public override Exit visitIndex(ArrayIndex index, Environment arg) => 0;
-        public override Exit visitNewClass(NewClass newClass, Environment arg) => 0;
+        public override Exit visitNewStruct(NewStruct newStruct, Environment arg) => 0;
         public override Exit visitNewArray(NewArray newArray, Environment env) => 0;
 
         public override Exit visitReturn(ReturnStatement returnStatement, Environment env)
@@ -333,6 +360,7 @@ namespace mj.compiler.symbol
             if (returnStatement.value != null) {
                 analyzeExpr(returnStatement.value, env);
             }
+
             return Exit.RETURN;
         }
 
@@ -367,9 +395,11 @@ namespace mj.compiler.symbol
                 if (contains) {
                     return true;
                 }
+
                 if (parent != null) {
                     return parent.isAssigned(varSym);
                 }
+
                 return false;
             }
 
@@ -393,6 +423,7 @@ namespace mj.compiler.symbol
                 for (var i = 1; i < caseEnvs.Count; i++) {
                     first.inits.IntersectWith(caseEnvs[i].inits);
                 }
+
                 first.merge();
             }
 
@@ -400,7 +431,7 @@ namespace mj.compiler.symbol
             // 
             public (Environment whenTrue, Environment whenFalse) split()
             {
-                Environment whenTrue = new Environment {parent = this};
+                Environment whenTrue  = new Environment {parent = this};
                 Environment whenFalse = new Environment {parent = this};
                 return (whenTrue, whenFalse);
             }
@@ -412,6 +443,7 @@ namespace mj.compiler.symbol
                 for (var i = 0; i < numEnvs; i++) {
                     envs[i] = new Environment() {parent = this};
                 }
+
                 return envs;
             }
 

@@ -48,19 +48,19 @@ namespace mj.compiler.symbol
             public override string ToString() => "<top level>";
         }
 
-        public class ClassSymbol : TypeSymbol
+        public class StructSymbol : TypeSymbol
         {
             public Scope.WriteableScope membersScope;
             public LLVMTypeRef llvmTypeRef;
             public LLVMValueRef llvmMetaRef;
 
-            public ClassSymbol(string name, Symbol owner, Type type) 
-                : base(Kind.CLASS, name, owner, type) { }
+            public StructSymbol(string name, Symbol owner, Type type) 
+                : base(Kind.STRUCT, name, owner, type) { }
 
-            public override string ToString() => "Class " + name;
+            public override string ToString() => "Struct " + name;
         }
 
-        public class MethodSymbol : Symbol
+        public class FuncSymbol : Symbol
         {
             public IList<VarSymbol> parameters;
             public Scope.WriteableScope scope;
@@ -68,21 +68,9 @@ namespace mj.compiler.symbol
             public bool isVararg;
             public bool isInvoked;
 
-            public MethodSymbol(string name, Symbol owner, Type type) : base(Kind.MTH, name, owner, type) { }
+            public FuncSymbol(string name, Symbol owner, Type type) : base(Kind.FUNC, name, owner, type) { }
 
             public override string ToString() => name + ": " + type;
-        }
-        
-        public class AspectSymbol : Symbol
-        {
-            public MethodSymbol afterMethod;
-            
-            public AspectSymbol(string name, Symbol owner) : base(Kind.ASPECT, name, owner, null)
-            {
-                this.name = name;
-            }
-
-            public override string ToString() => "aspect " + name;
         }
 
         public class VarSymbol : Symbol
@@ -102,14 +90,7 @@ namespace mj.compiler.symbol
             protected TypeSymbol(Kind kind, string name, Symbol owner, Type type) : base(kind, name, owner, type) { }
         }
 
-        public class PrimitiveTypeSymbol : TypeSymbol
-        {
-            public PrimitiveTypeSymbol(string name, Symbol owner) : base(Kind.PRIMITIVE, name, owner, null) { }
-
-            public override string ToString() => name;
-        }
-
-        public class OperatorSymbol : MethodSymbol
+        public class OperatorSymbol : FuncSymbol
         {
             public LLVMOpcode opcode;
             public int llvmPredicate;
@@ -142,10 +123,9 @@ namespace mj.compiler.symbol
         public enum Kind
         {
             TOP = 1,
-            CLASS = TOP << 1,
-            MTH = CLASS << 1,
-            ASPECT = MTH << 1,
-            PARAM = ASPECT << 1,
+            STRUCT = TOP << 1,
+            FUNC = STRUCT << 1,
+            PARAM = FUNC << 1,
             LOCAL = PARAM << 1,
             FIELD = LOCAL << 1,
             PRIMITIVE = FIELD << 1,

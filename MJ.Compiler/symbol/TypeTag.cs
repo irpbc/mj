@@ -20,8 +20,8 @@ namespace mj.compiler.symbol
         STRING,
         NULL,
         VOID,
-        METHOD,
-        CLASS,
+        FUNC,
+        STRUCT,
         ARRAY,
         NONE,
         ERROR,
@@ -50,8 +50,8 @@ namespace mj.compiler.symbol
                 case TypeTag.STRING: return "string";
                 case TypeTag.VOID: return "void";
                 case TypeTag.NULL: return "null";
-                case TypeTag.METHOD: return "<method>";
-                case TypeTag.CLASS: return "<class>";
+                case TypeTag.FUNC: return "<func>";
+                case TypeTag.STRUCT: return "<struct>";
                 case TypeTag.ARRAY: return "<array>";
                 case TypeTag.NONE: return "<none>";
                 case TypeTag.ERROR: return "<error>";

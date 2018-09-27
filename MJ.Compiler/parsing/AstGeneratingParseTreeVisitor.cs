@@ -61,7 +61,7 @@ namespace mj.compiler.parsing
                 return new PrimitiveTypeNode(token.Line, token.Column, token.Line, endCol, type);
             }
             tree = new DeclaredType(context.Start.Line, context.Start.Column, context.Stop.Line,
-                context.Stop.Column, context.className.Text);
+                context.Stop.Column, context.structName.Text);
 
             for (int i = 0; i < context.arrays; i++) {
                 tree = new ArrayTypeTree(context.Start.Line, context.Start.Column, context.Stop.Line,
@@ -93,22 +93,18 @@ namespace mj.compiler.parsing
 
         public override Tree VisitDeclaration(DeclarationContext context)
         {
-            MethodDeclarationContext mt = context.methodDeclaration();
-            if (mt != null) {
-                return VisitMethodDeclaration(mt);
+            FuncDeclarationContext func = context.funcDeclaration();
+            if (func != null) {
+                return VisitFuncDeclaration(func);
             }
-            ClassDefContext cd = context.classDef();
-            if (cd != null) {
-                return VisitClassDef(cd);
+            StructDefContext sd = context.structDef();
+            if (sd != null) {
+                return VisitStructDef(sd);
             }
-/*            AspectDefContext asp = context.aspectDef();
-            if (asp != null) {
-                return VisitAspectDef(asp);
-            }*/
             throw new ArgumentOutOfRangeException();
         }
 
-        public override Tree VisitClassDef(ClassDefContext context)
+        public override Tree VisitStructDef(StructDefContext context)
         {
             String name = context.name.Text;
 
@@ -117,7 +113,7 @@ namespace mj.compiler.parsing
                 fields[i] = (VariableDeclaration)VisitFieldDef(context._fields[i]);
             }
 
-            return new ClassDef(context.Start.Line, context.Start.Column, context.Stop.Line,
+            return new StructDef(context.Start.Line, context.Start.Column, context.Stop.Line,
                 context.Stop.Column, name, fields);
         }
 
@@ -130,12 +126,11 @@ namespace mj.compiler.parsing
                 context.Stop.Column, name, type, null);
         }
 
-        public override Tree VisitMethodDeclaration(MethodDeclarationContext context)
+        public override Tree VisitFuncDeclaration(FuncDeclarationContext context)
         {
             String name = context.name.Text;
             ResultContext resultContext = context.result();
             IList<FormalParameterContext> parameterContexts = context._params;
-//            IList<AnnotationContext> annotationContexts = context._annotations;
             bool isPrivate = context.isPrivate;
 
             TypeContext resType = resultContext.type();
@@ -155,14 +150,9 @@ namespace mj.compiler.parsing
                 parameters[i] = (VariableDeclaration)VisitFormalParameter(parameterContexts[i]);
             }
 
-            /*Annotation[] annotations = new Annotation[annotationContexts.Count];
-            for (int i = 0; i < annotationContexts.Count; i++) {
-                annotations[i] = (Annotation)VisitAnnotation(annotationContexts[i]);
-            }*/
+            Block block = (Block)VisitBlock(context.funcBody().block());
 
-            Block block = (Block)VisitBlock(context.methodBody().block());
-
-            return new MethodDef(type.beginLine, type.beginCol, block.endLine, block.endCol, name, type, parameters,
+            return new FuncDef(type.beginLine, type.beginCol, block.endLine, block.endCol, name, type, parameters,
                 block, isPrivate);
         }
 
@@ -180,46 +170,7 @@ namespace mj.compiler.parsing
             return new VariableDeclaration(type.beginLine, type.beginCol, stopLine, stopCol, name, type, null);
         }
 
-        /*public override Tree VisitAnnotation(AnnotationContext context)
-        {
-            IToken stopToken = context.Stop;
-            int stopLine = stopToken.Line;
-            int stopCol = stopToken.Column + (stopToken.StopIndex - stopToken.StartIndex);
-
-            return new Annotation(context.name.Text, context.Start.Line, context.Start.Column, stopLine, stopCol);
-        }
-
-        public override Tree VisitAspectDef(AspectDefContext context)
-        {
-            Block afterBlock = (Block)VisitBlock(context.after);
-
-            MethodDef afterMethod = makeAfterMethod(context, afterBlock);
-
-            return new AspectDef(context.Start.Line, context.Start.Column,
-                context.Stop.Line, context.Stop.Column, context.name.Text, afterMethod);
-        }
-
-        private MethodDef makeAfterMethod(AspectDefContext context, Block afterBlock)
-        {
-            int startLine = context.afterStart.Line;
-            int startColumn = context.afterStart.Column;
-            int endLine = afterBlock.EndPos.line;
-            int endCol = afterBlock.EndPos.column;
-
-            VariableDeclaration methodName = new VariableDeclaration(startLine, startColumn, startLine, startColumn,
-                "methodName",
-                new PrimitiveTypeNode(startLine, startColumn, startLine, startColumn, TypeTag.STRING), null);
-
-            IList<VariableDeclaration> @params = CollectionUtils.singletonList(methodName);
-
-            MethodDef methodDef = new MethodDef(startLine, startColumn, endLine, endCol, context.name.Text + "_after",
-                new PrimitiveTypeNode(0, 0, 0, 0, TypeTag.VOID), @params, CollectionUtils.emptyList<Annotation>(),
-                afterBlock, false);
-
-            return methodDef;
-        }*/
-
-        public override Tree VisitMethodBody(MethodBodyContext context) => throw new InvalidOperationException();
+        public override Tree VisitFuncBody(FuncBodyContext context) => throw new InvalidOperationException();
 
         public override Tree VisitBlock(BlockContext context)
         {
@@ -299,6 +250,14 @@ namespace mj.compiler.parsing
                 ? null
                 : (StatementNode)VisitStatement(stat.ifFalse);
 
+            if (ifTrue.Tag == Tag.VAR_DEF) {
+                log.error(ifTrue.Pos, messages.valDefStatementBody_an, "if");
+            }
+
+            if (ifFalse?.Tag == Tag.VAR_DEF) {
+                log.error(ifTrue.Pos, messages.valDefStatementBody_an, "else");
+            }
+            
             return new If(stat.Start.Line, stat.Start.Column,
                 ifTrue.endLine, ifTrue.endCol, condition, ifTrue, ifFalse);
         }
@@ -312,6 +271,10 @@ namespace mj.compiler.parsing
             IList<Expression> update = getForUpdate(stat.update);
             StatementNode body = (StatementNode)VisitStatement(stat.body);
 
+            if (body.Tag == Tag.VAR_DEF) {
+                log.error(body.Pos, messages.valDefStatementBody_a, "for");
+            }
+
             return new ForLoop(stat.Start.Line, stat.Start.Column, init, condition, update, body);
         }
 
@@ -319,6 +282,10 @@ namespace mj.compiler.parsing
         {
             Expression condition = (Expression)VisitExpression(stat.condition);
             StatementNode body = (StatementNode)VisitStatement(stat.body);
+            
+            if (body.Tag == Tag.VAR_DEF) {
+                log.error(body.Pos, messages.valDefStatementBody_a, "while");
+            }
 
             return new WhileStatement(stat.Start.Line, stat.Start.Column,
                 body.endLine, body.endCol, condition, body);
@@ -329,6 +296,10 @@ namespace mj.compiler.parsing
             Expression condition = (Expression)VisitExpression(stat.condition);
             StatementNode body = (StatementNode)VisitStatement(stat.body);
 
+            if (body.Tag == Tag.VAR_DEF) {
+                log.error(body.Pos, messages.valDefStatementBody_a, "do");
+            }
+            
             return new DoStatement(stat.Start.Line, stat.Start.Column,
                 body.endLine, body.endCol, condition, body);
         }
@@ -495,9 +466,9 @@ namespace mj.compiler.parsing
 
         public override Tree VisitForInit(ForInitContext context) => throw new InvalidOperationException();
 
-        public override Tree VisitMethodInvocation(MethodInvocationContext context)
+        public override Tree VisitFuncInvocation(FuncInvocationContext context)
         {
-            IToken methodName = context.neme;
+            IToken funcName = context.neme;
             ArgumentListContext argumentList = context.argumentList();
             IList<ExpressionContext> parsedArgs = argumentList != null
                 ? argumentList._args
@@ -513,7 +484,7 @@ namespace mj.compiler.parsing
             int endLine = stopToken.Line;
             int endCol = stopToken.StopIndex - stopToken.StartIndex + 1;
 
-            return new MethodInvocation(methodName.Line, methodName.Column, endLine, endCol, methodName.Text, args);
+            return new FuncInvocation(funcName.Line, funcName.Column, endLine, endCol, funcName.Text, args);
         }
 
         public override Tree VisitArgumentList(ArgumentListContext context) => throw new InvalidOperationException();
@@ -532,13 +503,13 @@ namespace mj.compiler.parsing
             if (primary != null) {
                 return (Expression)VisitPrimary(primary);
             }
-            MethodInvocationContext invocation = context.methodInvocation();
+            FuncInvocationContext invocation = context.funcInvocation();
             if (invocation != null) {
-                return (Expression)VisitMethodInvocation(invocation);
+                return (Expression)VisitFuncInvocation(invocation);
             }
             if (context.NEW() != null) {
                 return context.Identifier() != null
-                    ? makeNewClass(context)
+                    ? makeNewStruct(context)
                     : makeNewArray(context);
             }
             if (context.index != null) {
@@ -604,9 +575,9 @@ namespace mj.compiler.parsing
             return new Identifier(symbol.Line, symbol.Column, symbol.Line, stopColumn, identifier);
         }
 
-        public Tree makeNewClass(ExpressionContext context)
+        public Tree makeNewStruct(ExpressionContext context)
         {
-            return new NewClass(context.Start.Line, context.Start.Column, context.Stop.Line,
+            return new NewStruct(context.Start.Line, context.Start.Column, context.Stop.Line,
                 context.Stop.Column, context.Identifier().GetText());
         }
 

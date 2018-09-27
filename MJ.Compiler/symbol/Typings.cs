@@ -1,5 +1,4 @@
-﻿using mj.compiler.main;
-using mj.compiler.utils;
+﻿using mj.compiler.utils;
 
 namespace mj.compiler.symbol
 {
@@ -11,14 +10,12 @@ namespace mj.compiler.symbol
             ctx.tryGet(CONTEXT_KEY, out var instance) ? instance : new Typings(ctx);
 
         private readonly Symtab symtab;
-        private readonly Log log;
 
         private Typings(Context ctx)
         {
             ctx.put(CONTEXT_KEY, this);
 
             symtab = Symtab.instance(ctx);
-            log = Log.instance(ctx);
         }
 
         public bool isAssignableFrom(Type left, Type right)

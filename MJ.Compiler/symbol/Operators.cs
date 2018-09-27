@@ -1,7 +1,5 @@
 ﻿using System.Collections.Generic;
 
-using Antlr4.Runtime.Atn;
-
 using LLVMSharp;
 
 using mj.compiler.main;
@@ -42,20 +40,16 @@ namespace mj.compiler.symbol
 
         private readonly string[] operatorNames = new string[MOD_ASG - NEG + 1];
 
-        private readonly IDictionary<Tag, IList<OperatorSymbol>> unaryOperators =
-            new Dictionary<Tag, IList<OperatorSymbol>>();
-
-        private readonly IDictionary<Tag, IList<OperatorSymbol>> binaryOperators =
-            new Dictionary<Tag, IList<OperatorSymbol>>();
+        private readonly OperatorSymbol[][] operators = new OperatorSymbol[MOD - NEG + 1][];
 
         public OperatorSymbol resolveUnary(DiagnosticPosition pos, Tag tag, Type argType)
         {
             if (argType.IsError) {
                 return symtab.errorOpSymbol;
             }
-            IList<OperatorSymbol> operators = unaryOperators[tag];
-            for (var i = 0; i < operators.Count; i++) {
-                OperatorSymbol op = operators[i];
+            OperatorSymbol[] variants = this.operators[tag.operatorIndex()];
+            for (var i = 0; i < variants.Length; i++) {
+                OperatorSymbol op = variants[i];
                 // We check for exact match for unary operators
                 if (op.type.ParameterTypes[0] == argType) {
                     return op;
@@ -70,9 +64,9 @@ namespace mj.compiler.symbol
             if (leftType.IsError || rightType.IsError) {
                 return symtab.errorOpSymbol;
             }
-            IList<OperatorSymbol> operators = binaryOperators[tag];
-            for (var i = 0; i < operators.Count; i++) {
-                OperatorSymbol op = operators[i];
+            OperatorSymbol[] variants = this.operators[tag.operatorIndex()];
+            for (var i = 0; i < variants.Length; i++) {
+                OperatorSymbol op = variants[i];
                 IList<Type> paramTypes = op.type.ParameterTypes;
                 // We take numeric promotion into account
                 if (typings.isAssignableFrom(paramTypes[0], leftType) &&
@@ -87,205 +81,205 @@ namespace mj.compiler.symbol
         private void initOperators()
         {
             setName(NEG, "-");
-            unaryOperators.Add(NEG, new[] {
+            operators[NEG.operatorIndex()] = new[] {
                 unary(NEG, TypeTag.INT, TypeTag.INT),
                 unary(NEG, TypeTag.LONG, TypeTag.LONG),
                 unary(NEG, TypeTag.FLOAT, TypeTag.DOUBLE),
                 unary(NEG, TypeTag.DOUBLE, TypeTag.DOUBLE),
-            });
+            };
 
             setName(NOT, "!");
-            unaryOperators.Add(NOT, new[] {
+            operators[NOT.operatorIndex()] = new[] {
                 unary(NOT, TypeTag.BOOLEAN, TypeTag.BOOLEAN)
-            });
+            };
 
             setName(COMPL, "~");
-            unaryOperators.Add(COMPL, new[] {
+            operators[COMPL.operatorIndex()] = new[] {
                 unary(COMPL, TypeTag.INT, TypeTag.INT),
                 unary(COMPL, TypeTag.LONG, TypeTag.LONG)
-            });
+            };
 
             setName(PRE_INC, "++");
-            unaryOperators.Add(PRE_INC, new[] {
+            operators[PRE_INC.operatorIndex()] = new[] {
                 unary(PRE_INC, TypeTag.INT, TypeTag.INT, LLVMAdd),
                 unary(PRE_INC, TypeTag.LONG, TypeTag.LONG, LLVMAdd),
                 unary(PRE_INC, TypeTag.FLOAT, TypeTag.FLOAT, LLVMFAdd),
                 unary(PRE_INC, TypeTag.DOUBLE, TypeTag.DOUBLE, LLVMFAdd)
-            });
+            };
 
             setName(PRE_DEC, "--");
-            unaryOperators.Add(PRE_DEC, new[] {
+            operators[PRE_DEC.operatorIndex()] = new[] {
                 unary(PRE_DEC, TypeTag.INT, TypeTag.INT, LLVMSub),
                 unary(PRE_DEC, TypeTag.LONG, TypeTag.LONG, LLVMSub),
                 unary(PRE_DEC, TypeTag.FLOAT, TypeTag.FLOAT, LLVMFSub),
                 unary(PRE_DEC, TypeTag.DOUBLE, TypeTag.DOUBLE, LLVMFSub)
-            });
+            };
 
             setName(POST_INC, "++");
-            unaryOperators.Add(POST_INC, new[] {
+            operators[POST_INC.operatorIndex()] = new[] {
                 unary(POST_INC, TypeTag.INT, TypeTag.INT, LLVMAdd),
                 unary(POST_INC, TypeTag.LONG, TypeTag.LONG, LLVMAdd),
                 unary(POST_INC, TypeTag.FLOAT, TypeTag.FLOAT, LLVMFAdd),
                 unary(POST_INC, TypeTag.DOUBLE, TypeTag.DOUBLE, LLVMFAdd)
-            });
+            };
 
             setName(POST_DEC, "--");
-            unaryOperators.Add(POST_DEC, new[] {
+            operators[POST_DEC.operatorIndex()] = new[] {
                 unary(POST_DEC, TypeTag.INT, TypeTag.INT, LLVMSub),
                 unary(POST_DEC, TypeTag.LONG, TypeTag.LONG, LLVMSub),
                 unary(POST_DEC, TypeTag.FLOAT, TypeTag.FLOAT, LLVMFSub),
                 unary(POST_DEC, TypeTag.DOUBLE, TypeTag.DOUBLE, LLVMFSub)
-            });
+            };
 
             setName(OR, "||");
-            binaryOperators.Add(OR, new[] {
+            operators[OR.operatorIndex()] = new[] {
                 binary(OR, TypeTag.BOOLEAN, TypeTag.BOOLEAN, TypeTag.BOOLEAN, LLVMOr),
-            });
+            };
 
             setName(AND, "&&");
-            binaryOperators.Add(AND, new[] {
+            operators[AND.operatorIndex()] = new[] {
                 binary(AND, TypeTag.BOOLEAN, TypeTag.BOOLEAN, TypeTag.BOOLEAN, LLVMAnd),
-            });
+            };
 
             // Order of combination listing for binary operators matters for correct resolution
             // More assignable types must be listed after less assignable ones,
             // which is the order listed in the TypeTag enum.
 
             setName(BITOR, "|");
-            binaryOperators.Add(BITOR, new[] {
+            operators[BITOR.operatorIndex()] = new[] {
                 binary(BITOR, TypeTag.BOOLEAN, TypeTag.BOOLEAN, TypeTag.BOOLEAN, LLVMOr),
                 binary(BITOR, TypeTag.INT, TypeTag.INT, TypeTag.INT, LLVMOr),
                 binary(BITOR, TypeTag.LONG, TypeTag.LONG, TypeTag.LONG, LLVMOr),
-            });
+            };
 
             setName(BITXOR, "^");
-            binaryOperators.Add(BITXOR, new[] {
+            operators[BITXOR.operatorIndex()] = new[] {
                 binary(BITXOR, TypeTag.BOOLEAN, TypeTag.BOOLEAN, TypeTag.BOOLEAN, LLVMXor),
                 binary(BITXOR, TypeTag.INT, TypeTag.INT, TypeTag.INT, LLVMXor),
                 binary(BITXOR, TypeTag.LONG, TypeTag.LONG, TypeTag.LONG, LLVMXor),
-            });
+            };
 
             setName(BITAND, "&");
-            binaryOperators.Add(BITAND, new[] {
+            operators[BITAND.operatorIndex()] = new[] {
                 binary(BITAND, TypeTag.BOOLEAN, TypeTag.BOOLEAN, TypeTag.BOOLEAN, LLVMAnd),
                 binary(BITAND, TypeTag.INT, TypeTag.INT, TypeTag.INT, LLVMAnd),
                 binary(BITAND, TypeTag.LONG, TypeTag.LONG, TypeTag.LONG, LLVMAnd),
-            });
+            };
 
             setName(EQ, "==");
-            binaryOperators.Add(EQ, new[] {
+            operators[EQ.operatorIndex()] = new[] {
                 binary(EQ, TypeTag.BOOLEAN, TypeTag.BOOLEAN, TypeTag.BOOLEAN, LLVMICmp, LLVMIntEQ),
                 binary(EQ, TypeTag.INT, TypeTag.INT, TypeTag.BOOLEAN, LLVMICmp, LLVMIntEQ),
                 binary(EQ, TypeTag.LONG, TypeTag.LONG, TypeTag.BOOLEAN, LLVMICmp, LLVMIntEQ),
                 binary(EQ, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOEQ),
                 binary(EQ, TypeTag.DOUBLE, TypeTag.DOUBLE, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOEQ),
-            });
+            };
 
             setName(NEQ, "!=");
-            binaryOperators.Add(NEQ, new[] {
+            operators[NEQ.operatorIndex()] = new[] {
                 binary(NEQ, TypeTag.BOOLEAN, TypeTag.BOOLEAN, TypeTag.BOOLEAN, LLVMICmp),
                 binary(NEQ, TypeTag.INT, TypeTag.INT, TypeTag.BOOLEAN, LLVMICmp, LLVMIntNE),
                 binary(NEQ, TypeTag.LONG, TypeTag.LONG, TypeTag.BOOLEAN, LLVMICmp, LLVMIntNE),
                 binary(NEQ, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealONE),
                 binary(NEQ, TypeTag.DOUBLE, TypeTag.DOUBLE, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealONE),
-            });
+            };
 
             setName(LT, "<");
-            binaryOperators.Add(LT, new[] {
+            operators[LT.operatorIndex()] = new[] {
                 binary(LT, TypeTag.INT, TypeTag.INT, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSLT),
                 binary(LT, TypeTag.LONG, TypeTag.LONG, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSLT),
                 binary(LT, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOLT),
                 binary(LT, TypeTag.DOUBLE, TypeTag.DOUBLE, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOLT),
-            });
+            };
 
             setName(GT, ">");
-            binaryOperators.Add(GT, new[] {
+            operators[GT.operatorIndex()] = new[] {
                 binary(GT, TypeTag.INT, TypeTag.INT, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSGT),
                 binary(GT, TypeTag.LONG, TypeTag.LONG, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSGT),
                 binary(GT, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOGT),
                 binary(GT, TypeTag.DOUBLE, TypeTag.DOUBLE, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOGT),
-            });
+            };
 
             setName(LE, "<=");
-            binaryOperators.Add(LE, new[] {
+            operators[LE.operatorIndex()] = new[] {
                 binary(LE, TypeTag.INT, TypeTag.INT, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSLE),
                 binary(LE, TypeTag.LONG, TypeTag.LONG, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSLE),
                 binary(LE, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOLE),
                 binary(LE, TypeTag.DOUBLE, TypeTag.DOUBLE, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOLE),
-            });
+            };
 
             setName(GE, ">=");
-            binaryOperators.Add(GE, new[] {
+            operators[GE.operatorIndex()] = new[] {
                 binary(GE, TypeTag.INT, TypeTag.INT, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSGE),
                 binary(GE, TypeTag.LONG, TypeTag.LONG, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSGE),
                 binary(GE, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOGE),
                 binary(GE, TypeTag.DOUBLE, TypeTag.DOUBLE, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOGE),
-            });
+            };
 
             setName(SHL, "<<");
-            binaryOperators.Add(SHL, new[] {
+            operators[SHL.operatorIndex()] = new[] {
                 binary(SHL, TypeTag.INT, TypeTag.INT, TypeTag.INT, LLVMShl),
                 binary(SHL, TypeTag.INT, TypeTag.LONG, TypeTag.INT, LLVMShl),
                 binary(SHL, TypeTag.LONG, TypeTag.INT, TypeTag.LONG, LLVMShl),
                 binary(SHL, TypeTag.LONG, TypeTag.LONG, TypeTag.LONG, LLVMShl),
-            });
+            };
 
             setName(SHR, ">>");
-            binaryOperators.Add(SHR, new[] {
+            operators[SHR.operatorIndex()] = new[] {
                 binary(SHR, TypeTag.INT, TypeTag.INT, TypeTag.INT, LLVMLShr),
                 binary(SHR, TypeTag.INT, TypeTag.LONG, TypeTag.INT, LLVMLShr),
                 binary(SHR, TypeTag.LONG, TypeTag.INT, TypeTag.LONG, LLVMLShr),
                 binary(SHR, TypeTag.LONG, TypeTag.LONG, TypeTag.LONG, LLVMLShr),
-            });
+            };
 
             setName(PLUS, "+");
-            binaryOperators.Add(PLUS, new[] {
+            operators[PLUS.operatorIndex()] = new[] {
                 binary(PLUS, TypeTag.INT, TypeTag.INT, TypeTag.INT, LLVMAdd),
                 binary(PLUS, TypeTag.LONG, TypeTag.LONG, TypeTag.LONG, LLVMAdd),
                 binary(PLUS, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.FLOAT, LLVMFAdd),
                 binary(PLUS, TypeTag.DOUBLE, TypeTag.DOUBLE, TypeTag.DOUBLE, LLVMFAdd),
-            });
+            };
 
             setName(MINUS, "-");
-            binaryOperators.Add(MINUS, new[] {
+            operators[MINUS.operatorIndex()] = new[] {
                 binary(MINUS, TypeTag.INT, TypeTag.INT, TypeTag.INT, LLVMSub),
                 binary(MINUS, TypeTag.LONG, TypeTag.LONG, TypeTag.LONG, LLVMSub),
                 binary(MINUS, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.FLOAT, LLVMFSub),
                 binary(MINUS, TypeTag.DOUBLE, TypeTag.DOUBLE, TypeTag.DOUBLE, LLVMFSub),
-            });
+            };
 
             setName(MUL, "*");
-            binaryOperators.Add(MUL, new[] {
+            operators[MUL.operatorIndex()] = new[] {
                 binary(MUL, TypeTag.INT, TypeTag.INT, TypeTag.INT, LLVMMul),
                 binary(MUL, TypeTag.LONG, TypeTag.LONG, TypeTag.LONG, LLVMMul),
                 binary(MUL, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.FLOAT, LLVMFMul),
                 binary(MUL, TypeTag.DOUBLE, TypeTag.DOUBLE, TypeTag.DOUBLE, LLVMFMul),
-            });
+            };
 
             setName(DIV, "/");
-            binaryOperators.Add(DIV, new[] {
+            operators[DIV.operatorIndex()] = new[] {
                 binary(DIV, TypeTag.INT, TypeTag.INT, TypeTag.INT, LLVMSDiv),
                 binary(DIV, TypeTag.LONG, TypeTag.LONG, TypeTag.LONG, LLVMSDiv),
                 binary(DIV, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.FLOAT, LLVMFDiv),
                 binary(DIV, TypeTag.DOUBLE, TypeTag.DOUBLE, TypeTag.DOUBLE, LLVMFDiv),
-            });
+            };
 
             setName(MOD, "%");
-            binaryOperators.Add(MOD, new[] {
+            operators[MOD.operatorIndex()] = new[] {
                 binary(MOD, TypeTag.INT, TypeTag.INT, TypeTag.INT, LLVMSRem),
                 binary(MOD, TypeTag.LONG, TypeTag.LONG, TypeTag.LONG, LLVMSRem),
                 binary(MOD, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.FLOAT, LLVMFRem),
                 binary(MOD, TypeTag.DOUBLE, TypeTag.DOUBLE, TypeTag.DOUBLE, LLVMFRem),
-            });
+            };
         }
 
-        private OperatorSymbol unary(Tag tag, TypeTag argType, TypeTag result, LLVMOpcode opcode = default(LLVMOpcode))
+        private OperatorSymbol unary(Tag tag, TypeTag argType, TypeTag result, LLVMOpcode opcode = default)
         {
-            MethodType methodType = new MethodType(
+            FuncType funcType = new FuncType(
                 CollectionUtils.singletonList<Type>(symtab.typeForTag(argType)),
                 symtab.typeForTag(result)
             );
-            return new OperatorSymbol(operatorNames[tag.operatorIndex()], symtab.noSymbol, methodType, opcode);
+            return new OperatorSymbol(operatorNames[tag.operatorIndex()], symtab.noSymbol, funcType, opcode);
         }
 
         private OperatorSymbol binary(Tag tag, TypeTag left, TypeTag right, TypeTag result, LLVMOpcode opcode,
@@ -303,11 +297,11 @@ namespace mj.compiler.symbol
         private OperatorSymbol binary(Tag tag, TypeTag left, TypeTag right, TypeTag result, LLVMOpcode opcode,
                                       int predicate = 0)
         {
-            MethodType methodType = new MethodType(
+            FuncType funcType = new FuncType(
                 new Type[] {symtab.typeForTag(left), symtab.typeForTag(right)},
                 symtab.typeForTag(result)
             );
-            return new OperatorSymbol(operatorNames[tag.operatorIndex()], symtab.noSymbol, methodType, opcode,
+            return new OperatorSymbol(operatorNames[tag.operatorIndex()], symtab.noSymbol, funcType, opcode,
                 predicate);
         }
 

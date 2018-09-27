@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Net.Http.Headers;
 
 using mj.compiler.utils;
 
@@ -34,39 +33,28 @@ namespace mj.compiler.symbol
         public readonly Symbol errorSymbol;
 
         public readonly Symbol.VarSymbol errorVarSymbol;
-        public readonly Symbol.TypeSymbol errorTypeSymbol;
 
         public readonly Symbol.TypeSymbol noSymbol;
 
-        //public Symbol.OperatorSymbol noOpSymbol;
         public Symbol.OperatorSymbol errorOpSymbol;
 
         public readonly Dictionary<Type, ArrayType> arrayTypes = new Dictionary<Type, ArrayType>();
 
         private sealed class NoSymbol : Symbol.TypeSymbol
         {
-            public NoSymbol(Symbol owner, Type type) : base(Kind.MTH, "", owner, type) { }
+            public NoSymbol(Symbol owner, Type type) : base(Kind.FUNC, "", owner, type) { }
 
             public override string ToString() => "<no symbol>";
-        }
-
-        private sealed class ErrorTypeSymbol : Symbol.TypeSymbol
-        {
-            public ErrorTypeSymbol(Symbol owner, Type type) : base(Kind.ERROR, "<error>", owner, type) { }
-
-            public override string ToString() => "<error>";
         }
         
         private sealed class BottomType : Type
         {
-            public BottomType() : base(null) { }
-
             public override TypeTag Tag => TypeTag.NULL;
             public override bool IsRefType => true;
             
             public override string ToString() => "null";
             
-            public override T accept<T>(TypeVisitor<T> v) => default(T);
+            public override T accept<T>(TypeVisitor<T> v) => default;
         }
 
         private Symtab(Context context)
@@ -76,13 +64,13 @@ namespace mj.compiler.symbol
             topLevelSymbol = new Symbol.TopLevelSymbol();
             topLevelSymbol.topScope = Scope.WriteableScope.create(topLevelSymbol);
 
-            intType = primitive(TypeTag.INT, "int");
-            longType = primitive(TypeTag.LONG, "long");
-            floatType = primitive(TypeTag.FLOAT, "float");
-            doubleType = primitive(TypeTag.DOUBLE, "double");
-            booleanType = primitive(TypeTag.BOOLEAN, "boolean");
-            stringType = primitive(TypeTag.STRING, "string");
-            voidType = primitive(TypeTag.VOID, "void");
+            intType = primitive(TypeTag.INT);
+            longType = primitive(TypeTag.LONG);
+            floatType = primitive(TypeTag.FLOAT);
+            doubleType = primitive(TypeTag.DOUBLE);
+            booleanType = primitive(TypeTag.BOOLEAN);
+            stringType = primitive(TypeTag.STRING);
+            voidType = primitive(TypeTag.VOID);
             
             bottomType = new BottomType();
             
@@ -90,35 +78,29 @@ namespace mj.compiler.symbol
             arrayLengthField.fieldIndex = 0;
 
             errorSymbol = new Symbol.ErrorSymbol(topLevelSymbol, null);
-            errorType = new ErrorType(errorSymbol);
+            errorType = new ErrorType();
             errorSymbol.type = errorType;
             
-            errorTypeSymbol = new ErrorTypeSymbol(topLevelSymbol, errorType);
-
             errorVarSymbol = new Symbol.VarSymbol(Symbol.Kind.ERROR, "<error>", errorType, null);
 
             noSymbol = new NoSymbol(topLevelSymbol, Type.NO_TYPE);
-            //noOpSymbol = new Symbol.OperatorSymbol("", noSymbol, Type.NO_TYPE);
 
             errorOpSymbol = new Symbol.OperatorSymbol("", noSymbol, errorType, 0);
 
             enterBuiltins();
         }
 
-        public IList<Symbol.MethodSymbol> builtins;
+        public IList<Symbol.FuncSymbol> builtins;
 
-        private PrimitiveType primitive(TypeTag typeTag, string name)
+        private PrimitiveType primitive(TypeTag typeTag)
         {
-            var sym = new Symbol.PrimitiveTypeSymbol(name, topLevelSymbol);
-            var type = new PrimitiveType(typeTag, sym);
-            sym.type = type;
-            return type;
+            return new PrimitiveType(typeTag);
         }
 
         private void enterBuiltins()
         {
             Scope.WriteableScope scope = topLevelSymbol.topScope;
-            builtins = new List<Symbol.MethodSymbol>();
+            builtins = new List<Symbol.FuncSymbol>();
 
             scope.enter(builtin("puts", intType, stringType));
             scope.enter(builtin("putchar", intType, intType));
@@ -150,10 +132,10 @@ namespace mj.compiler.symbol
             return builtin(name, resType, new[] { arg1, arg2 });
         }
 
-        private Symbol.MethodSymbol builtin(string name, Type resType, IList<Type> args, bool isVarArg = false)
+        private Symbol.FuncSymbol builtin(string name, Type resType, IList<Type> args, bool isVarArg = false)
         {
-            Symbol.MethodSymbol ms = new Symbol.MethodSymbol(name, topLevelSymbol,
-                new MethodType(args, resType, isVarArg));
+            Symbol.FuncSymbol ms = new Symbol.FuncSymbol(name, topLevelSymbol,
+                new FuncType(args, resType, isVarArg));
             ms.isVararg = isVarArg;
 
             ms.parameters = new List<Symbol.VarSymbol>(args.Count);
@@ -192,7 +174,7 @@ namespace mj.compiler.symbol
             if (arrayTypes.TryGetValue(elemType, out var arrayType)) {
                 return arrayType;
             }
-            arrayType = new ArrayType(elemType, elemType.definer);
+            arrayType = new ArrayType(elemType);
             arrayTypes.Add(elemType, arrayType);
             return arrayType;
         }

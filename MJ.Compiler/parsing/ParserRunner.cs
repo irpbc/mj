@@ -1,9 +1,6 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 
 using Antlr4.Runtime;
-using Antlr4.Runtime.Atn;
-using Antlr4.Runtime.Misc;
 
 using mj.compiler.main;
 using mj.compiler.tree;
@@ -18,13 +15,11 @@ namespace mj.compiler.parsing
         public static ParserRunner instance(Context context) =>
             context.tryGet(CONTEX_KEY, out var instance) ? instance : new ParserRunner(context);
 
-        private CommandLineOptions options;
         private Log log;
 
         private ParserRunner(Context context)
         {
             context.put(CONTEX_KEY, this);
-            options = CommandLineOptions.instance(context);
             log = Log.instance(context);
         }
 

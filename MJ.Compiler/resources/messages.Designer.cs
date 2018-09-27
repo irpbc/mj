@@ -151,29 +151,29 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Type {0} is already defined.
+        ///   Looks up a localized string similar to Function {0} is already defiend.
         /// </summary>
-        public static string duplicateClassName {
+        public static string duplicateFunctionName {
             get {
-                return ResourceManager.GetString("duplicateClassName", resourceCulture);
+                return ResourceManager.GetString("duplicateFunctionName", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Method {0} is already defiend.
-        /// </summary>
-        public static string duplicateMethodName {
-            get {
-                return ResourceManager.GetString("duplicateMethodName", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Parameter {0} is already defined in method {1}.
+        ///   Looks up a localized string similar to Parameter {0} is already defined in function {1}.
         /// </summary>
         public static string duplicateParamName {
             get {
                 return ResourceManager.GetString("duplicateParamName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type {0} is already defined.
+        /// </summary>
+        public static string duplicateStructName {
+            get {
+                return ResourceManager.GetString("duplicateStructName", resourceCulture);
             }
         }
         
@@ -210,6 +210,15 @@ namespace mj.compiler.resources {
         public static string forConditonType {
             get {
                 return ResourceManager.GetString("forConditonType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Function &quot;{0}&quot; is not defined.
+        /// </summary>
+        public static string functionNotDefined {
+            get {
+                return ResourceManager.GetString("functionNotDefined", resourceCulture);
             }
         }
         
@@ -259,29 +268,20 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The main method is not defined.
+        ///   Looks up a localized string similar to The main function is not defined.
         /// </summary>
-        public static string mainMethodNotDefined {
+        public static string mainFunctionNotDefined {
             get {
-                return ResourceManager.GetString("mainMethodNotDefined", resourceCulture);
+                return ResourceManager.GetString("mainFunctionNotDefined", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Main method must accept int and long and return int.
+        ///   Looks up a localized string similar to Main function must accept int and long and return int.
         /// </summary>
-        public static string mainMethodSig {
+        public static string mainFunctionSig {
             get {
-                return ResourceManager.GetString("mainMethodSig", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Method &quot;{0}&quot; is not defined.
-        /// </summary>
-        public static string methodNotDefined {
-            get {
-                return ResourceManager.GetString("methodNotDefined", resourceCulture);
+                return ResourceManager.GetString("mainFunctionSig", resourceCulture);
             }
         }
         
@@ -304,7 +304,7 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Argument type mismatch in a call to method &quot;{0}&quot;.
+        ///   Looks up a localized string similar to Argument type mismatch in a call to function &quot;{0}&quot;.
         /// </summary>
         public static string paramTypeMismatch {
             get {
@@ -313,11 +313,11 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to You must return a value from a non-void method.
+        ///   Looks up a localized string similar to You must return a value from a non-void function.
         /// </summary>
-        public static string returnNonVoidMethod {
+        public static string returnNonVoidFunction {
             get {
-                return ResourceManager.GetString("returnNonVoidMethod", resourceCulture);
+                return ResourceManager.GetString("returnNonVoidFunction", resourceCulture);
             }
         }
         
@@ -331,11 +331,11 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to You can&apos;t return a value from a void method.
+        ///   Looks up a localized string similar to You can&apos;t return a value from a void function.
         /// </summary>
-        public static string returnVoidMethod {
+        public static string returnVoidFunction {
             get {
-                return ResourceManager.GetString("returnVoidMethod", resourceCulture);
+                return ResourceManager.GetString("returnVoidFunction", resourceCulture);
             }
         }
         
@@ -367,20 +367,11 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Aspect &quot;{0}&quot; is undefined at this point.
-        /// </summary>
-        public static string undefinedAspect {
-            get {
-                return ResourceManager.GetString("undefinedAspect", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Type &quot;{0}&quot; is not defined.
         /// </summary>
-        public static string undefinedClass {
+        public static string undefinedStruct {
             get {
-                return ResourceManager.GetString("undefinedClass", resourceCulture);
+                return ResourceManager.GetString("undefinedStruct", resourceCulture);
             }
         }
         
@@ -439,6 +430,24 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Local variable declaration cannot a body of a &quot;{0}&quot; statement.
+        /// </summary>
+        public static string valDefStatementBody_a {
+            get {
+                return ResourceManager.GetString("valDefStatementBody_a", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Local variable declaration cannot a body of a &quot;{0}&quot; statement.
+        /// </summary>
+        public static string valDefStatementBody_an {
+            get {
+                return ResourceManager.GetString("valDefStatementBody_an", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Initializer of variable &quot;{0}&quot; returns &quot;{1}&quot; while &quot;{2}&quot; is required.
         /// </summary>
         public static string varInitTypeMismatch {
@@ -466,7 +475,7 @@ namespace mj.compiler.resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Method &quot;{0}&quot; takes {1} arguments, but {2} was given.
+        ///   Looks up a localized string similar to Function &quot;{0}&quot; takes {1} arguments, but {2} was given.
         /// </summary>
         public static string wrongNumberOfArgs {
             get {

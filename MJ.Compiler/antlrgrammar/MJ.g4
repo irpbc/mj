@@ -23,7 +23,7 @@ type returns [ int arrays ]
     |	primitive='double'
     |	primitive='boolean'
     |	primitive='string'
-    |   className=Identifier) ('[' ']' { $type::arrays++; } )*
+    |   structName=Identifier) ('[' ']' { $type::arrays++; } )*
 	;
 
 compilationUnit
@@ -31,16 +31,11 @@ compilationUnit
 	;
 	
 declaration
-    :   classDef
-    |   methodDeclaration
-//    |   aspectDef
+    :   structDef
+    |   funcDeclaration
     ;
-
-/*annotation
-    :   '@' name=Identifier
-    ;*/
     
-classDef
+structDef
     : 'struct' name=Identifier '{' (fields+=fieldDef)+ '}'
     ;
 
@@ -48,12 +43,11 @@ fieldDef
     : type name=Identifier ';'
     ;
 
-methodDeclaration returns [ bool isPrivate ]
-	:	/*annotations+=annotation**/
-	    'private'? { $methodDeclaration::isPrivate=true; } 
+funcDeclaration returns [ bool isPrivate ]
+    :   'private'? { $funcDeclaration::isPrivate=true; } 
 	    result 
 	    name=Identifier '(' ( params+=formalParameter (',' params+=formalParameter)* )? ')'
-	    methodBody
+	    funcBody
 	;
 
 result
@@ -65,13 +59,7 @@ formalParameter
 	:	type name=Identifier
 	;
 
-/*aspectDef
-    : 'aspect' name=Identifier '{' 
-          ( afterStart='after' after=block )?
-      '}'
-    ;*/
-
-methodBody
+funcBody
 	:	block
 	;
 
@@ -141,7 +129,7 @@ primary
 	|   Identifier
 	;
 
-methodInvocation
+funcInvocation
 	:	neme=Identifier '(' argumentList? ')'
 	;
 
@@ -149,11 +137,11 @@ argumentList
 	:	args+=expression (',' args+=expression)*
 	;
 
-expression returns [ bool isAssignment, int shiftOp ]
+expression returns [ bool isAssignment ]
     : primary
     | left=expression bop='.' Identifier
     | indexBase=expression '[' index=expression ']'
-    | methodInvocation
+    | funcInvocation
     | NEW (Identifier '(' ')' | type '[' length=expression ']' )
     | arg=expression postfix=('++' | '--')
     | prefix=('++'|'--') arg=expression
@@ -161,7 +149,7 @@ expression returns [ bool isAssignment, int shiftOp ]
     | prefix=('~'|'!') arg=expression
     | left=expression bop=('*'|'/'|'%') right=expression
     | left=expression bop=('+'|'-') right=expression
-    | left=expression ('<' '<' { $expression::shiftOp=LSHIFT; } | '>' '>' { $expression::shiftOp=RSHIFT; }) 
+    | left=expression bop=('<<'|'>>') 
       right=expression
     | left=expression bop=('<=' | '>=' | '>' | '<') right=expression
     | left=expression bop=('==' | '!=') right=expression
