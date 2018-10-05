@@ -1,0 +1,25 @@
+
+int main(int argc, long argv) {
+    printf("Unesite brojeve:\n");
+    
+    ListOfInt list = makeListOfInt(10);
+    
+    while (true) {
+        char[] line = readLine();
+        if (line[0] == '\n') {
+            break;
+        }
+        int num = parseInt(line);
+        listAdd(list, num);
+    }
+    
+    printf("list len: %d \n", list.length);
+    
+    quickSort(list);
+    
+    for (int i = 0; i < list.length; ++i) {
+        printf("%d ", list.data[i]);
+    }
+    
+    return 0;
+}

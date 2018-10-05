@@ -13,6 +13,7 @@ literal returns [ int literalType ]
 	|	FloatingPointLiteral { $literal::literalType=FLOAT; }
 	|	BooleanLiteral       { $literal::literalType=BOOLEAN; }
 	|   StringLiteral        { $literal::literalType=STRING; }
+	|   CharLiteral          { $literal::literalType=CHAR; }
 	|   NULL                 { $literal::literalType=NULL; }
     ;
 
@@ -22,6 +23,7 @@ type returns [ int arrays ]
     |	primitive='float'
     |	primitive='double'
     |	primitive='boolean'
+    |   primitive='char'
     |	primitive='string'
     |   structName=Identifier) ('[' ']' { $type::arrays++; } )*
 	;
@@ -167,6 +169,7 @@ expression returns [ bool isAssignment ]
 BOOLEAN : 'boolean';
 BREAK : 'break';
 CASE : 'case';
+CHAR : 'char';
 CONTINUE : 'continue';
 DO : 'do';
 DOUBLE : 'double';
@@ -187,246 +190,30 @@ VOID : 'void';
 WHILE : 'while';
 
 
-IntegerLiteral
-	:	DecimalIntegerLiteral
-	|	HexIntegerLiteral
-	|	OctalIntegerLiteral
-	|	BinaryIntegerLiteral
-	;
+IntegerLiteral : DecimalNumeral;
 
 fragment
-DecimalIntegerLiteral
-	:	DecimalNumeral IntegerTypeSuffix?
-	;
+DecimalNumeral: '0' | [1-9][0-9]*;
+
+FloatingPointLiteral : DecimalFloatingPointLiteral;
 
 fragment
-HexIntegerLiteral
-	:	HexNumeral IntegerTypeSuffix?
-	;
+DecimalFloatingPointLiteral : DecimalNumeral '.' [0-9]+ ;
+
+BooleanLiteral : 'true' | 'false' ;
+
+CharLiteral : '\'' StringCharacter '\'';
+
+StringLiteral :	'"' StringCharacters? '"';
 
 fragment
-OctalIntegerLiteral
-	:	OctalNumeral IntegerTypeSuffix?
-	;
+StringCharacters : StringCharacter+;
 
 fragment
-BinaryIntegerLiteral
-	:	BinaryNumeral IntegerTypeSuffix?
-	;
+StringCharacter : ~["'\\\r\n] |	EscapeSequence;
 
 fragment
-IntegerTypeSuffix
-	:	[lL]
-	;
-
-fragment
-DecimalNumeral
-	:	'0'
-	|	NonZeroDigit (Digits? | Underscores Digits)
-	;
-
-fragment
-Digits
-	:	Digit (DigitsAndUnderscores? Digit)?
-	;
-
-fragment
-Digit
-	:	'0'
-	|	NonZeroDigit
-	;
-
-fragment
-NonZeroDigit
-	:	[1-9]
-	;
-
-fragment
-DigitsAndUnderscores
-	:	DigitOrUnderscore+
-	;
-
-fragment
-DigitOrUnderscore
-	:	Digit
-	|	'_'
-	;
-
-fragment
-Underscores
-	:	'_'+
-	;
-
-fragment
-HexNumeral
-	:	'0' [xX] HexDigits
-	;
-
-fragment
-HexDigits
-	:	HexDigit (HexDigitsAndUnderscores? HexDigit)?
-	;
-
-fragment
-HexDigit
-	:	[0-9a-fA-F]
-	;
-
-fragment
-HexDigitsAndUnderscores
-	:	HexDigitOrUnderscore+
-	;
-
-fragment
-HexDigitOrUnderscore
-	:	HexDigit
-	|	'_'
-	;
-
-fragment
-OctalNumeral
-	:	'0' Underscores? OctalDigits
-	;
-
-fragment
-OctalDigits
-	:	OctalDigit (OctalDigitsAndUnderscores? OctalDigit)?
-	;
-
-fragment
-OctalDigit
-	:	[0-7]
-	;
-
-fragment
-OctalDigitsAndUnderscores
-	:	OctalDigitOrUnderscore+
-	;
-
-fragment
-OctalDigitOrUnderscore
-	:	OctalDigit
-	|	'_'
-	;
-
-fragment
-BinaryNumeral
-	:	'0' [bB] BinaryDigits
-	;
-
-fragment
-BinaryDigits
-	:	BinaryDigit (BinaryDigitsAndUnderscores? BinaryDigit)?
-	;
-
-fragment
-BinaryDigit
-	:	[01]
-	;
-
-fragment
-BinaryDigitsAndUnderscores
-	:	BinaryDigitOrUnderscore+
-	;
-
-fragment
-BinaryDigitOrUnderscore
-	:	BinaryDigit
-	|	'_'
-	;
-
-
-
-FloatingPointLiteral
-	:	DecimalFloatingPointLiteral
-	|	HexadecimalFloatingPointLiteral
-	;
-
-fragment
-DecimalFloatingPointLiteral
-	:	Digits '.' Digits? ExponentPart? FloatTypeSuffix?
-	|	'.' Digits ExponentPart? FloatTypeSuffix?
-	|	Digits ExponentPart FloatTypeSuffix?
-	|	Digits FloatTypeSuffix
-	;
-
-fragment
-ExponentPart
-	:	ExponentIndicator SignedInteger
-	;
-
-fragment
-ExponentIndicator
-	:	[eE]
-	;
-
-fragment
-SignedInteger
-	:	Sign? Digits
-	;
-
-fragment
-Sign
-	:	[+-]
-	;
-
-fragment
-FloatTypeSuffix
-	:	[fFdD]
-	;
-
-fragment
-HexadecimalFloatingPointLiteral
-	:	HexSignificand BinaryExponent FloatTypeSuffix?
-	;
-
-fragment
-HexSignificand
-	:	HexNumeral '.'?
-	|	'0' [xX] HexDigits? '.' HexDigits
-	;
-
-fragment
-BinaryExponent
-	:	BinaryExponentIndicator SignedInteger
-	;
-
-fragment
-BinaryExponentIndicator
-	:	[pP]
-	;
-
-
-
-BooleanLiteral
-	:	'true'
-	|	'false'
-	;
-
-StringLiteral
-	:	'"' StringCharacters? '"'
-	;
-fragment
-StringCharacters
-	:	StringCharacter+
-	;
-fragment
-StringCharacter
-	:	~["\\\r\n]
-	|	EscapeSequence
-	;
-// §3.10.6 Escape Sequences for Character and String Literals
-fragment
-EscapeSequence
-	:	'\\' [btnfr"'\\]
-    |   UnicodeEscape // This is not in the spec but prevents having to preprocess the input
-	;
-
-// This is not in the spec but prevents having to preprocess the input
-fragment
-UnicodeEscape
-    :   '\\' 'u'+  HexDigit HexDigit HexDigit HexDigit
-    ;
+EscapeSequence : '\\' [0tn"'\\];
 
 LPAREN : '(';
 RPAREN : ')';
@@ -478,6 +265,8 @@ MOD_ASSIGN : '%=';
 LSHIFT_ASSIGN : '<<=';
 RSHIFT_ASSIGN : '>>=';
 
+AT : '@';
+ELLIPSIS : '...';
 
 
 Identifier
@@ -485,32 +274,10 @@ Identifier
 	;
 
 fragment
-IdentifierLetter
-	:	[a-zA-Z$_] // these are the "java letters" below 0x7F
-	|	// covers all characters above 0x7F which are not a surrogate
-		~[\u0000-\u007F\uD800-\uDBFF]
-		{Utils.IsIdentifierStart((char)_input.La(-1))}?
-	//|	// covers UTF-16 surrogate pairs encodings for U+10000 to U+10FFFF
-	//	[\uD800-\uDBFF] [\uDC00-\uDFFF]
-	//	{Utils.IsIdentifierStart(Char.ConvertToUtf32((char)_input.La(-2), (char)_input.La(-1)))}?
-	;
+IdentifierLetter : [a-zA-Z_];
 
 fragment
-IdentifierLetterOrDigit
-	:	[a-zA-Z0-9$_] // these are the "java letters or digits" below 0x7F
-	|	// covers all characters above 0x7F which are not a surrogate
-		~[\u0000-\u007F\uD800-\uDBFF]
-		{Utils.IsIdentifierPart((char)_input.La(-1))}?
-	//|	// covers UTF-16 surrogate pairs encodings for U+10000 to U+10FFFF
-	//	[\uD800-\uDBFF] [\uDC00-\uDFFF]
-	//	{Utils.IsIdentifierPart(Char.ConvertToUtf32((char)_input.La(-2), (char)_input.La(-1)))}?
-	;
-
-
-
-AT : '@';
-ELLIPSIS : '...';
-
+IdentifierLetterOrDigit : [a-zA-Z0-9$_];
 
 
 WS  :  [ \t\r\n\u000C]+ -> skip

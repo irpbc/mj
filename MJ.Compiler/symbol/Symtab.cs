@@ -22,6 +22,7 @@ namespace mj.compiler.symbol
         public readonly PrimitiveType floatType;
         public readonly PrimitiveType doubleType;
         public readonly PrimitiveType booleanType;
+        public readonly PrimitiveType charType;
         public readonly PrimitiveType stringType;
         public readonly PrimitiveType voidType;
 
@@ -69,6 +70,7 @@ namespace mj.compiler.symbol
             floatType = primitive(TypeTag.FLOAT);
             doubleType = primitive(TypeTag.DOUBLE);
             booleanType = primitive(TypeTag.BOOLEAN);
+            charType = primitive(TypeTag.CHAR);
             stringType = primitive(TypeTag.STRING);
             voidType = primitive(TypeTag.VOID);
             
@@ -110,6 +112,10 @@ namespace mj.compiler.symbol
             scope.enter(builtin("scan_long", longType));
             scope.enter(builtin("scan_float", floatType));
             scope.enter(builtin("scan_double", doubleType));
+            
+            scope.enter(builtin("getc", intType));
+            scope.enter(builtin("parseInt", intType, arrayTypeOf(charType)));
+            scope.enter(builtin("toChar", charType, intType));
         }
 
         private Symbol builtin(string name, Type resType)
@@ -160,6 +166,8 @@ namespace mj.compiler.symbol
                     return doubleType;
                 case TypeTag.BOOLEAN:
                     return booleanType;
+                case TypeTag.CHAR:
+                    return charType;
                 case TypeTag.STRING:
                     return stringType;
                 case TypeTag.VOID:
@@ -169,7 +177,7 @@ namespace mj.compiler.symbol
             }
         }
 
-        public ArrayType arrayTypeForElemType(Type elemType)
+        public ArrayType arrayTypeOf(Type elemType)
         {
             if (arrayTypes.TryGetValue(elemType, out var arrayType)) {
                 return arrayType;

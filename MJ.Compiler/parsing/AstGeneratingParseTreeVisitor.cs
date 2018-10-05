@@ -50,6 +50,9 @@ namespace mj.compiler.parsing
                     case BOOLEAN:
                         type = TypeTag.BOOLEAN;
                         break;
+                    case CHAR:
+                        type = TypeTag.CHAR;
+                        break;
                     case STRING:
                         type = TypeTag.STRING;
                         break;
@@ -58,10 +61,11 @@ namespace mj.compiler.parsing
                 }
 
                 int endCol = token.Column + token.StopIndex - token.StopIndex;
-                return new PrimitiveTypeNode(token.Line, token.Column, token.Line, endCol, type);
+                tree = new PrimitiveTypeNode(token.Line, token.Column, token.Line, endCol, type);
+            } else {
+                tree = new DeclaredType(context.Start.Line, context.Start.Column, context.Stop.Line,
+                    context.Stop.Column, context.structName.Text);
             }
-            tree = new DeclaredType(context.Start.Line, context.Start.Column, context.Stop.Line,
-                context.Stop.Column, context.structName.Text);
 
             for (int i = 0; i < context.arrays; i++) {
                 tree = new ArrayTypeTree(context.Start.Line, context.Start.Column, context.Stop.Line,
@@ -280,7 +284,7 @@ namespace mj.compiler.parsing
 
         private WhileStatement makeWhile(StatementContext stat)
         {
-            Expression condition = (Expression)VisitExpression(stat.condition);
+            Expression condition = (Expression)VisitExpression(stat.expression());
             StatementNode body = (StatementNode)VisitStatement(stat.body);
             
             if (body.Tag == Tag.VAR_DEF) {
@@ -654,6 +658,12 @@ namespace mj.compiler.parsing
                     type = TypeTag.BOOLEAN;
                     value = Boolean.Parse(text);
                     break;
+                case CHAR:
+                    symbol = context.CharLiteral().Symbol;
+                    text = symbol.Text;
+                    type = TypeTag.CHAR;
+                    value = parseCharLiteral(text);
+                    break;
                 case STRING:
                     symbol = context.StringLiteral().Symbol;
                     text = symbol.Text;
@@ -699,25 +709,8 @@ namespace mj.compiler.parsing
                         case 'n':
                             sb.Append('\n');
                             break;
-                        case 'r':
-                            sb.Append('\r');
-                            break;
-                        case 'b':
-                            sb.Append('\b');
-                            break;
-                        case 'f':
-                            sb.Append('\f');
-                            break;
                         case '\\':
                             sb.Append('\\');
-                            break;
-                        case 'u':
-                            int charLit = (hexDigit(text[++i]) << 12) +
-                                          (hexDigit(text[++i]) << 8) +
-                                          (hexDigit(text[++i]) << 4) +
-                                          (hexDigit(text[++i]));
-
-                            sb.Append(charLit);
                             break;
                     }
                 } else {
@@ -728,11 +721,25 @@ namespace mj.compiler.parsing
             return sb.ToString();
         }
 
-        private static int hexDigit(char hexChar)
+        private byte parseCharLiteral(String text)
         {
-            hexChar = Char.ToUpper(hexChar); // may not be necessary
+            char c = text[1];
+            if (c == '\\') {
+                switch (text[2]) {
+                    case 't':
+                        return (byte)'\t';
+                    case 'n':
+                        return (byte)'\n';
+                    case '\\':
+                        return (byte)'\\';
+                    case '0':
+                        return 0;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(text));
+                }
+            }
 
-            return hexChar < 'A' ? (hexChar - '0') : 10 + (hexChar - 'A');
+            return (byte)c;
         }
 
         private UnaryExpressionNode makeUnary(ExpressionContext context, int opCode)

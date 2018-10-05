@@ -17,6 +17,7 @@ namespace mj.compiler.symbol
         DOUBLE,
         
         BOOLEAN,
+        CHAR,
         STRING,
         NULL,
         VOID,
@@ -47,6 +48,7 @@ namespace mj.compiler.symbol
                 case TypeTag.FLOAT: return "float";
                 case TypeTag.DOUBLE: return "double";
                 case TypeTag.BOOLEAN: return "boolean";
+                case TypeTag.CHAR: return "char";
                 case TypeTag.STRING: return "string";
                 case TypeTag.VOID: return "void";
                 case TypeTag.NULL: return "null";

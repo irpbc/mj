@@ -1,0 +1,33 @@
+
+char[] readLine() {
+    char[] line = new char[100];
+    int i = 0;
+    int lenmax = line.length;
+    int len = lenmax;
+    int c;
+
+    while (true) {
+        c = getc();
+        if (c == -1)
+            break;
+
+        if (--len == 0) {
+            len = lenmax;
+            line = expand(line, lenmax *= 2);
+        }
+
+        if ((line[i++] = toChar(c)) == '\n')
+            break;
+    }
+    line[i] = '\0';
+    return line;
+}
+
+char[] expand(char[] a, int newLength) {
+    char[] newA = new char[newLength];
+    int len = a.length;
+    for (int i = 0; i < len; ++i) {
+        newA[i] = a[i];
+    }
+    return newA;
+}

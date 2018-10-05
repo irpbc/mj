@@ -171,7 +171,7 @@ namespace mj.compiler.symbol
                 log.error(whileStatement.condition.Pos, messages.whileConditonType);
             }
 
-            analyze(whileStatement.body, env);
+            analyze(whileStatement.body, env.subScope(whileStatement));
 
             return null;
         }
@@ -180,7 +180,7 @@ namespace mj.compiler.symbol
         {
             analyze(doStatement.body, env);
 
-            Type conditionType = analyzeExpr(doStatement.condition, env);
+            Type conditionType = analyzeExpr(doStatement.condition, env.subScope(doStatement));
             if (!isBoolean(conditionType)) {
                 log.error(doStatement.condition.Pos, messages.whileConditonType);
             }
@@ -312,7 +312,7 @@ namespace mj.compiler.symbol
 
         public override Type visitArrayType(ArrayTypeTree arrayType, Environment env)
         {
-            return symtab.arrayTypeForElemType(scan(arrayType.elemTypeTree, env));
+            return symtab.arrayTypeOf(scan(arrayType.elemTypeTree, env));
         }
 
         public override Type visitLiteral(LiteralExpression literal, Environment env)
@@ -401,7 +401,7 @@ namespace mj.compiler.symbol
         public override Type visitNewArray(NewArray newArray, Environment env)
         {
             Type      elemType  = scan(newArray.elemenTypeTree, env);
-            ArrayType arrayType = symtab.arrayTypeForElemType(elemType);
+            ArrayType arrayType = symtab.arrayTypeOf(elemType);
             newArray.type = arrayType;
 
             Type lenType = analyzeExpr(newArray.length, env);

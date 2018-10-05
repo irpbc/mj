@@ -22,6 +22,7 @@ namespace mj.compiler.codegen
                 case TypeTag.FLOAT: return FLOAT;
                 case TypeTag.DOUBLE: return DOUBLE;
                 case TypeTag.BOOLEAN: return INT1;
+                case TypeTag.CHAR: return INT8;
                 case TypeTag.STRING: return PTR_INT8;
                 case TypeTag.VOID: return VOID;
                 default:

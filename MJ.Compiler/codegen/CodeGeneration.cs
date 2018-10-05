@@ -78,6 +78,13 @@ namespace mj.compiler.codegen
             module = LLVM.ModuleCreateWithNameInContext("TheProgram", context);
             builder = context.CreateBuilderInContext();
 
+            
+            foreach ((Type type, ArrayType arrayType) in symtab.arrayTypes) {
+                if (type.IsPrimitive) {
+                    declareLLVMStructType(arrayType);
+                    createArrayMetadataRecord(arrayType);
+                }
+            }
             declareBuiltins();
             declareRuntimeHelpers();
 
@@ -305,10 +312,11 @@ namespace mj.compiler.codegen
                 }
             }
 
-            foreach (var pair in symtab.arrayTypes) {
-                ArrayType arrayType = pair.Value;
-                declareLLVMStructType(arrayType);
-                createArrayMetadataRecord(arrayType);
+            foreach (var (type, arrayType) in symtab.arrayTypes) {
+                if (!type.IsPrimitive) {
+                    declareLLVMStructType(arrayType);
+                    createArrayMetadataRecord(arrayType);
+                }
             }
 
             for (int i = 0, count = compilationUnit.declarations.Count; i < count; i++) {
@@ -535,6 +543,7 @@ namespace mj.compiler.codegen
         public override LLVMValueRef visitWhile(WhileStatement whileStat)
         {
             LLVMBasicBlockRef whileBlock = LLVM.AppendBasicBlock(function, "while");
+            safeJumpTo(whileBlock);
             LLVM.PositionBuilderAtEnd(builder, whileBlock);
             LLVMValueRef conditionVal = scan(whileStat.condition);
 
@@ -843,6 +852,8 @@ namespace mj.compiler.codegen
                     return LLVM.ConstReal(DOUBLE, (double)literal.value);
                 case TypeTag.BOOLEAN:
                     return LLVM.ConstInt(INT1, (ulong)((bool)literal.value ? 1 : 0), false);
+                case TypeTag.CHAR:
+                    return LLVM.ConstInt(INT8, (byte)literal.value, true);
                 case TypeTag.STRING:
                     return LLVM.BuildGlobalStringPtr(builder, (string)literal.value, "strLit");
                 case TypeTag.NULL:
@@ -915,7 +926,7 @@ namespace mj.compiler.codegen
             if (expr.opcode.isIncDec()) {
                 LLVMValueRef one    = toLLVMConst(1, expr.operatorSym.type.ReturnType.Tag);
                 LLVMValueRef resVal = LLVM.BuildBinOp(builder, expr.operatorSym.opcode, operandVal, one, "incDec");
-                LLVM.BuildStore(builder, resVal, ((Identifier)expr.operand).symbol.llvmRef);
+                LLVM.BuildStore(builder, resVal, getPointerToLocation(expr.operand));
                 return expr.opcode.isPre() ? resVal : operandVal;
             }
 

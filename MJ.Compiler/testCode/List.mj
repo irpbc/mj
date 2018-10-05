@@ -1,0 +1,36 @@
+struct ListOfInt {
+    int[] data;
+    int length;
+}
+
+ListOfInt makeListOfInt(int startCapacity) {
+    ListOfInt list = new ListOfInt();
+    list.data = new int[startCapacity];
+    return list;
+}
+
+int listGet(ListOfInt l, int index) {
+    if (index >= l.length) {
+        return 0;
+    }
+    return l.data[index];
+}
+
+void listSet(ListOfInt l, int index, int value) {
+    if (index >= l.length) {
+        return;
+    }
+    l.data[index] = value;
+}
+
+void listAdd(ListOfInt l, int item) {
+    if (l.length == l.data.length) {
+        int[] newData = new int[l.length + 10];
+        int len = l.length;
+        for (int i = 0; i < len; ++i) {
+            newData[i] = l.data[i];
+        }
+        l.data = newData;
+    }
+    l.data[l.length++] = item;
+}

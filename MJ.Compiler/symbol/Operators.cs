@@ -51,7 +51,7 @@ namespace mj.compiler.symbol
             for (var i = 0; i < variants.Length; i++) {
                 OperatorSymbol op = variants[i];
                 // We check for exact match for unary operators
-                if (op.type.ParameterTypes[0] == argType) {
+                if (op.type.ParameterTypes[0] == argType.BaseType) {
                     return op;
                 }
             }
@@ -169,6 +169,7 @@ namespace mj.compiler.symbol
             setName(EQ, "==");
             operators[EQ.operatorIndex()] = new[] {
                 binary(EQ, TypeTag.BOOLEAN, TypeTag.BOOLEAN, TypeTag.BOOLEAN, LLVMICmp, LLVMIntEQ),
+                binary(EQ, TypeTag.CHAR, TypeTag.CHAR, TypeTag.BOOLEAN, LLVMICmp, LLVMIntEQ),
                 binary(EQ, TypeTag.INT, TypeTag.INT, TypeTag.BOOLEAN, LLVMICmp, LLVMIntEQ),
                 binary(EQ, TypeTag.LONG, TypeTag.LONG, TypeTag.BOOLEAN, LLVMICmp, LLVMIntEQ),
                 binary(EQ, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOEQ),
@@ -177,7 +178,8 @@ namespace mj.compiler.symbol
 
             setName(NEQ, "!=");
             operators[NEQ.operatorIndex()] = new[] {
-                binary(NEQ, TypeTag.BOOLEAN, TypeTag.BOOLEAN, TypeTag.BOOLEAN, LLVMICmp),
+                binary(NEQ, TypeTag.BOOLEAN, TypeTag.BOOLEAN, TypeTag.BOOLEAN, LLVMICmp, LLVMIntNE),
+                binary(NEQ, TypeTag.CHAR, TypeTag.CHAR, TypeTag.BOOLEAN, LLVMICmp, LLVMIntNE),
                 binary(NEQ, TypeTag.INT, TypeTag.INT, TypeTag.BOOLEAN, LLVMICmp, LLVMIntNE),
                 binary(NEQ, TypeTag.LONG, TypeTag.LONG, TypeTag.BOOLEAN, LLVMICmp, LLVMIntNE),
                 binary(NEQ, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealONE),
@@ -186,6 +188,7 @@ namespace mj.compiler.symbol
 
             setName(LT, "<");
             operators[LT.operatorIndex()] = new[] {
+                binary(LT, TypeTag.CHAR, TypeTag.CHAR, TypeTag.BOOLEAN, LLVMICmp, LLVMIntULT),
                 binary(LT, TypeTag.INT, TypeTag.INT, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSLT),
                 binary(LT, TypeTag.LONG, TypeTag.LONG, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSLT),
                 binary(LT, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOLT),
@@ -194,6 +197,7 @@ namespace mj.compiler.symbol
 
             setName(GT, ">");
             operators[GT.operatorIndex()] = new[] {
+                binary(GT, TypeTag.CHAR, TypeTag.CHAR, TypeTag.BOOLEAN, LLVMICmp, LLVMIntUGT),
                 binary(GT, TypeTag.INT, TypeTag.INT, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSGT),
                 binary(GT, TypeTag.LONG, TypeTag.LONG, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSGT),
                 binary(GT, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOGT),
@@ -202,6 +206,7 @@ namespace mj.compiler.symbol
 
             setName(LE, "<=");
             operators[LE.operatorIndex()] = new[] {
+                binary(LE, TypeTag.CHAR, TypeTag.CHAR, TypeTag.BOOLEAN, LLVMICmp, LLVMIntULE),
                 binary(LE, TypeTag.INT, TypeTag.INT, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSLE),
                 binary(LE, TypeTag.LONG, TypeTag.LONG, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSLE),
                 binary(LE, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOLE),
@@ -210,6 +215,7 @@ namespace mj.compiler.symbol
 
             setName(GE, ">=");
             operators[GE.operatorIndex()] = new[] {
+                binary(GE, TypeTag.CHAR, TypeTag.CHAR, TypeTag.BOOLEAN, LLVMICmp, LLVMIntUGE),
                 binary(GE, TypeTag.INT, TypeTag.INT, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSGE),
                 binary(GE, TypeTag.LONG, TypeTag.LONG, TypeTag.BOOLEAN, LLVMICmp, LLVMIntSGE),
                 binary(GE, TypeTag.FLOAT, TypeTag.FLOAT, TypeTag.BOOLEAN, LLVMFCmp, LLVMRealOGE),

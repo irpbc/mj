@@ -188,7 +188,7 @@ namespace mj.compiler.symbol
 
         public override object visitArrayType(ArrayTypeTree arrayType, WriteableScope scope)
         {
-            return symtab.arrayTypeForElemType((Type)scan(arrayType.elemTypeTree, scope));
+            return symtab.arrayTypeOf((Type)scan(arrayType.elemTypeTree, scope));
         }
     }
 }
