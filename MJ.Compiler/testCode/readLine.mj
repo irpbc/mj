@@ -16,7 +16,7 @@ char[] readLine() {
             line = expand(line, lenmax *= 2);
         }
 
-        if ((line[i++] = toChar(c)) == '\n')
+        if ((line[i++] = intToChar(c)) == '\n')
             break;
     }
     line[i] = '\0';

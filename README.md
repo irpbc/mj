@@ -9,12 +9,12 @@ Language is based on widely used C syntax. It's syntax supports:
 * Functions (refered to as "methods" in the compiler)
 * Usual control flow statements (`if`, `for`, `while`, `do`, `switch`)
 * Variable declarations
-* Primitive types: `int`, `long`, `float`, `double` and `boolean`
+* Primitive types: `int`, `long`, `float`, `double`, `boolean` and `char` (8 bit)
 * Comments (single line `// ...` and block `/* ... */`)
 * `string` type, which is a pointer to a null terminated utf8 string, and currently 
 does not support any operations except creating one with a string literal
 * Declaring structured types, which are heap allocated and garbage collected.
-* Arrays of any type, only heap allocated.
+* Arrays of any type, also heap allocated and garbage collected.
 
 The language has some built-in functions:
 
@@ -22,6 +22,9 @@ The language has some built-in functions:
 * `int puts(string str)` - prints a string to the console
 * `int printf(string format, ...)` - a binding for standard C `printf` function
 (with varargs).
+* `int getc()` - read character from console
+* `char intToChar(int c)` - convert int to char
+* `int parseInt(char[] text)` - parse an integer from text
 * `scan_*()` functions (specialized bindings to `scanf`):
     * `int scan_int()` - read an `int` from console
     * `long scan_long()` - read a `long` from console

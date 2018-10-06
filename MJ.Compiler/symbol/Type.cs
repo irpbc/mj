@@ -73,7 +73,7 @@ namespace mj.compiler.symbol
         public override bool IsPrimitive => true;
         public override bool IsNumeric => tag.isNumeric();
         public override bool IsBoolean => tag == TypeTag.BOOLEAN;
-        public override bool IsRefType => tag == TypeTag.STRING;
+        public override bool IsRefType => tag == TypeTag.C_STRING;
         public override bool IsIntegral => tag == TypeTag.INT || tag == TypeTag.LONG;
         public override bool IsVoid => tag == TypeTag.VOID;
 

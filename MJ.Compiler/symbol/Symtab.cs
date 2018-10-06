@@ -23,7 +23,7 @@ namespace mj.compiler.symbol
         public readonly PrimitiveType doubleType;
         public readonly PrimitiveType booleanType;
         public readonly PrimitiveType charType;
-        public readonly PrimitiveType stringType;
+        public readonly PrimitiveType cStringType;
         public readonly PrimitiveType voidType;
 
         public readonly Type bottomType;
@@ -71,7 +71,7 @@ namespace mj.compiler.symbol
             doubleType = primitive(TypeTag.DOUBLE);
             booleanType = primitive(TypeTag.BOOLEAN);
             charType = primitive(TypeTag.CHAR);
-            stringType = primitive(TypeTag.STRING);
+            cStringType = primitive(TypeTag.C_STRING);
             voidType = primitive(TypeTag.VOID);
             
             bottomType = new BottomType();
@@ -104,10 +104,10 @@ namespace mj.compiler.symbol
             Scope.WriteableScope scope = topLevelSymbol.topScope;
             builtins = new List<Symbol.FuncSymbol>();
 
-            scope.enter(builtin("puts", intType, stringType));
+            scope.enter(builtin("puts", intType, cStringType));
             scope.enter(builtin("putchar", intType, intType));
             scope.enter(builtin("hello", voidType));
-            scope.enter(builtinVararg("printf", intType, stringType));
+            scope.enter(builtinVararg("printf", intType, cStringType));
             scope.enter(builtin("scan_int", intType));
             scope.enter(builtin("scan_long", longType));
             scope.enter(builtin("scan_float", floatType));
@@ -115,7 +115,8 @@ namespace mj.compiler.symbol
             
             scope.enter(builtin("getc", intType));
             scope.enter(builtin("parseInt", intType, arrayTypeOf(charType)));
-            scope.enter(builtin("toChar", charType, intType));
+            scope.enter(builtin("intToChar", charType, intType));
+            scope.enter(builtin("stringToChars", arrayTypeOf(charType), cStringType));
         }
 
         private Symbol builtin(string name, Type resType)
@@ -168,8 +169,8 @@ namespace mj.compiler.symbol
                     return booleanType;
                 case TypeTag.CHAR:
                     return charType;
-                case TypeTag.STRING:
-                    return stringType;
+                case TypeTag.C_STRING:
+                    return cStringType;
                 case TypeTag.VOID:
                     return voidType;
                 default:

@@ -18,7 +18,7 @@ namespace mj.compiler.symbol
         
         BOOLEAN,
         CHAR,
-        STRING,
+        C_STRING,
         NULL,
         VOID,
         FUNC,
@@ -49,7 +49,7 @@ namespace mj.compiler.symbol
                 case TypeTag.DOUBLE: return "double";
                 case TypeTag.BOOLEAN: return "boolean";
                 case TypeTag.CHAR: return "char";
-                case TypeTag.STRING: return "string";
+                case TypeTag.C_STRING: return "string";
                 case TypeTag.VOID: return "void";
                 case TypeTag.NULL: return "null";
                 case TypeTag.FUNC: return "<func>";

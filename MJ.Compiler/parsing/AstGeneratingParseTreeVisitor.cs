@@ -53,8 +53,8 @@ namespace mj.compiler.parsing
                     case CHAR:
                         type = TypeTag.CHAR;
                         break;
-                    case STRING:
-                        type = TypeTag.STRING;
+                    case CSTRING:
+                        type = TypeTag.C_STRING;
                         break;
                     default:
                         throw new ArgumentException();
@@ -664,10 +664,10 @@ namespace mj.compiler.parsing
                     type = TypeTag.CHAR;
                     value = parseCharLiteral(text);
                     break;
-                case STRING:
-                    symbol = context.StringLiteral().Symbol;
+                case CSTRING:
+                    symbol = context.CStringLiteral().Symbol;
                     text = symbol.Text;
-                    type = TypeTag.STRING;
+                    type = TypeTag.C_STRING;
                     value = parseStringLiteral(text);
                     break;
                 case NULL:

@@ -854,7 +854,7 @@ namespace mj.compiler.codegen
                     return LLVM.ConstInt(INT1, (ulong)((bool)literal.value ? 1 : 0), false);
                 case TypeTag.CHAR:
                     return LLVM.ConstInt(INT8, (byte)literal.value, true);
-                case TypeTag.STRING:
+                case TypeTag.C_STRING:
                     return LLVM.BuildGlobalStringPtr(builder, (string)literal.value, "strLit");
                 case TypeTag.NULL:
                     return dummyNullPtr;

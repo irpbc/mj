@@ -9,32 +9,30 @@ using System;
 }
 
 literal returns [ int literalType ]
-	:	IntegerLiteral       { $literal::literalType=INT; }
-	|	FloatingPointLiteral { $literal::literalType=FLOAT; }
-	|	BooleanLiteral       { $literal::literalType=BOOLEAN; }
-	|   StringLiteral        { $literal::literalType=STRING; }
-	|   CharLiteral          { $literal::literalType=CHAR; }
-	|   NULL                 { $literal::literalType=NULL; }
+    : IntegerLiteral       { $literal::literalType=INT; }
+    | FloatingPointLiteral { $literal::literalType=FLOAT; }
+    | BooleanLiteral       { $literal::literalType=BOOLEAN; }
+    | CStringLiteral       { $literal::literalType=CSTRING; }
+    | CharLiteral          { $literal::literalType=CHAR; }
+    | NULL                 { $literal::literalType=NULL; }
     ;
 
 type returns [ int arrays ]
-	:	(primitive='int'
-    |	primitive='long'
-    |	primitive='float'
-    |	primitive='double'
-    |	primitive='boolean'
-    |   primitive='char'
-    |	primitive='string'
-    |   structName=Identifier) ('[' ']' { $type::arrays++; } )*
-	;
+    : (primitive='int'
+    | primitive='long'
+    | primitive='float'
+    | primitive='double'
+    | primitive='boolean'
+    | primitive='char'
+    | primitive='cstring'
+    | structName=Identifier) ('[' ']' { $type::arrays++; } )*
+;
 
-compilationUnit
-	:   declarations+=declaration+ EOF
-	;
-	
+compilationUnit : declarations+=declaration+ EOF ;
+
 declaration
-    :   structDef
-    |   funcDeclaration
+    : structDef
+    | funcDeclaration
     ;
     
 structDef
@@ -46,98 +44,64 @@ fieldDef
     ;
 
 funcDeclaration returns [ bool isPrivate ]
-    :   'private'? { $funcDeclaration::isPrivate=true; } 
-	    result 
-	    name=Identifier '(' ( params+=formalParameter (',' params+=formalParameter)* )? ')'
-	    funcBody
-	;
+    : 'private'? { $funcDeclaration::isPrivate=true; } 
+      result name=Identifier '(' ( params+=formalParameter (',' params+=formalParameter)* )? ')'
+      funcBody
+;
 
-result
-	:	type
-	|	'void'
-	;
+result : type |'void';
 
-formalParameter
-	:	type name=Identifier
-	;
+formalParameter : type name=Identifier;
 
-funcBody
-	:	block
-	;
+funcBody : block;
 
-block
-	:	'{' blockStatementList? '}'
-	;
+block : '{' blockStatementList? '}';
 
-blockStatementList
-	:	statements+=statementInBlock+
-	;
+blockStatementList : statements+=statementInBlock+;
 
-statementInBlock
-	:	localVariableDeclaration
-	|	statement
-	;
+statementInBlock : localVariableDeclaration | statement;
 
-localVariableDeclaration
-    :   variableDeclaration ';'
-    ;
+localVariableDeclaration : variableDeclaration ';' ;
 
-variableDeclaration
-	:	type name=Identifier ('=' init=expression)?
-	;
+variableDeclaration : type name=Identifier ('=' init=expression)? ;
 
 statement
-   :   token='{' blockStatementList? '}'
-   |   token=IF '(' expression ')' ifTrue=statement (ELSE ifFalse=statement | { _input.La(1) != ELSE }?)
-   |   token=FOR '(' forInit? ';' condition=expression? ';' update=expressionList? ')' body=statement
-   |   token=WHILE '(' expression ')' body=statement
-   |   token=DO body=statement WHILE '(' expression ')' ';'
-   |   token=SWITCH '(' expression ')' '{' caseGroup* bottomLabels+=switchLabel* '}'
-   |   token=RETURN expression? ';'
-   |   token=BREAK ';'
-   |   token=CONTINUE ';'
-   |   statementExpression=expression ';'
-   ;
-
-caseGroup
-	:	labels=switchLabels stmts=blockStatementList
-	;
-
-switchLabels
-	:	labels+=switchLabel labels+=switchLabel*
-	;
-
-switchLabel returns [ bool isDefault ]
-	:	'case' constantExpression ':' { $switchLabel::isDefault = false; }
-	|	'default' ':'                 { $switchLabel::isDefault = true; }
-	;
-
-constantExpression
-    : literal
+    : token='{' blockStatementList? '}'
+    | token=IF '(' expression ')' ifTrue=statement (ELSE ifFalse=statement | { _input.La(1) != ELSE }?)
+    | token=FOR '(' forInit? ';' condition=expression? ';' update=expressionList? ')' body=statement
+    | token=WHILE '(' expression ')' body=statement
+    | token=DO body=statement WHILE '(' expression ')' ';'
+    | token=SWITCH '(' expression ')' '{' caseGroup* bottomLabels+=switchLabel* '}'
+    | token=RETURN expression? ';'
+    | token=BREAK ';'
+    | token=CONTINUE ';'
+    | statementExpression=expression ';'
     ;
 
-forInit
-	:	expressionList
-	|	variableDeclaration
-	;
+caseGroup : labels=switchLabels stmts=blockStatementList;
 
-expressionList
-	:	statements+=expression (',' statements+=expression)*
-	;
+switchLabels : labels+=switchLabel labels+=switchLabel*;
+
+switchLabel returns [ bool isDefault ]
+    : 'case' constantExpression ':' { $switchLabel::isDefault = false; }
+    | 'default' ':'                 { $switchLabel::isDefault = true; }
+    ;
+
+constantExpression : literal ;
+
+forInit : expressionList | variableDeclaration;
+
+expressionList : statements+=expression (',' statements+=expression)* ;
 
 primary
-	:   '(' parenthesized=expression ')' 
-	|   literal
-	|   Identifier
-	;
+    : '(' parenthesized=expression ')' 
+    | literal
+    | Identifier
+    ;
 
-funcInvocation
-	:	neme=Identifier '(' argumentList? ')'
-	;
+funcInvocation : neme=Identifier '(' argumentList? ')' ;
 
-argumentList
-	:	args+=expression (',' args+=expression)*
-	;
+argumentList : args+=expression (',' args+=expression)* ;
 
 expression returns [ bool isAssignment ]
     : primary
@@ -183,7 +147,7 @@ LONG : 'long';
 NEW : 'new';
 NULL : 'null';
 RETURN : 'return';
-STRING : 'string';
+CSTRING : 'cstring';
 STRUCT : 'struct';
 SWITCH : 'switch';
 VOID : 'void';
@@ -204,13 +168,13 @@ BooleanLiteral : 'true' | 'false' ;
 
 CharLiteral : '\'' StringCharacter '\'';
 
-StringLiteral :	'"' StringCharacters? '"';
+CStringLiteral : '"' StringCharacters? '"';
 
 fragment
 StringCharacters : StringCharacter+;
 
 fragment
-StringCharacter : ~["'\\\r\n] |	EscapeSequence;
+StringCharacter : ~["'\\\r\n] | EscapeSequence;
 
 fragment
 EscapeSequence : '\\' [0tn"'\\];
@@ -269,9 +233,7 @@ AT : '@';
 ELLIPSIS : '...';
 
 
-Identifier
-	:	IdentifierLetter IdentifierLetterOrDigit*
-	;
+Identifier : IdentifierLetter IdentifierLetterOrDigit* ;
 
 fragment
 IdentifierLetter : [a-zA-Z_];
