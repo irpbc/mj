@@ -39,17 +39,9 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="obj\Debug\netcoreapp2.0\MJBaseVisitor.cs">
-      <Link>Parsing\AntlrGenerated\MJBaseVisitor.cs</Link>
-    </Compile>
-    <Compile Include="obj\Debug\netcoreapp2.0\MJLexer.cs">
-      <Link>Parsing\AntlrGenerated\MJLexer.cs</Link>
-    </Compile>
-    <Compile Include="obj\Debug\netcoreapp2.0\MJParser.cs">
-      <Link>Parsing\AntlrGenerated\MJParser.cs</Link>
-    </Compile>
-    <Compile Include="obj\Debug\netcoreapp2.0\MJVisitor.cs">
-      <Link>Parsing\AntlrGenerated\MJVisitor.cs</Link>
-    </Compile>
+    <Link Include="obj\$(Configuration)\netcoreapp2.0\MJBaseVisitor.cs"/>
+    <Link Include="obj\$(Configuration)\netcoreapp2.0\MJLexer.cs"/>
+    <Link Include="obj\$(Configuration)\netcoreapp2.0\MJParser.cs"/>
+    <Link Include="obj\$(Configuration)\netcoreapp2.0\MJVisitor.cs"/>
   </ItemGroup>
 </Project>
