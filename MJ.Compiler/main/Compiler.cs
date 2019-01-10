@@ -22,7 +22,7 @@ namespace mj.compiler.main
         private readonly CommandLineOptions options;
         private readonly ParserRunner parser;
         private readonly DeclarationAnalysis declarationAnalysis;
-        private readonly TypeAnalysis typeAnalysis;
+        private readonly CodeTypeAnalysis codeTypeAnalysis;
         private readonly FlowAnalysis flowAnalysis;
         private readonly CodeGeneration codeGeneration;
 
@@ -34,7 +34,7 @@ namespace mj.compiler.main
             options = CommandLineOptions.instance(context);
             parser = ParserRunner.instance(context);
             declarationAnalysis = DeclarationAnalysis.instance(context);
-            typeAnalysis = TypeAnalysis.instance(context);
+            codeTypeAnalysis = CodeTypeAnalysis.instance(context);
             flowAnalysis = FlowAnalysis.instance(context);
             codeGeneration = CodeGeneration.instance(context);
             log = Log.instance(context);
@@ -67,7 +67,7 @@ namespace mj.compiler.main
 
         private IList<CompilationUnit> types(IList<CompilationUnit> trees)
         {
-            IList<CompilationUnit> compilationUnits = stopIfError(typeAnalysis.main(trees));
+            IList<CompilationUnit> compilationUnits = stopIfError(codeTypeAnalysis.main(trees));
             if (options.DumpTree) {
                 String dump = JsonConvert.SerializeObject(compilationUnits, Formatting.Indented);
                 Console.WriteLine(dump);

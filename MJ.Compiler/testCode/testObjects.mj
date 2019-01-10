@@ -14,7 +14,7 @@ struct B {
 int main(int argc, long arvPtr) {
     
     A nullA = null;
-    string str = null;
+    cstring str = null;
     
     A dummy1 = new A();
     A dummy2 = new A();
@@ -47,6 +47,6 @@ A deepA1() { return deepA2(); }
 A deepA2() { return deepA3(); }
 A deepA3() { return new A(); }
 
-string nekaFunkcija(B b) {
+cstring nekaFunkcija(B b) {
     return "Neki string\n\n";
 }

@@ -235,7 +235,7 @@ namespace mj.compiler.symbol
             IList<Environment> caseEnvs = env.split(@switch.cases.Count);
             for (int i = 0; i < @switch.cases.Count; i++) {
                 Case @case   = @switch.cases[i];
-                Exit caseRes = analyze(@case.statements, env);
+                Exit caseRes = analyze(@case.statements, caseEnvs[i]);
                 total |= caseRes;
             }
 
@@ -256,7 +256,7 @@ namespace mj.compiler.symbol
         public override Exit visitBreak(Break @break, Environment env) => Exit.BREAK;
         public override Exit visitContinue(Continue @continue, Environment env) => Exit.CONTINUE;
 
-        public override Exit visitExpresionStmt(ExpressionStatement expr, Environment env)
+        public override Exit visitExpressionStmt(ExpressionStatement expr, Environment env)
         {
             analyzeExpr(expr.expression, env);
             return Exit.NORMALLY;
@@ -270,6 +270,8 @@ namespace mj.compiler.symbol
                 if (varSym.kind == Kind.LOCAL) {
                     env.assigned(varSym);
                 }
+            } else {
+                analyzeExpr(expr.left, env);
             }
 
             return 0;
@@ -325,6 +327,13 @@ namespace mj.compiler.symbol
             return 0;
         }
 
+        public override Exit visitMethodInvoke(MethodInvocation methodInvocation, Environment env)
+        {
+            analyzeExpr(methodInvocation.receiver, env);
+            visitFuncInvoke(methodInvocation, env);
+            return 0;
+        }
+
         public override Exit visitConditional(ConditionalExpression conditional, Environment env)
         {
             analyzeExpr(conditional.condition, env);
@@ -352,8 +361,14 @@ namespace mj.compiler.symbol
         }
 
         public override Exit visitLiteral(LiteralExpression literal, Environment arg) => 0;
+
         public override Exit visitNewStruct(NewStruct newStruct, Environment arg) => 0;
-        public override Exit visitNewArray(NewArray newArray, Environment env) => 0;
+
+        public override Exit visitNewArray(NewArray newArray, Environment env)
+        {
+            analyzeExpr(newArray.length, env);
+            return 0;
+        }
 
         public override Exit visitReturn(ReturnStatement returnStatement, Environment env)
         {

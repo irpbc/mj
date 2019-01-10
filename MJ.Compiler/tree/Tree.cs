@@ -42,7 +42,7 @@ namespace mj.compiler.tree
     {
         public SourceFile sourceFile;
         public IList<Tree> declarations;
-        public Scope.WriteableScope topLevelScope;
+        public Scope.WritableScope topLevelScope;
 
         public CompilationUnit(int beginLine, int beginCol, int endLine, int endCol,
                                IList<Tree> declarations)
@@ -61,14 +61,14 @@ namespace mj.compiler.tree
     public sealed class StructDef : Tree
     {
         public String name;
-        public IList<VariableDeclaration> fields;
+        public IList<Tree> members;
         public Symbol.StructSymbol symbol;
 
-        public StructDef(int beginLine, int beginCol, int endLine, int endCol, string name, VariableDeclaration[] fields)
+        public StructDef(int beginLine, int beginCol, int endLine, int endCol, string name, Tree[] members)
             : base(beginLine, beginCol, endLine, endCol)
         {
             this.name = name;
-            this.fields = fields;
+            this.members = members;
         }
 
         public override Tag Tag => Tag.STRUCT_DEF;
@@ -432,7 +432,19 @@ namespace mj.compiler.tree
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitIdent(this, arg);
     }
 
-    public sealed class FuncInvocation : Expression
+    public sealed class This : Expression
+    {
+        public This(int beginLine, int beginCol, int endLine, int endCol) 
+            : base(beginLine, beginCol, endLine, endCol) { }
+
+        public override Tag Tag => Tag.THIS;
+
+        public override void accept(AstVisitor v) => v.visitThis(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitThis(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitThis(this, arg);
+    }
+
+    public class FuncInvocation : Expression
     {
         public String funcName;
         public IList<Expression> args;
@@ -451,6 +463,22 @@ namespace mj.compiler.tree
         public override void accept(AstVisitor v) => v.visitFuncInvoke(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitFuncInvoke(this);
         public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitFuncInvoke(this, arg);
+    }
+
+    public class MethodInvocation : FuncInvocation
+    {
+        public Expression receiver;
+        
+        public MethodInvocation(int beginLine, int beginCol, int endLine, int endCol, 
+                                Expression receiver, string funcName, IList<Expression> args) 
+            : base(beginLine, beginCol, endLine, endCol, funcName, args)
+        {
+            this.receiver = receiver;
+        }
+        
+        public override void accept(AstVisitor v) => v.visitMethodInvoke(this);
+        public override T accept<T>(AstVisitor<T> v) => v.visitMethodInvoke(this);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitMethodInvoke(this, arg);
     }
 
     public abstract class StatementNode : Tree
@@ -508,7 +536,6 @@ namespace mj.compiler.tree
     public abstract class JumpStatement : StatementNode
     {
         public StatementNode target;
-        public LLVMValueRef instruction;
 
         protected JumpStatement(int beginLine, int beginCol, int endLine, int endCol)
             : base(beginLine, beginCol, endLine, endCol) { }
@@ -689,7 +716,7 @@ namespace mj.compiler.tree
 
         public override void accept(AstVisitor v) => v.visitExpresionStmt(this);
         public override T accept<T>(AstVisitor<T> v) => v.visitExpresionStmt(this);
-        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitExpresionStmt(this, arg);
+        public override T accept<T, A>(AstVisitor<T, A> v, A arg) => v.visitExpressionStmt(this, arg);
     }
 
     /// <summary>
@@ -722,6 +749,7 @@ namespace mj.compiler.tree
         DECLARED_TYPE,
         ARRAY_TYPE,
         IDENT,
+        THIS,
         SELECT,
         INDEX,
         NEW_STRUCT,

@@ -59,7 +59,7 @@ namespace mj.compiler.symbol
             return true;
         }
 
-        public bool checkUniqueLocalVar(DiagnosticPosition pos, VarSymbol varSymbol, WriteableScope scope)
+        public bool checkUniqueLocalVar(DiagnosticPosition pos, VarSymbol varSymbol, WritableScope scope)
         {
             if (scope.getSymbolsByName(varSymbol.name, s => (s.kind & Kind.VAR) != 0).Any()) {
                 log.error(pos, messages.duplicateVar, varSymbol.name);
@@ -68,7 +68,7 @@ namespace mj.compiler.symbol
             return true;
         }
 
-        public bool checkUnique(DiagnosticPosition pos, StructSymbol ssym, WriteableScope scope)
+        public bool checkUnique(DiagnosticPosition pos, StructSymbol ssym, WritableScope scope)
         {
             bool contains = scope.getSymbolsByName(ssym.name, LookupKind.NON_RECURSIVE).Any();
             if (contains) {

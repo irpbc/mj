@@ -26,6 +26,7 @@
     <data name="duplicateStructName"><value>Type {0} is already defined</value></data>
     <data name="duplicateParamName"><value>Parameter {0} is already defined in function {1}</value></data>
     <data name="duplicateVar"><value>Local variable {0} is already defined in this scope</value></data>
+    <data name="duplicateMember"><value>Member named {0} is already defined in this struct</value></data>
     <data name="varParamNameConflict"><value>Local variable {0} has same name as a parameter</value></data>
     <data name="mainFunctionNotDefined"><value>The main function is not defined</value></data>
     <data name="mainFunctionSig"><value>Main function must accept int and long and return int</value></data>
@@ -38,9 +39,13 @@
     <data name="wrongNumberOfArgs"><value>Function "{0}" takes {1} arguments, but {2} was given</value></data>
     <data name="varInitTypeMismatch"><value>Initializer of variable "{0}" returns "{1}" while "{2}" is required</value></data>
     <data name="paramTypeMismatch"><value>Argument type mismatch in a call to function "{0}"</value></data>
+    <data name="receiverNotStruct"><value>Method invocation receiver is not a struct type</value></data>
+    <data name="methodNotFound"><value>Method "{0}" is not defined in struct {1}</value></data>
+    <data name="notAMethod"><value>{1}.{0} is not a method</value></data>
     <data name="caseExpressionType"><value>Case expression has to be a constant of same type as switch expression</value></data>
     <data name="duplicateCaseLabels"><value>Duplicate case labels</value></data>
     <data name="undefinedVariable"><value>Variable "{0}" is undefined at this point</value></data>
+    <data name="thisInFreeFunction"><value>"this" reference is not valid in a free standing function</value></data>
     <data name="undefinedType"><value>Unknown type "{0}"</value></data>
     <data name="returnVoidFunction"><value>You can't return a value from a void function</value></data>
     <data name="returnNonVoidFunction"><value>You must return a value from a non-void function</value></data>
@@ -50,8 +55,8 @@
     <data name="continueNotInLoop"><value>Continue statement must be inside a loop</value></data>
     <data name="breakNotInLoopSwitch"><value>Break statement must be inside a loop or a switch</value></data>
     <data name="assignmentLHS"><value>Assignment must be to a variable, field or array element</value></data>
-    <data name="assignmentUncompatible"><value>Uncompatible types in assignment</value></data>
-    <data name="incDecArgument"><value>Incremet or decrement can only be on a variable</value></data>
+    <data name="assignmentUncompatible"><value>Incompatible types in assignment</value></data>
+    <data name="incDecArgument"><value>Increment or decrement can only be on a variable</value></data>
     <data name="unresolvedUnaryOperator"><value>Operator "{0}" cannot be applied to type "{1}"</value></data>
     <data name="unresolvedBinaryOperator"><value>Operator "{0}" cannot be applied to types "{1}" and "{2}"</value></data>
     <data name="missingReturnStatement"><value>Missing return statement</value></data>
@@ -61,7 +66,7 @@
     <data name="selectOnPrimitive"><value>Attempted field access on primitive type</value></data>
     <data name="unknownField"><value>Field "{0}" is not defined in struct "{1}"</value></data>
     <data name="undefinedStruct"><value>Type "{0}" is not defined</value></data>
-    <data name="arrayLengthType"><value>Array length must be of type integer or smaller</value></data>
+    <data name="arrayLengthType"><value>"Array length must be of type integer or smaller"</value></data>
     <data name="indexNotArray"><value>Base of index expression must be an array</value></data>
     <data name="indexNotInteger"><value>Index of index expression must be of integer type</value></data>
     <data name="valDefStatementBody_a"><value>Local variable declaration cannot a body of a "{0}" statement</value></data>

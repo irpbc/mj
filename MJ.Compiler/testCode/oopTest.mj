@@ -1,0 +1,32 @@
+
+struct A {
+    int intField;
+    float floatField;
+    boolean boolField;
+    
+    int getIntField() {
+        return intField;
+    }
+    
+    float getFloatField() {
+        return this.floatField;
+    }
+    
+    void setIntField(int val) {
+        intField = val;
+    }
+    
+    void setFloatField(float val) {
+        this.floatField = val;
+    }
+}
+
+int main(int argc, long arvPtr) {
+    
+    A a = new A();
+    a.setIntField(42);
+    
+    printf("Zapisan boroj je %d\n", a.getIntField());
+    
+    return 0;
+}

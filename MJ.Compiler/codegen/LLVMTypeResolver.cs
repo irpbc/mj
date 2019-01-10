@@ -1,7 +1,5 @@
 ﻿using System;
-
 using LLVMSharp;
-
 using mj.compiler.symbol;
 
 using static mj.compiler.codegen.LLVMUtils;
@@ -33,9 +31,24 @@ namespace mj.compiler.codegen
         public override LLVMTypeRef visitFuncType(FuncType funcType)
         {
             LLVMTypeRef retType = funcType.ReturnType.accept(this);
-            LLVMTypeRef[] paramTypes = new LLVMTypeRef[funcType.ParameterTypes.Count];
-            for (var i = 0; i < paramTypes.Length; i++) {
-                paramTypes[i] = funcType.ParameterTypes[i].accept(this);
+
+            int    parameterTypesCount = funcType.ParameterTypes.Count;
+            Symbol funcOwner           = funcType.symbol.owner;
+            bool   isMember            = funcOwner.kind == Symbol.Kind.STRUCT;
+
+            if (isMember) {
+                parameterTypesCount++;
+            }
+            LLVMTypeRef[] paramTypes = new LLVMTypeRef[parameterTypesCount];
+            if (isMember) {
+                paramTypes[0] = HEAP_PTR(((Symbol.StructSymbol)funcOwner).llvmTypeRef);
+                for (int i = 1; i < paramTypes.Length; i++) {
+                    paramTypes[i] = funcType.ParameterTypes[i - 1].accept(this);
+                }
+            } else {
+                for (int i = 0; i < paramTypes.Length; i++) {
+                    paramTypes[i] = funcType.ParameterTypes[i].accept(this);
+                }
             }
             return LLVM.FunctionType(retType, paramTypes, funcType.isVarArg);
         }

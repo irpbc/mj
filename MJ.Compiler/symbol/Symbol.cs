@@ -41,7 +41,7 @@ namespace mj.compiler.symbol
 
         public class TopLevelSymbol : Symbol
         {
-            public Scope.WriteableScope topScope;
+            public Scope.WritableScope topScope;
 
             public TopLevelSymbol() : base(Kind.TOP, null, null, null) { }
 
@@ -50,7 +50,10 @@ namespace mj.compiler.symbol
 
         public class StructSymbol : TypeSymbol
         {
-            public Scope.WriteableScope membersScope;
+            /**
+             * Contains only members of the struct. Does not have a parent!
+             */
+            public Scope.WritableScope membersScope;
             public LLVMTypeRef llvmTypeRef;
             public LLVMValueRef llvmMetaRef;
 
@@ -63,7 +66,7 @@ namespace mj.compiler.symbol
         public class FuncSymbol : Symbol
         {
             public IList<VarSymbol> parameters;
-            public Scope.WriteableScope scope;
+            public Scope.WritableScope scope;
             public LLVMValueRef llvmRef;
             public bool isVararg;
             public bool isInvoked;

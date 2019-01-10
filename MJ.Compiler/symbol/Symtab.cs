@@ -63,7 +63,7 @@ namespace mj.compiler.symbol
             context.put(CONTEXT_KEY, this);
 
             topLevelSymbol = new Symbol.TopLevelSymbol();
-            topLevelSymbol.topScope = Scope.WriteableScope.create(topLevelSymbol);
+            topLevelSymbol.topScope = Scope.WritableScope.create(topLevelSymbol);
 
             intType = primitive(TypeTag.INT);
             longType = primitive(TypeTag.LONG);
@@ -101,7 +101,7 @@ namespace mj.compiler.symbol
 
         private void enterBuiltins()
         {
-            Scope.WriteableScope scope = topLevelSymbol.topScope;
+            Scope.WritableScope scope = topLevelSymbol.topScope;
             builtins = new List<Symbol.FuncSymbol>();
 
             scope.enter(builtin("puts", intType, cStringType));
@@ -141,8 +141,9 @@ namespace mj.compiler.symbol
 
         private Symbol.FuncSymbol builtin(string name, Type resType, IList<Type> args, bool isVarArg = false)
         {
-            Symbol.FuncSymbol ms = new Symbol.FuncSymbol(name, topLevelSymbol,
-                new FuncType(args, resType, isVarArg));
+            FuncType ftype = new FuncType(args, resType, isVarArg);
+            Symbol.FuncSymbol ms = new Symbol.FuncSymbol(name, topLevelSymbol, ftype);
+            ftype.symbol = ms;
             ms.isVararg = isVarArg;
 
             ms.parameters = new List<Symbol.VarSymbol>(args.Count);

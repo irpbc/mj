@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 
+using Antlr4.Runtime;
+
 using mj.compiler.main;
 using mj.compiler.resources;
 using mj.compiler.tree;
@@ -12,12 +14,12 @@ using static mj.compiler.symbol.Symbol;
 
 namespace mj.compiler.symbol
 {
-    public class TypeAnalysis : AstVisitor<Type, TypeAnalysis.Environment>
+    public class CodeTypeAnalysis : AstVisitor<Type, CodeTypeAnalysis.Environment>
     {
-        private static readonly Context.Key<TypeAnalysis> CONTEXT_KEY = new Context.Key<TypeAnalysis>();
+        private static readonly Context.Key<CodeTypeAnalysis> CONTEXT_KEY = new Context.Key<CodeTypeAnalysis>();
 
-        public static TypeAnalysis instance(Context ctx) =>
-            ctx.tryGet(CONTEXT_KEY, out var instance) ? instance : new TypeAnalysis(ctx);
+        public static CodeTypeAnalysis instance(Context ctx) =>
+            ctx.tryGet(CONTEXT_KEY, out var instance) ? instance : new CodeTypeAnalysis(ctx);
 
         private readonly Symtab symtab;
         private readonly Log log;
@@ -25,7 +27,7 @@ namespace mj.compiler.symbol
         private readonly Check check;
         private readonly Operators operators;
 
-        public TypeAnalysis(Context ctx)
+        public CodeTypeAnalysis(Context ctx)
         {
             ctx.put(CONTEXT_KEY, this);
 
@@ -69,40 +71,22 @@ namespace mj.compiler.symbol
 
         public override Type visitCompilationUnit(CompilationUnit compilationUnit, Environment env)
         {
-            for (var i = 0; i < compilationUnit.declarations.Count; i++) {
-                Tree tree = compilationUnit.declarations[i];
-                if (tree.Tag == Tag.STRUCT_DEF) {
-                    scan(tree, env);
-                }
-            }
-
-            for (var i = 0; i < compilationUnit.declarations.Count; i++) {
-                Tree tree = compilationUnit.declarations[i];
-                if (tree.Tag != Tag.STRUCT_DEF) {
-                    scan(tree, env);
-                }
-            }
-
+            analyze(compilationUnit.declarations, env);
             return null;
         }
 
         public override Type visitStructDef(StructDef structDef, Environment env)
         {
-            // create scope for struct members
-            WriteableScope membersScope = WriteableScope.create(structDef.symbol);
-            structDef.symbol.membersScope = membersScope;
-            // field indexes start at 1 to accomodate for the meta pointer (object header)
-            int fieldIndex = 0;
-            for (var i = 0; i < structDef.fields.Count; i++) {
-                VariableDeclaration vd    = structDef.fields[i];
-                VarSymbol           field = (VarSymbol)membersScope.findFirst(vd.name);
-                if (field != null) {
-                    log.error(vd.Pos, messages.duplicateVar, vd.name, structDef.name);
-                } else {
-                    VarSymbol var = new VarSymbol(Kind.FIELD, vd.name, scan(vd.type, env), structDef.symbol);
-                    var.fieldIndex = fieldIndex++;
-                    membersScope.enter(var);
-                    vd.symbol = var;
+            Environment newEnv = new Environment {
+                scope = new CompoundScope(structDef.symbol.membersScope, env.scope),
+                parent = env,
+                enclStruct = structDef.symbol
+            };
+            for (var i = 0; i < structDef.members.Count; i++) {
+                Tree member = structDef.members[i];
+                if (member.Tag == Tag.FUNC_DEF) {
+                    FuncDef funcDef = (FuncDef)member;
+                    visitFuncDef(funcDef, newEnv);
                 }
             }
 
@@ -114,7 +98,8 @@ namespace mj.compiler.symbol
             analyze(func.body.statements, new Environment {
                 enclFunc = func.symbol,
                 scope = func.symbol.scope,
-                parent = env
+                parent = env,
+                enclStruct = env.enclStruct
             });
             // probaly unused
             return func.symbol.type;
@@ -141,8 +126,8 @@ namespace mj.compiler.symbol
                 }
             }
 
-            if (check.checkUniqueLocalVar(varDef.Pos, varSymbol, env.scope)) {
-                env.scope.enter(varSymbol);
+            if (check.checkUniqueLocalVar(varDef.Pos, varSymbol, (WritableScope)env.scope)) {
+                ((WritableScope)env.scope).enter(varSymbol);
             }
 
             // probably unused
@@ -209,7 +194,7 @@ namespace mj.compiler.symbol
             }
 
             foreach (Expression exp in forLoop.update) {
-                analyze(exp, forEnv);
+                analyzeExpr(exp, forEnv);
             }
 
             analyze(forLoop.body, forEnv);
@@ -252,9 +237,6 @@ namespace mj.compiler.symbol
 
         public override Type visitFuncInvoke(FuncInvocation invocation, Environment env)
         {
-            // analyze argument expressions
-            IList<Type> argTypes = invocation.args.convert(arg => analyzeExpr(arg, env));
-
             // resolve func
             string     name = invocation.funcName;
             FuncSymbol fsym = (FuncSymbol)env.scope.findFirst(name, s => s.kind == Kind.FUNC);
@@ -265,22 +247,67 @@ namespace mj.compiler.symbol
                 return symtab.errorType;
             }
 
+            return analyzeInvocation(invocation, fsym, env);
+        }
+
+        public override Type visitMethodInvoke(MethodInvocation invocation, Environment env)
+        {
+            Type   receiverType = analyzeExpr(invocation.receiver, env);
+            string name         = invocation.funcName;
+
+            if (receiverType.Tag == TypeTag.ERROR) {
+                invocation.type = symtab.errorType;
+                return symtab.errorType; // No need for parameter type validation
+            }
+
+            if (receiverType.Tag != TypeTag.STRUCT) {
+                log.error(invocation.Pos, messages.receiverNotStruct);
+                invocation.type = symtab.errorType;
+                return symtab.errorType; // No need for parameter type validation
+            }
+
+            // resolve func
+            StructSymbol ssym = ((StructType)receiverType).symbol;
+
+            Symbol sym = ssym.membersScope.findFirst(name, s => s.kind == Kind.FUNC);
+            if (sym == null) {
+                log.error(invocation.Pos, messages.methodNotFound, name, ssym.name);
+                invocation.type = symtab.errorType;
+                return symtab.errorType;
+            }
+            if (sym.kind != Kind.FUNC) {
+                log.error(invocation.Pos, messages.notAMethod, name, ssym.name);
+                invocation.type = symtab.errorType;
+                return symtab.errorType;
+            }
+
+            return analyzeInvocation(invocation, (FuncSymbol)sym, env);
+        }
+
+        private Type analyzeInvocation(FuncInvocation invocation, FuncSymbol fsym, Environment env)
+        {
+            IList<Expression> args = invocation.args;
+
             // check argument count
             IList<VarSymbol> paramSyms = fsym.parameters;
-            if (fsym.isVararg ? argTypes.Count < paramSyms.Count : argTypes.Count != paramSyms.Count) {
-                log.error(invocation.Pos, messages.wrongNumberOfArgs, name, paramSyms.Count, argTypes.Count);
+            if (fsym.isVararg ? args.Count < paramSyms.Count : args.Count != paramSyms.Count) {
+                log.error(invocation.Pos, messages.wrongNumberOfArgs, fsym.name, paramSyms.Count, args.Count);
             }
 
             // check argument types
-            int count = Math.Min(argTypes.Count, paramSyms.Count);
+            int count = Math.Min(args.Count, paramSyms.Count);
             for (int i = 0; i < count; i++) {
                 VarSymbol paramSym = paramSyms[i];
-                Type      argType  = argTypes[i];
+                Type      argType  = analyzeExpr(args[i], env);
 
                 // we don't consider implicit numeric conversions for now
                 if (!typings.isAssignableFrom(paramSym.type, argType)) {
                     log.error(invocation.Pos, messages.paramTypeMismatch, fsym.name);
                 }
+            }
+            
+            for (int i = count; i < args.Count; ++i) {
+                analyzeExpr(args[i], env);
             }
 
             fsym.isInvoked = true;
@@ -289,7 +316,7 @@ namespace mj.compiler.symbol
             return fsym.type.ReturnType;
         }
 
-        public override Type visitExpresionStmt(ExpressionStatement expr, Environment env)
+        public override Type visitExpressionStmt(ExpressionStatement expr, Environment env)
         {
             return analyzeExpr(expr.expression, env);
         }
@@ -422,6 +449,15 @@ namespace mj.compiler.symbol
 
             ident.symbol = (VarSymbol)varSym;
             return varSym.type;
+        }
+
+        public override Type visitThis(This @this, Environment env)
+        {
+            if (env.enclStruct == null) {
+                log.error(@this.Pos, messages.thisInFreeFunction);
+                return symtab.errorType;
+            }
+            return env.enclStruct.type;
         }
 
         public override Type visitReturn(ReturnStatement returnStatement, Environment env)
@@ -587,13 +623,15 @@ namespace mj.compiler.symbol
         public class Environment
         {
             public Environment parent;
-            public WriteableScope scope;
+            public Scope scope;
 
             /// Needed for "continue" and "break" target resolution
             public StatementNode enclStatement;
 
             /// Needed for return statement checking
             public FuncSymbol enclFunc;
+
+            public StructSymbol enclStruct;
 
             /// <summary>
             /// Create a new env with this env as parent, with a subscope
@@ -603,9 +641,10 @@ namespace mj.compiler.symbol
             {
                 return new Environment {
                     parent = this,
-                    scope = scope.subScope(),
+                    scope = ((WritableScope)this.scope).subScope(),
                     enclStatement = enclStmt,
-                    enclFunc = enclFunc
+                    enclStruct = this.enclStruct,
+                    enclFunc = this.enclFunc
                 };
             }
         }

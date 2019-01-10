@@ -112,13 +112,23 @@ namespace mj.compiler.parsing
         {
             String name = context.name.Text;
 
-            VariableDeclaration[] fields = new VariableDeclaration[context._fields.Count];
-            for (var i = 0; i < context._fields.Count; i++) {
-                fields[i] = (VariableDeclaration)VisitFieldDef(context._fields[i]);
+            Tree[] members = new Tree[context._members.Count];
+            for (var i = 0; i < context._members.Count; i++) {
+                members[i] = VisitMemberDef(context._members[i]);
             }
 
             return new StructDef(context.Start.Line, context.Start.Column, context.Stop.Line,
-                context.Stop.Column, name, fields);
+                context.Stop.Column, name, members);
+        }
+
+        public override Tree VisitMemberDef(MemberDefContext context)
+        {
+            FieldDefContext fieldDef = context.fieldDef();
+            if (fieldDef != null) {
+                return VisitFieldDef(fieldDef);
+            }
+            FuncDeclarationContext funcDeclaration = context.funcDeclaration();
+            return VisitFuncDeclaration(funcDeclaration);
         }
 
         public override Tree VisitFieldDef(FieldDefContext context)
@@ -472,23 +482,34 @@ namespace mj.compiler.parsing
 
         public override Tree VisitFuncInvocation(FuncInvocationContext context)
         {
-            IToken funcName = context.neme;
+            prepareInvocation(context, out IToken funcName, out Expression[] args, out int endLine, out int endCol);
+            return new FuncInvocation(funcName.Line, funcName.Column, endLine, endCol, funcName.Text, args);
+        }
+
+        private MethodInvocation makeMethodInvocation(Expression receiver, FuncInvocationContext invocation)
+        {
+            prepareInvocation(invocation, out IToken funcName, out Expression[] args, out int endLine, out int endCol);
+            return new MethodInvocation(funcName.Line, funcName.Column, endLine, endCol, receiver, funcName.Text, args);
+        }
+
+        private void prepareInvocation(FuncInvocationContext context, out IToken funcName, out Expression[] args,
+                                       out int endLine, out int endCol)
+        {
+            funcName = context.neme;
             ArgumentListContext argumentList = context.argumentList();
             IList<ExpressionContext> parsedArgs = argumentList != null
                 ? argumentList._args
                 : CollectionUtils.emptyList<ExpressionContext>();
 
-            Expression[] args = new Expression[parsedArgs.Count];
+            args = new Expression[parsedArgs.Count];
 
             for (var i = 0; i < parsedArgs.Count; i++) {
                 args[i] = (Expression)VisitExpression(parsedArgs[i]);
             }
 
             IToken stopToken = context.Stop;
-            int endLine = stopToken.Line;
-            int endCol = stopToken.StopIndex - stopToken.StartIndex + 1;
-
-            return new FuncInvocation(funcName.Line, funcName.Column, endLine, endCol, funcName.Text, args);
+            endLine = stopToken.Line;
+            endCol = stopToken.StopIndex - stopToken.StartIndex + 1;
         }
 
         public override Tree VisitArgumentList(ArgumentListContext context) => throw new InvalidOperationException();
@@ -503,9 +524,14 @@ namespace mj.compiler.parsing
 
         public override Tree VisitExpression(ExpressionContext context)
         {
-            PrimaryContext primary = context.primary();
-            if (primary != null) {
-                return (Expression)VisitPrimary(primary);
+            PrimaryContext primaryCtx = context.primary();
+            if (primaryCtx != null) {
+                Expression expr = (Expression)VisitPrimary(primaryCtx);
+                FuncInvocationContext methodInvocation = context.funcInvocation();
+                if (methodInvocation != null) {
+                    expr = makeMethodInvocation(expr, methodInvocation);
+                }
+                return expr;
             }
             FuncInvocationContext invocation = context.funcInvocation();
             if (invocation != null) {
@@ -566,12 +592,16 @@ namespace mj.compiler.parsing
             if (literal != null) {
                 return (Expression)VisitLiteral(literal);
             }
-            return makeIdentifier(primary);
+            ITerminalNode identifier = primary.Identifier();
+            if (identifier != null) {
+                return makeIdentifier(identifier);
+            }
+            return new This(primary.start.Line, primary.start.Column, primary.stop.Line, primary.stop.Column);
         }
 
-        private static Expression makeIdentifier(PrimaryContext context)
+        private static Expression makeIdentifier(ITerminalNode identifierNode)
         {
-            IToken symbol = context.Identifier().Symbol;
+            IToken symbol = identifierNode.Symbol;
             String identifier = symbol.Text;
 
             int stopColumn = symbol.Column + symbol.StopIndex - symbol.StopIndex;

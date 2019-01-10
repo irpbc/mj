@@ -36,7 +36,12 @@ declaration
     ;
     
 structDef
-    : 'struct' name=Identifier '{' (fields+=fieldDef)+ '}'
+    : 'struct' name=Identifier '{' (members+=memberDef)+ '}'
+    ;
+
+memberDef
+    : fieldDef
+    | funcDeclaration
     ;
 
 fieldDef
@@ -97,6 +102,7 @@ primary
     : '(' parenthesized=expression ')' 
     | literal
     | Identifier
+    | 'this'
     ;
 
 funcInvocation : neme=Identifier '(' argumentList? ')' ;
@@ -104,7 +110,7 @@ funcInvocation : neme=Identifier '(' argumentList? ')' ;
 argumentList : args+=expression (',' args+=expression)* ;
 
 expression returns [ bool isAssignment ]
-    : primary
+    : primary ('.' funcInvocation)?
     | left=expression bop='.' Identifier
     | indexBase=expression '[' index=expression ']'
     | funcInvocation
@@ -150,6 +156,7 @@ RETURN : 'return';
 CSTRING : 'cstring';
 STRUCT : 'struct';
 SWITCH : 'switch';
+THIS : 'this';
 VOID : 'void';
 WHILE : 'while';
 

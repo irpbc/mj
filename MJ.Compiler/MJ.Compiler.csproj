@@ -5,9 +5,10 @@
     <RootNamespace>mj.compiler</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>7.2</LangVersion>
+    <DefineConstants>EMIT_TO_FILE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Antlr4" Version="4.6.4" />
+    <PackageReference Include="Antlr4" Version="4.6.6" />
     <PackageReference Include="LLVMSharp" Version="5.0.0" />
     <PackageReference Include="Microsoft.Experimental.Collections" Version="1.0.3-alpha" />
     <PackageReference Include="Mono.Options" Version="5.3.0.1" />
@@ -18,7 +19,7 @@
     <PackageReference Include="LibLLVM" Version="5.0.1" ExcludeAssets="native" />
   </ItemGroup>
   <ItemGroup>
-    <Antlr4 Include="antlrgrammar\MJ.g4">
+    <Antlr4 Update="antlrgrammar\MJ.g4">
       <Generator>MSBuild:Compile</Generator>
       <CustomToolNamespace>mj.compiler.parsing</CustomToolNamespace>
       <Listener>False</Listener>
@@ -26,22 +27,15 @@
     </Antlr4>
   </ItemGroup>
   <ItemGroup>
-    <Compile Update="resources/messages.Designer.cs">
-      <DependentUpon>resources/messages.resx</DependentUpon>
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Update="resources/messages.Designer.cs">
+    <EmbeddedResource Update="resources/messages.resx">
       <LastGenOutput>resources/messages.Designer.cs</LastGenOutput>
-      <Generator>PublicResXFileCodeGenerator</Generator>
+      <Generator>ResXFileCodeGenerator</Generator>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <Link Include="obj\$(Configuration)\netcoreapp2.0\MJBaseVisitor.cs"/>
-    <Link Include="obj\$(Configuration)\netcoreapp2.0\MJLexer.cs"/>
-    <Link Include="obj\$(Configuration)\netcoreapp2.0\MJParser.cs"/>
-    <Link Include="obj\$(Configuration)\netcoreapp2.0\MJVisitor.cs"/>
+    <Link Include="obj\$(Configuration)\netcoreapp2.0\MJBaseVisitor.cs" />
+    <Link Include="obj\$(Configuration)\netcoreapp2.0\MJLexer.cs" />
+    <Link Include="obj\$(Configuration)\netcoreapp2.0\MJParser.cs" />
+    <Link Include="obj\$(Configuration)\netcoreapp2.0\MJVisitor.cs" />
   </ItemGroup>
 </Project>

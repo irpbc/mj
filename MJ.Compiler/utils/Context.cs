@@ -7,6 +7,7 @@ namespace mj.compiler.utils
     {
         public abstract class Key { }
 
+        // ReSharper disable once UnusedTypeParameter
         public sealed class Key<T> : Key where T : class { }
 
         protected readonly IDictionary<Key, Object> dict = new Dictionary<Key, Object>();

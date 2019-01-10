@@ -99,8 +99,8 @@ namespace mj.compiler.symbol
             public override Object ConstValue { get; }
             public override Type BaseType { get; }
 
-            public override bool IsTrue => tag == TypeTag.BOOLEAN && (bool)ConstValue == true;
-            public override bool IsFalse => tag == TypeTag.BOOLEAN && (bool)ConstValue == false;
+            public override bool IsTrue => tag == TypeTag.BOOLEAN && (bool)ConstValue;
+            public override bool IsFalse => tag == TypeTag.BOOLEAN && !(bool)ConstValue;
 
             public override string ToString() => tag.asString() + " : " + ConstValue;
         }
@@ -153,6 +153,7 @@ namespace mj.compiler.symbol
     {
         public IList<Type> argTypes;
         public Type resType;
+        public Symbol.FuncSymbol symbol;
         public bool isVarArg;
 
         public FuncType(IList<Type> argTypes, Type resType, bool isVarArg = false)

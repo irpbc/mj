@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 
 using LLVMSharp;
 
@@ -37,6 +38,7 @@ namespace mj.compiler.codegen
         public static LLVMValueRef NULL(LLVMTypeRef ptrTy) => LLVM.ConstNull(ptrTy);
 
         public static LLVMValueRef CONST_UINT8(int value) => LLVM.ConstInt(INT8, (ulong)value, false);
+        public static LLVMValueRef CONST_INT8(int value) => LLVM.ConstInt(INT8, (ulong)value, true);
         public static LLVMValueRef CONST_INT32(int value) => LLVM.ConstInt(INT32, (ulong)value, true);
         public static LLVMValueRef CONST_INT64(long value) => LLVM.ConstInt(INT64, (ulong)value, true);
         public static LLVMValueRef CONST_FLOAT(float value) => LLVM.ConstReal(FLOAT, value);
@@ -51,6 +53,22 @@ namespace mj.compiler.codegen
         {
             LLVMValueRef gep = LLVM.ConstInBoundsGEP(NULL(PTR(type)), new[] {CONST_INT32(1)});
             return LLVM.ConstPtrToInt(gep, resultType);
+        }
+        
+        [StructLayout(LayoutKind.Explicit)]
+        public struct BitCast
+        {
+            [FieldOffset(0)]
+            public long longValue;
+
+            [FieldOffset(0)]
+            public ulong ulongValue;
+
+            public BitCast(long l)
+            {
+                this.ulongValue = 0;
+                this.longValue = l;
+            }
         }
     }
 
